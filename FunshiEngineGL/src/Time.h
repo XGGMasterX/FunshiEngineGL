@@ -42,7 +42,7 @@ public:
 
     static float getDeltaTime() {
         // Asegurar que deltaTime nunca sea negativo o cero
-        return std::max(deltaTime, 0.0001f);
+        return (deltaTime > 0.0001f) ? deltaTime : 0.0001f;
     }
 
     static float getFPS() {

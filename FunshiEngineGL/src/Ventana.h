@@ -6,7 +6,11 @@
 #endif
 #include <GL/gl.h>
 #include <GL/glu.h>
+#if defined(_WIN32)
+#include <glfw3.h>
+#elif defined(__linux__)
 #include <GLFW/glfw3.h>
+#endif
 #include <iostream>
 
 class Ventana {

@@ -8,7 +8,12 @@
 #endif
 
 #include <stdlib.h>
+#if defined(_WIN32)
+#include <glm.hpp>
+#elif defined(__linux__)
 #include <glm/glm.hpp>
+#endif
+
 #include "../Objetos/Componentes/Phisics.h"
 #include "../Objetos/Componentes/Transform.h"
 #include "../Objetos/Componentes/Color.h"
