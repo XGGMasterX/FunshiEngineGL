@@ -2,7 +2,6 @@
 #define GUIMANAGER_H
 
 #include <iostream>
-#include <conio.h>
 #include <stdlib.h>
 
 //#define GLFW_INCLUDE_VULKAN

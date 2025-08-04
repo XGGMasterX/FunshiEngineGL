@@ -2,7 +2,11 @@
 #define MENUINTERFACE_H
 
 #include "../GeneralUserInterface.h"
+#if defined(_WIN32)
 #include <glfw3.h>
+#elif defined(__linux__)
+#include <GLFW/glfw3.h>
+#endif
 #include "./MenuOpcionesInterface.h"
 #include "./MenuProyectoInterface.h"
 

@@ -1,6 +1,6 @@
 #ifndef COMPONENT_H
 #define COMPONENT_H
-
+#include "../../GestorDeArchivos/Binario.h"
 using namespace std;
 
 class Component {

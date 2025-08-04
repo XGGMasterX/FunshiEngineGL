@@ -1,9 +1,14 @@
 #ifndef GAMEOBJECT_H
 #define GAMEOBJECT_H
 
+#if defined(_WIN32)
 #include <conio.h>
+#elif defined(__linux__)
+#include <ncurses.h>
+#endif
+
 #include <stdlib.h>
-#include "glm.hpp"
+#include <glm/glm.hpp>
 #include "../Objetos/Componentes/Phisics.h"
 #include "../Objetos/Componentes/Transform.h"
 #include "../Objetos/Componentes/Color.h"
@@ -71,7 +76,7 @@ public:
 	C** getComponents(/*ARRAY para guardar Objects de Component , usando polimorfismo*/T* arr[], int tam,
 		/*ARRAY para guardar Objects Component*/ C* arrComponent[], int tamComponent) {
 		for (int i = 0; i < tamComponent; i++) {
-			arrComponent[i] = arr[i]->getComponent<C>();
+			arrComponent[i] = arr[i]->template getComponent<C>();
 		}
 		return arrComponent;
 	}

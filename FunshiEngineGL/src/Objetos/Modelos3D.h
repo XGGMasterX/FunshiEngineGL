@@ -74,14 +74,24 @@ private:
 public:
     int d;
     Modelos3D(std::string filePath) : GameObject() {
+#if defined(_WIN32)
         strncpy_s(this->filePath, sizeof(this->filePath), filePath.c_str(), _TRUNCATE);
+#elif defined(__linux__)
+        strncpy(this->filePath, filePath.c_str(), sizeof(this->filePath) - 1);
+        this->filePath[sizeof(this->filePath) - 1] = '\0';
+#endif
         setObject();
     }
 
     Modelos3D() : GameObject() {}
 
     void setPath(std::string path) {
+#if defined(_WIN32)
         strncpy_s(this->filePath, sizeof(this->filePath), path.c_str(), _TRUNCATE);
+#elif defined(__linux__)
+        strncpy(this->filePath, filePath, sizeof(this->filePath) - 1);
+        this->filePath[sizeof(this->filePath) - 1] = '\0'; 
+#endif
         setObject();
     }
 
@@ -136,7 +146,12 @@ private:
             myBinario->getIfBinariFile()->read(buffer, len);
             buffer[len] = '\0';
 
+ #if defined(_WIN32)
             strncpy_s(filePath, sizeof(filePath), buffer, _TRUNCATE);
+ #elif defined(__linux__)
+            strncpy(this->filePath, filePath, sizeof(this->filePath) - 1);
+            this->filePath[sizeof(this->filePath) - 1] = '\0';
+ #endif
             std::cout << filePath << std::endl;
             setPath(filePath); //PARA QUE LO ARME SINO DE NADA ME SIRVE EL PATH XD
         }

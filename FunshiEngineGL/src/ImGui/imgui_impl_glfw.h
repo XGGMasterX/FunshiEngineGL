@@ -22,7 +22,11 @@
 // - Introduction, links and more at the top of imgui.cpp
 
 #pragma once
-#include "imgui.h"      // IMGUI_IMPL_API
+#if defined(_WIN32)
+#include "imgui.h"
+#elif defined(__linux__)
+#include <imgui.h>
+#endif// IMGUI_IMPL_API
 #ifndef IMGUI_DISABLE
 
 struct GLFWwindow;

@@ -2,7 +2,10 @@
 #define BINARIO_H
 
 #include <iostream>
+#if defined(_WIN32)
 #include <Windows.h>
+#elif defined(__linux__)
+#endif
 #include <fstream>
 using namespace std;
 

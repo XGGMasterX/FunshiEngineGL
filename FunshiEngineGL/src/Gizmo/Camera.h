@@ -1,8 +1,11 @@
 #ifndef CAMERA_H
 #define CAMERA_H
 
-
+#if defined(_WIN32)
 #include <glfw3.h>
+#elif defined(__linux__)
+#include <GLFW/glfw3.h>
+#endif
 #include <iostream>
 #include "../Matematicas/StructVec3.h"
 #include "../Ventana.h"

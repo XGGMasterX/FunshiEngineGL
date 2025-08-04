@@ -2,7 +2,11 @@
 #define MATERIAL_H
 
 #define GLFW_INCLUDE_VULKAN
+#if defined(_WIN32)
 #include <glfw3.h>
+#elif defined(__linux__)
+#include <GLFW/glfw3.h>
+#endif
 
 class Material
 {

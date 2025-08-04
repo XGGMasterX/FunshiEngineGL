@@ -1,10 +1,12 @@
 #ifndef Ventana_H
 #define Ventana_H
 
+#if defined(_WIN32)
 #include <windows.h>
+#endif
 #include <GL/gl.h>
 #include <GL/glu.h>
-#include <glfw3.h>
+#include <GLFW/glfw3.h>
 #include <iostream>
 
 class Ventana {
@@ -42,6 +44,7 @@ public:
 
         //Tomando Valores de Inicio
         std::cout << "GPU: " << glGetString(GL_RENDERER) << std::endl;
+    return 0;
     }
 
 

@@ -1,11 +1,16 @@
 #ifndef GAMESCENE_H
 #define GAMESCENE_H
 
-#include "Ventana.h"
+#include "../Ventana.h"
+
+#if defined(_WIN32)
 #include <conio.h>
+#elif defined(__linux__)
+#include <ncurses.h>
+#endif
 #include <iostream>
 #include <fstream>
-#include "Time.h"
+#include "..//Time.h"
 #include "../Gizmo/Camera.h"
 #include "../Objetos/GameObject.h"
 #include "../Objetos/Materiales/materiales.h"

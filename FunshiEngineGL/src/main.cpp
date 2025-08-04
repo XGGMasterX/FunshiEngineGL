@@ -5,7 +5,7 @@
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
 #include "../src/Objetos/Modelos3D.h"
-#include <glfw3.h>
+#include <GLFW/glfw3.h>
 #include <iostream>
 /////////////////////////////////////////////////////////////////////////////////
 /*
@@ -100,7 +100,7 @@ void interfaceCreateNewObject() {
             Modelos3D* newModelos2 = new Modelos3D("C:/MotorGraficoArchivos/Binarios/BlenderModelos/monkey.obj");//AUTOMATIZAR
             Modelos3D* newModelos3 = new Modelos3D("C:/MotorGraficoArchivos/Binarios/BlenderModelos/head_fixed.obj");//AUTOMATIZAR
             cout << "Objeto Creado" << endl;
-            ImGui::InputText("Path", inputImGuiString, IM_ARRAYSIZE(inputImGuiString, ImGuiInputTextFlags_EnterReturnsTrue));
+            ImGui::InputText("Path", inputImGuiString, IM_ARRAYSIZE(inputImGuiString), ImGuiInputTextFlags_EnterReturnsTrue);
             scene->createGameObject(newModelos1);
             scene->createGameObject(newModelos2);
             scene->createGameObject(newModelos3);
@@ -252,16 +252,23 @@ int main(void)
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init("#version 440"); //460 PARA PC , 440 PARA NOTEBOOK
 
+ #if defined(_WIN32)
     scene->loadScene("C:/MotorGraficoArchivos/Binarios/SceneBBDDObjetos.txt", "C:/MotorGraficoArchivos/Binarios/Scene/");
+ #elif defined(__linux__)
+//scene->loadScene("/home/ggmaster/MotorGraficoArchivos/Binarios/SceneBBDDObjetos.txt", 
+//                "/home/ggmaster/MotorGraficoArchivos/Binarios/Scene/");
+ #endif
     while (!glfwWindowShouldClose(window)) //BUCLE PRINCIPAL
     {
 
-        //PARTE DE FPS (ejecuciones maximas segun FPS = 120.0) por ej;
-        Time::update(); // Actualizar el deltaTime en cada fotograma
-        //std::cout << std::fixed << std::setprecision(6) << "DeltaTime: " << (float)Time::getDeltaTime() << std::endl;
-
+        Time::limitFPS(FPS);
+        float deltaTime = Time::getDeltaTime();
+        
         /* Poll for and process events */
         glfwPollEvents();
+       
+
+        //usar delta para updates de scene y gui
 
         /* Render here */
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -310,12 +317,17 @@ int main(void)
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
         glfwSwapBuffers(window);
-        Time::fps(FPS);
+
+
+        
     }
 
-
+#if defined(_WIN32)
     scene->saveScene("C:/MotorGraficoArchivos/Binarios/Scene");
-
+#elif defined(__linux__)
+// Guardar escena
+//scene->saveScene("/home/ggmaster/MotorGraficoArchivos/Binarios/Scene");
+#endif
 
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();
