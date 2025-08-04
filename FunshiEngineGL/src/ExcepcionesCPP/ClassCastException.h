@@ -1,0 +1,3 @@
+#ifndef CLASSCASTEXCEPTION_H
+#define CLASSCASTEXCEPTION_H
+#endif

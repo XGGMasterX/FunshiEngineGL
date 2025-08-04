@@ -1,0 +1,211 @@
+#ifndef ARBOLENLAZADO_H
+#define ARBOLENLAZADO_H
+#include <iostream>
+#include "../../../ExcepcionesCPP/InvalidOperationException.h"
+#include "../../../ExcepcionesCPP/ExcepcionesEstructuras/ArbolesEnlazados/EmptyTreeException.h"
+#include "../Tree.h"
+#include "../../Nodos/TNodo.h"
+
+using namespace std;
+
+template<typename E>
+class ArbolEnlazado : public Tree<E> {
+private:
+	TNodo<E>* root;
+	int size;
+
+	TNodo<E>* checkPosition(Position<E>* p) {
+		if (isEmpty()) {
+			throw InvalidPositionException("ArbolEnlazado::checkPosition:ElArbolEstaVacio");
+		}
+		if (p == nullptr) {
+			throw InvalidPositionException("ArbolEnlazado::checkPosition:LaPosicionEsNullPtr");
+		}
+		if (p->getElement() == nullptr) {
+			throw InvalidPositionException("ArbolEnlazado::checkPosition:ElElementoDeLaPosicionEsNullPtr");
+		}
+	    TNodo<E>* resultado = nullptr;
+		try {
+			resultado = (TNodo<E>*)p;
+			if (p != root) {
+				ListaDE<TNodo<E>*>* listOfChildsTheDad = resultado->getRootDad()->getChilds();
+				if (!listOfChildsTheDad->isElement(resultado)) {
+					throw InvalidPositionException("ArbolEnlazado::checkPosition:LaPosicionNoEsHijaDeSuPadre");
+				}
+			}
+		}
+		catch (exception e) {
+			throw InvalidPositionException("ArbolEnlazado::checkPosition:LaPosicionNoEsDelArbol");
+		}
+		return resultado;
+	}
+public:
+	ArbolEnlazado(){
+		root = nullptr;
+		size = 0;
+	}
+	ArbolEnlazado(E e){
+		root = new TNodo<E>(e);
+		size = 1;
+	}
+
+	//consultas de la estructura
+	virtual int tam() const override { return size; }
+	virtual bool isEmpty() const override { return size == 0; }
+	virtual Position<E>* rootOfTree() const override {
+		if (isEmpty()) {
+			throw EmptyTreeException("ArbolEnlazado::root:NoHayRoot");
+		}
+		return root;
+	}
+
+	//consultas de una posicion en la estructura
+	virtual ListaDE<Position<E>*>* childsOf(Position<E>* p) const override {
+		TNodo<E>* position = checkPosition(p);
+		if (isExternal(position)) {
+			throw InvalidOperationException("ArbolEnlazado::childsOf:LaPosicionEsExternal");
+		}
+		ListaDE<Position<E>*>* resultado = new ListaDE<Position<E>*>();
+
+		ListaDE<TNodo<E>*>* listaDeHijos = position->getChilds();
+		Position<TNodo<E>*>* iterador = listaDeHijos->first();
+		while (iterador != nullptr) {
+			resultado->addLast(iterador->getElement());
+			iterador = (iterador != listaDeHijos->last()) ? listaDeHijos->next(iterador) : nullptr;
+		}
+		return resultado;
+	}
+	virtual Position<E>* dadOf(Position<E>* p) const override {
+		TNodo<E>* position = checkPosition(p);
+		if (isRoot(position)) {
+			throw InvalidOperationException("ArbolEnlazado::childsOf:LaPosicionEsRoot");
+		}
+		return position->getRootDad();
+	}
+
+	//consultas tipo de nodo
+	virtual bool isRoot(Position<E>* p) const override {
+		TNodo<E>* position = checkPosition(p);
+		bool resultado = (position == root);
+		return resultado;
+	}
+	virtual bool isInternal(Position<E>* p) const override {
+		TNodo<E>* position = checkPosition(p);
+		bool resultado = !position->getChilds()->isEmpty();
+		return resultado;
+	}
+	virtual bool isExternal(Position<E>* p) const override {
+		return !isInternal(p);
+	}
+
+	//modificar de la esturctura
+	//=>agregar
+	virtual void createRoot(E e) override {
+		if (root != nullptr) {
+			throw InvalidOperationException("ArbolEnlazado::createRoot:YaExisteUnRoot");
+		}
+		root = new TNodo<E>(e);
+		size++;
+	}
+	virtual void addNodeChildOf(Position<E>* p, E e) override {
+		TNodo<E>* dad = checkPosition(p);
+		TNodo<E>* hijoNuevo = new TNodo<E>(e,dad);
+		dad->getChilds()->addLast(hijoNuevo);
+		size++;
+	}
+	virtual void addNodeChildAfterOf(Position<E>* dad, Position<E>* plChild, E e) override {
+		TNodo<E>* position = checkPosition(dad);
+		TNodo<E>* positionLeftChild = checkPosition(plChild);
+		if (position != positionLeftChild->getRootDad()) {
+			throw InvalidPositionException("ArbolEnlazado::addNodeChildAfterOf:LaPosicionDeReferenciaIzquierdaNoEsHijaDeDad");
+		}
+		TNodo<E>* hijoNuevo = new TNodo<E>(e, dad);
+		ListaDE<TNodo<E>*>* listChildsOfDad = position->getChilds();
+		Position<TNodo<E>*>* tlChild = listChildsOfDad->whatElementPosition(positionLeftChild);
+		listChildsOfDad->addAfter(tlChild, hijoNuevo);
+		size++;
+	}
+	virtual void addNodeChildBeforeOf(Position<E>* dad, Position<E>* prChild, E e) override {
+		TNodo<E>* position = checkPosition(dad);
+		TNodo<E>* positionRightChild = checkPosition(prChild);
+		if (position != positionRightChild->getRootDad()) {
+			throw InvalidPositionException("ArbolEnlazado::addNodeChildAfterOf:LaPosicionDeReferenciaDerechaNoEsHijaDeDad");
+		}
+		TNodo<E>* hijoNuevo = new TNodo<E>(e, dad);
+		ListaDE<TNodo<E>*>* listChildsOfDad = position->getChilds();
+		Position<TNodo<E>*>* trChild = listChildsOfDad->whatElementPosition(positionRightChild);
+		listChildsOfDad->addBefore(trChild, hijoNuevo);
+		size++;
+	}
+
+	//=>eliminar
+	//siempre el primer hijo ocupa el lugar del padre
+	//toma la lista del padre se quita el , la agrega a su lista
+	//mientras la agrega a su lista se linkea como padre y listo
+	//se retorna el valor del padre
+	virtual E deleteRoot() override {
+		E saveElement = nullptr;
+		if (!isEmpty()) {
+			saveElement = root->getElement();
+			root->setElement(nullptr);
+			ListaDE<TNodo<E>*>* listChildsRoot = root->getChilds();
+			Position<TNodo<E>*>* firstChildPosition = listChildsRoot->first();
+			listChildsRoot->remove(firstChildPosition);
+			root = firstChildPosition->getElement();
+			ListaDE<TNodo<E>*>* listChildNewRoot = root->getChilds();
+			Position<TNodo<E>*>* iterador = listChildsRoot->first();
+			while (iterador != nullptr) { //recorrido exaustivo
+				listChildNewRoot->addLast(iterador->getElement());
+				((TNodo<E>*)iterador->getElement())->setRootDad(root);
+				iterador = (iterador != listChildsRoot->last()) ? listChildsRoot->next(iterador) : nullptr;
+			}
+			size--;
+		}
+		return saveElement;
+	}
+	virtual E deleteInternalNode(Position<E>* p) override {
+		TNodo<E>* theDeleteable = checkPosition(p);
+		if (!isInternal(theDeleteable)) {
+			throw InvalidOperationException("ArbolEnlazado::deleteExternalNode:LaPosicionNoEsInternal");
+		}
+		E saveElement = theDeleteable->getElement();
+		theDeleteable->setElement(nullptr);
+
+		//Tomo el nodo a eliminar , agarro su lista de hijos , saco a su primer hijo de ahi
+		ListaDE<TNodo<E>*>* listChildsTheDeleteable = theDeleteable->getChilds();
+		Position<TNodo<E>*>* firstChildTheDeleteablePosition = listChildsTheDeleteable->first();
+		listChildsTheDeleteable->remove(firstChildTheDeleteablePosition);
+
+		//Tomo el nodo a eliminar , agarro su padre , salvo la posicion de Position y hago el intercambio
+		TNodo<E>* theDeleteableDad = theDeleteable->getRootDad();
+		ListaDE<TNodo<E>*>* listBrosTheDeleteable = theDeleteableDad->getChilds();
+		Position<TNodo<E>*>* theDeleteablePosition = listBrosTheDeleteable->whatElementPosition(theDeleteable);
+		listBrosTheDeleteable->remplace(theDeleteablePosition, firstChildTheDeleteablePosition->getElement());
+		TNodo<E>* firstChildTheDeleteable = firstChildTheDeleteablePosition->getElement();
+		firstChildTheDeleteable->setRootDad(theDeleteableDad);
+		
+
+		Position<TNodo<E>*>* iterador = listChildsTheDeleteable->first();
+		while (iterador != nullptr) { //recorrido exaustivo
+			firstChildTheDeleteable->getChilds()->addLast(iterador->getElement());
+			((TNodo<E>*)iterador->getElement())->setRootDad(firstChildTheDeleteable);
+			iterador = (iterador != listChildsTheDeleteable->last()) ? listChildsTheDeleteable->next(iterador) : nullptr;
+		}
+		size--;
+		return saveElement;
+	}
+	virtual E deleteExternalNode(Position<E>* p) override {
+		TNodo<E>* theDeleteable = checkPosition(p);
+		if (!isExternal(theDeleteable)) {
+			throw InvalidOperationException("ArbolEnlazado::deleteExternalNode:LaPosicionNoEsExternal");
+		}
+		E saveElement = theDeleteable->getElement();
+		theDeleteable->setElement(nullptr);
+		ListaDE<TNodo<E>*>* listChildsDad = theDeleteable->getRootDad()->getChilds();
+		Position<TNodo<E>*>* positionTheDeleteable = listChildsDad->whatElementPosition(theDeleteable);
+		listChildsDad->remove(positionTheDeleteable);
+		size--;
+		return saveElement;
+	}
+};
+#endif
