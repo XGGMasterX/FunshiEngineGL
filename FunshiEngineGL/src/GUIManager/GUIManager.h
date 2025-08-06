@@ -13,6 +13,10 @@ using namespace std;
 //Crea las GUI encapsulando la generacion de instancias
 //Retorana una GUI generica pero con acceso a los metodos genericos
 //uno llama a esos metodos y sabe lo que recibe por el nombre del metodo
+
+//Crear las instancias mediante los metodos
+//una vez echo esto asignarlos asi se mantiene unicicidad y coherencia
+//metodos getters para leer lass GUI
 class GUIManager {
 private:
 	//ContentFolderInterface* contentGUI;
@@ -34,12 +38,14 @@ private:
 	//Armar GUI para Manejo de Objetos
 	//Actualizar para admitir desplazamiento de archivos y carga dinamica
 
+	ContentFolderInterface* contentOfThisFolder;
 public:
 	GUIManager(GLFWwindow* window){
 		menuGUI = new MenuInterface(window,true);
 		selecteableGUI = new SceneSelectedInterface(true);
 		settingGUI = new SettingsObjectInterface(new GameObject(),false);
-		treeFilesGUI = new TreeFilesInterface(true,"C:/MotorGraficoArchivos");
+		treeFilesGUI = new TreeFilesInterface(true, "C:/MotorGraficoArchivos");
+		contentOfThisFolder = new ContentFolderInterface(false);
 	}
 
 	MenuInterface* getMenuGUI() {
@@ -77,9 +83,16 @@ public:
 		return selecteableGUI;
 	}
 
-	//Crear las instancias mediante los metodos
-	//una vez echo esto asignarlos asi se mantiene unicicidad y coherencia
-	//metodos getters para leer lass GUI
+	void setContentFolderGUI() {
+		contentOfThisFolder->setFolderRoot(treeFilesGUI->getFolderContent());
+		contentOfThisFolder->setStateGui(true);
+	}
+	
+	ContentFolderInterface* getContentFolderGUI(){
+		return contentOfThisFolder;
+	}
+
+
 };
 #endif
 

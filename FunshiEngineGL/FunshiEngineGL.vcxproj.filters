@@ -124,6 +124,9 @@
     <Filter Include="Archivos de encabezado\STBImage">
       <UniqueIdentifier>{093ba712-0a74-4ff8-b67e-b140ed39eb9b}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Archivos de encabezado\Entitys">
+      <UniqueIdentifier>{f5f5a45b-8fd1-45a6-b442-e73b2559da00}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\FunshiMotorGrafico\FunshiMotorGrafico\src\Estructuras\Trees\Heap\Heap.h">
@@ -332,6 +335,9 @@
     </ClInclude>
     <ClInclude Include="..\..\..\..\OneDrive\Desktop\DescargasParaMotorGrafico\stb-master\stb_image.h">
       <Filter>Archivos de encabezado\STBImage</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Entity\Entity.h">
+      <Filter>Archivos de encabezado\Entitys</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

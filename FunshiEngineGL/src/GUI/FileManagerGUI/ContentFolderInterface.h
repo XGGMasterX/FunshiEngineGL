@@ -3,14 +3,17 @@
 #include "../../GestorDeArchivos/Folder.h"
 class ContentFolderInterface : public GeneralUserInterface {
 private:
-	Folder* thisFolderContent;
+    Folder* thisFolderContent;
     bool modificado = false;
 public:
-	ContentFolderInterface(Folder* thisFolderContent,bool stateGUI) :
-		GeneralUserInterface(("Show Folder " + thisFolderContent->getPathName()).c_str(), stateGUI, ImGuiWindowFlags_MenuBar) {
-		this->thisFolderContent = thisFolderContent;
+	ContentFolderInterface(bool stateGUI) :
+		GeneralUserInterface("Show Folder ", stateGUI, ImGuiWindowFlags_MenuBar) {
 		this->stateGUI = stateGUI;
 	}
+
+    void setFolderRoot(Folder* thisFolderContent) {
+        this->thisFolderContent = thisFolderContent;
+    }
 
     bool getModificado(){
         return modificado;
@@ -66,7 +69,6 @@ public:
 #if defined(_WIN32)
                 if (esCarpeta) {
                     ShellExecuteA(NULL, "open", fullPath.c_str(), NULL, NULL, SW_SHOW);
-                    modificado = true;
                 }
                 else {
                     ShellExecuteA(NULL, "open", fullPath.c_str(), NULL, NULL, SW_SHOW);
@@ -127,9 +129,9 @@ public:
 	}
 
 
-	virtual void endGUI() override {
-		ImGui::End();
-	}
+    virtual void endGUI() override {
+        ImGui::End();
+    }
 
 	virtual void printGUI() override {
 		if (stateGUI) {

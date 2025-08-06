@@ -263,7 +263,7 @@ int main(void)
     GameScene* scene = new GameScene(camera, managerOfGUI);
     MenuInterface* mainMenu = managerOfGUI->getMenuGUI();
     TreeFilesInterface* treeFilesInterface = managerOfGUI->getTreeFilesGUI();
-
+    ContentFolderInterface* contentFolderInterface = managerOfGUI->getContentFolderGUI();
     MiAPP* app = new MiAPP(camera, scene);
     Time::start();
 
@@ -353,6 +353,11 @@ int main(void)
 
             if (menuActivo) { //menuActivo = !menuActivo si E es presionada
                 treeFilesInterface->printGUI();
+                if (treeFilesInterface->getFolderContent() != nullptr){
+                    managerOfGUI->setContentFolderGUI();
+                    contentFolderInterface->printGUI();
+                }
+
 
                 //si se abre un folder se abre el contentFolder
                 //CONTENIDO PINTADO ACA

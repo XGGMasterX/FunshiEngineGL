@@ -8,64 +8,58 @@
 
 using namespace std;
 
-//Usa un gestorDeArchivos con pre orden para visualizar el arbol de carpetas que tiene
 class TreeFilesInterface : public GeneralUserInterface {
 protected:
-	bool actualizar;
-	string pathProyect;
-	ArbolEnlazado<File*>* arbolDeArchivos;
-	GestorDeArchivos* gestorDeArchivos;
-	ContentFolderInterface* contentOfThisFolder;
-	ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_SpanAvailWidth;
+    bool actualizar;
+    Folder* thisFolderContent;
+    string pathProyect;
+    ArbolEnlazado<File*>* arbolDeArchivos;
+    GestorDeArchivos* gestorDeArchivos;
+    ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_SpanAvailWidth;
+    Folder* lastSelectedFolder; // Nuevo: Para manejar la selección
+
 public:
-	TreeFilesInterface(bool stateGUI, string pathProyect) :
-		GeneralUserInterface("BrowseFile", stateGUI, ImGuiWindowFlags_MenuBar) {
-		this->pathProyect = pathProyect;
-		arbolDeArchivos = new ArbolEnlazado<File*>();
-		gestorDeArchivos = new GestorDeArchivos(pathProyect);
-		arbolDeArchivos = gestorDeArchivos->getTreeFilePath();
-		contentOfThisFolder = new ContentFolderInterface(new Folder(""), false);
-	}
+    TreeFilesInterface(bool stateGUI, string pathProyect) :
+        GeneralUserInterface("BrowseFile", stateGUI, ImGuiWindowFlags_MenuBar),
+        lastSelectedFolder(nullptr) // Inicializar
+    {
+        this->pathProyect = pathProyect;
+        arbolDeArchivos = new ArbolEnlazado<File*>();
+        gestorDeArchivos = new GestorDeArchivos(pathProyect);
+        arbolDeArchivos = gestorDeArchivos->getTreeFilePath();
+    }
 
-	virtual void preOrdenOfTreeFile(Position<File*>* root) {
-		
-		if (Folder* folderRoot = dynamic_cast<Folder*>(root->getElement())) {
+    virtual void preOrdenOfTreeFile(Position<File*>* root) {
+        if (Folder* folderRoot = dynamic_cast<Folder*>(root->getElement())) {
+            std::string idStr = folderRoot->getPathRoot() + "\\" + folderRoot->getPathName();
+            ImGui::PushID(idStr.c_str());
 
-			//ME VISITO
-			std::string idStr = folderRoot->getPathRoot() + "\\" + folderRoot->getPathName(); // o solo getPathName()
-			ImGui::PushID(idStr.c_str());
-			bool open = ImGui::TreeNodeEx(folderRoot->getPathName().c_str(), flags, "%s", folderRoot->getPathName().c_str());
+            // Modificado: Usar flags de selección si es el folder seleccionado
+            bool isSelected = (lastSelectedFolder == folderRoot);
+            bool open = ImGui::TreeNodeEx(folderRoot->getPathName().c_str(),
+                isSelected ? (flags | ImGuiTreeNodeFlags_Selected) : flags,
+                "%s", folderRoot->getPathName().c_str());
 
-			if (open) {
-			    //CONTENIDO DEL FOLDER ACTUAL
-			    if (contentOfThisFolder->getFolderContent() == folderRoot) {
-					contentOfThisFolder->printGUI();
-				}
-				else {
-					contentOfThisFolder->setStateGui(false);
-					contentOfThisFolder = new ContentFolderInterface(folderRoot,true);
-					contentOfThisFolder->printGUI();
-				}
+            // Modificado: Manejar clic para selección
+            if (ImGui::IsItemClicked()) {
+                lastSelectedFolder = folderRoot;
+                thisFolderContent = folderRoot;
+            }
 
-
-			  //PINTANDO EL ARBOL DE FOLDERS
-			  if(arbolDeArchivos->isInternal(root)){
-				ListaDE<Position<File*>*>* childsOfFolder = arbolDeArchivos->childsOf(root);
-				Position<Position<File*>*>* position = childsOfFolder->first();
-				//VISITO MIS HIJOS
-				while (position != nullptr) {
-					preOrdenOfTreeFile(position->getElement());
-					position = (position != childsOfFolder->last()) ? childsOfFolder->next(position) : nullptr;
-				}
-				
-			  }
-			  ImGui::TreePop();
-
-		    }
-			ImGui::PopID();
-		}
-		//SI NO ES FOLDER SIGO NOMAS
-	}
+            if (open) {
+                if (arbolDeArchivos->isInternal(root)) {
+                    ListaDE<Position<File*>*>* childsOfFolder = arbolDeArchivos->childsOf(root);
+                    Position<Position<File*>*>* position = childsOfFolder->first();
+                    while (position != nullptr) {
+                        preOrdenOfTreeFile(position->getElement());
+                        position = (position != childsOfFolder->last()) ? childsOfFolder->next(position) : nullptr;
+                    }
+                }
+                ImGui::TreePop();
+            }
+            ImGui::PopID();
+        }
+    }
 
 	virtual void initGUI() override {
 		ImGui::Begin(getNameGui().c_str(), &stateGUI, getFlagGui());
@@ -91,6 +85,14 @@ public:
 			contentGUI();
 			endGUI();
 		}
+	}
+
+	Folder* getFolderContent() {
+		return thisFolderContent;
+	}
+
+	void setFolderContent(Folder* thisFolderContent) {
+		this->thisFolderContent = thisFolderContent;
 	}
 };
 #endif

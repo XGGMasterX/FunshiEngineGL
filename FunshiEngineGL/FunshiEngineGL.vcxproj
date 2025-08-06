@@ -25,6 +25,7 @@
     <ClInclude Include="..\..\FunshiMotorGrafico\FunshiMotorGrafico\src\Estructuras\Trees\Heap\Heap.h" />
     <ClInclude Include="..\..\FunshiMotorGrafico\FunshiMotorGrafico\src\Estructuras\Trees\Heap\MaxHeap.h" />
     <ClInclude Include="..\..\FunshiMotorGrafico\FunshiMotorGrafico\src\Estructuras\Trees\Heap\MinHeap.h" />
+    <ClInclude Include="src\Entity\Entity.h" />
     <ClInclude Include="src\Estructuras\Comparable.h" />
     <ClInclude Include="src\Estructuras\ListasEnlazadas\ListasConPrioridad\PriorityListaDE.h" />
     <ClInclude Include="src\Estructuras\ListasEnlazadas\ListasDoblementeEnlazada\ListaDE.h" />
