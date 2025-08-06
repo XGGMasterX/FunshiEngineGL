@@ -7,7 +7,6 @@
 #include "../../../ExcepcionesCPP/ExcepcionesEstructuras/InvalidPositionException.h"
 #include "../../../ExcepcionesCPP/InvalidOperationException.h"
 
-
 using namespace std;
 
 
@@ -55,13 +54,13 @@ public:
 		return size;
 	}
 
-	virtual DNodo<E>* first() override {
+	virtual Position<E>* first() override {
 		if (isEmpty()) {
 			throw EmptyListException("ListaDE::first:NoHayPrimerNodo");
 		}
 		return front->getRight();
 	}
-	virtual DNodo<E>* last() override {
+	virtual Position<E>* last() override {
 		if (isEmpty()) {
 			throw EmptyListException("ListaDE::first:NoHayPrimerNodo");
 		}
@@ -152,7 +151,7 @@ public:
 
 	virtual bool isElement(E p) override {
 		bool esDeLista = false;
-		if (!isEmpty()) {
+		if (!isEmpty() && p != nullptr) {
 			Position<E>* iterador = first();
 			while (!esDeLista) {
 				if (iterador->getElement() == p) {
@@ -168,7 +167,7 @@ public:
 
 	virtual Position<E>* whatElementPosition(E p) override {
 		Position<E>* iterador = nullptr;
-		if (!isEmpty()) {
+		if (!isEmpty() && p != nullptr) {
 			bool esDeLista = false;
 			iterador = first();
 			while (!esDeLista) {
@@ -185,15 +184,15 @@ public:
 
 	virtual void clear() override {
 		if (!isEmpty()) {
-			size = 0;
-			DNodo<E>* position = front;
+			Position<E>* position = first();
 			while (position != nullptr) {
-				position->setElement(nullptr);
-				position = (position != last()) ? (DNodo<E>*)next(position) : nullptr;
+				Position<E>* aux = position;
+				position = (position != last()) ? next(position) : nullptr;
+				remove(aux);
 			}
-
 			this->front->setRight(this->tail);
 			this->tail->setLeft(this->front);
+			size = 0;
 		}
 	}
 };

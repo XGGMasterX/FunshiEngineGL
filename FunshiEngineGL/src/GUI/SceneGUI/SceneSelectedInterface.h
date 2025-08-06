@@ -2,34 +2,53 @@
 #define SCENESELECTEDINTERFACE_H
 #include <iostream>
 #include <string>
-#include "../GeneralUserInterface.h"
-#include "../../Objetos/GameObject.h"
+#include "../ObjetosGUI/SettingsObjectInterface.h"
 
 using namespace std;
 
+//ADAPTAR DE GAMEOBJECT A PRIORITY DE ENTITY
 class SceneSelectedInterface : public GeneralUserInterface {
 protected:
-	GameObject* object;
+	PriorityListaDE<GameObject*>* Entitys;
+	//otras listas de otras entidades
+	GameObject* returneableObject;
 
 public:
-	SceneSelectedInterface(GameObject* object, bool stateGUI) : 
+	SceneSelectedInterface(bool stateGUI) :
 		GeneralUserInterface("SelectedObjects", stateGUI , ImGuiWindowFlags_MenuBar) {
-		this->object = object;
+		Entitys = new PriorityListaDE<GameObject*>(nullptr);
+		returneableObject = nullptr;
+	}
+
+	virtual void setEntitys(PriorityListaDE<GameObject*>* Entitys) {
+		this->Entitys = Entitys;
+	}
+
+	//ARMAR TODO EN UNO
+	virtual GameObject* getReturnableEntity() {
+		return returneableObject;
 	}
 
 	virtual void initGUI() override {
 		ImGui::Begin(getNameGui().c_str(), &stateGUI, getFlagGui());
-		ImGui::PushID(object);
-
-
+		ImGui::PushID(this);
 	}
 
 	virtual void contentGUI() override {
-		bool isSelected; //veo si ya fue seleccionado
-		if (ImGui::Selectable(("Object" + to_string(object->getId())).c_str(), isSelected)) {
-				// Lógica de selección/desactivación
+		//Muestro un botton para cada objeto de la Scene
+		//Si se preciona uno entonces ese objeto se obtiene y se da al GUIManager
+		//obtengo el Settings y lo pinto en Scene
+		if (!Entitys->isEmpty()) {
+			Position<GameObject*>* position = Entitys->first();
+			GameObject* object;
+			while (position != nullptr) {
+				object = position->getElement();
+				if (ImGui::Selectable(("Object" + to_string(object->getId())).c_str())) {
+					returneableObject = object;
+				}
+				position = (position != Entitys->last()) ? Entitys->next(position) : nullptr;
+			}
 		}
-		
 	}
 
 
@@ -40,7 +59,7 @@ public:
 
 	virtual void printGUI() override {
 		//Testing 
-		if (object->getState()) {
+		if (stateGUI) {
 			initGUI();
 			contentGUI();
 			endGUI();

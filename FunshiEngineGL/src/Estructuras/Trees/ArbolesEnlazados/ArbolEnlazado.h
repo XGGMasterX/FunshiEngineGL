@@ -52,7 +52,7 @@ public:
 	//consultas de la estructura
 	virtual int tam() const override { return size; }
 	virtual bool isEmpty() const override { return size == 0; }
-	virtual Position<E>* rootOfTree() const override {
+	virtual Position<E>* rootOfTree() override {
 		if (isEmpty()) {
 			throw EmptyTreeException("ArbolEnlazado::root:NoHayRoot");
 		}
@@ -60,7 +60,7 @@ public:
 	}
 
 	//consultas de una posicion en la estructura
-	virtual ListaDE<Position<E>*>* childsOf(Position<E>* p) const override {
+	virtual ListaDE<Position<E>*>* childsOf(Position<E>* p) override {
 		TNodo<E>* position = checkPosition(p);
 		if (isExternal(position)) {
 			throw InvalidOperationException("ArbolEnlazado::childsOf:LaPosicionEsExternal");
@@ -75,7 +75,7 @@ public:
 		}
 		return resultado;
 	}
-	virtual Position<E>* dadOf(Position<E>* p) const override {
+	virtual Position<E>* dadOf(Position<E>* p) override {
 		TNodo<E>* position = checkPosition(p);
 		if (isRoot(position)) {
 			throw InvalidOperationException("ArbolEnlazado::childsOf:LaPosicionEsRoot");
@@ -84,58 +84,62 @@ public:
 	}
 
 	//consultas tipo de nodo
-	virtual bool isRoot(Position<E>* p) const override {
+	virtual bool isRoot(Position<E>* p) override {
 		TNodo<E>* position = checkPosition(p);
 		bool resultado = (position == root);
 		return resultado;
 	}
-	virtual bool isInternal(Position<E>* p) const override {
+	virtual bool isInternal(Position<E>* p) override {
 		TNodo<E>* position = checkPosition(p);
 		bool resultado = !position->getChilds()->isEmpty();
 		return resultado;
 	}
-	virtual bool isExternal(Position<E>* p) const override {
+	virtual bool isExternal(Position<E>* p) override {
 		return !isInternal(p);
 	}
 
 	//modificar de la esturctura
 	//=>agregar
-	virtual void createRoot(E e) override {
+	virtual Position<E>* createRoot(E e) override {
 		if (root != nullptr) {
 			throw InvalidOperationException("ArbolEnlazado::createRoot:YaExisteUnRoot");
 		}
 		root = new TNodo<E>(e);
 		size++;
+		return root;
 	}
-	virtual void addNodeChildOf(Position<E>* p, E e) override {
+	virtual Position<E>* addNodeChildOf(Position<E>* p, E e) override {
 		TNodo<E>* dad = checkPosition(p);
 		TNodo<E>* hijoNuevo = new TNodo<E>(e,dad);
 		dad->getChilds()->addLast(hijoNuevo);
 		size++;
+		return hijoNuevo;
 	}
-	virtual void addNodeChildAfterOf(Position<E>* dad, Position<E>* plChild, E e) override {
+	virtual Position<E>* addNodeChildAfterOf(Position<E>* dad, Position<E>* plChild, E e) override {
 		TNodo<E>* position = checkPosition(dad);
-		TNodo<E>* positionLeftChild = checkPosition(plChild);
+		TNodo<E>* positionLeftChild = checkPosition(position);
 		if (position != positionLeftChild->getRootDad()) {
 			throw InvalidPositionException("ArbolEnlazado::addNodeChildAfterOf:LaPosicionDeReferenciaIzquierdaNoEsHijaDeDad");
 		}
-		TNodo<E>* hijoNuevo = new TNodo<E>(e, dad);
+		TNodo<E>* hijoNuevo = new TNodo<E>(e, position);
 		ListaDE<TNodo<E>*>* listChildsOfDad = position->getChilds();
 		Position<TNodo<E>*>* tlChild = listChildsOfDad->whatElementPosition(positionLeftChild);
 		listChildsOfDad->addAfter(tlChild, hijoNuevo);
 		size++;
+		return hijoNuevo;
 	}
-	virtual void addNodeChildBeforeOf(Position<E>* dad, Position<E>* prChild, E e) override {
+	virtual Position<E>* addNodeChildBeforeOf(Position<E>* dad, Position<E>* prChild, E e) override {
 		TNodo<E>* position = checkPosition(dad);
-		TNodo<E>* positionRightChild = checkPosition(prChild);
+		TNodo<E>* positionRightChild = checkPosition(position);
 		if (position != positionRightChild->getRootDad()) {
 			throw InvalidPositionException("ArbolEnlazado::addNodeChildAfterOf:LaPosicionDeReferenciaDerechaNoEsHijaDeDad");
 		}
-		TNodo<E>* hijoNuevo = new TNodo<E>(e, dad);
+		TNodo<E>* hijoNuevo = new TNodo<E>(e, position);
 		ListaDE<TNodo<E>*>* listChildsOfDad = position->getChilds();
 		Position<TNodo<E>*>* trChild = listChildsOfDad->whatElementPosition(positionRightChild);
 		listChildsOfDad->addBefore(trChild, hijoNuevo);
 		size++;
+		return hijoNuevo;
 	}
 
 	//=>eliminar
@@ -196,14 +200,19 @@ public:
 	}
 	virtual E deleteExternalNode(Position<E>* p) override {
 		TNodo<E>* theDeleteable = checkPosition(p);
-		if (!isExternal(theDeleteable)) {
+		if (!isExternal(p)) {
 			throw InvalidOperationException("ArbolEnlazado::deleteExternalNode:LaPosicionNoEsExternal");
 		}
 		E saveElement = theDeleteable->getElement();
 		theDeleteable->setElement(nullptr);
-		ListaDE<TNodo<E>*>* listChildsDad = theDeleteable->getRootDad()->getChilds();
-		Position<TNodo<E>*>* positionTheDeleteable = listChildsDad->whatElementPosition(theDeleteable);
-		listChildsDad->remove(positionTheDeleteable);
+		if (theDeleteable != root) {
+			ListaDE<TNodo<E>*>* listChildsDad = theDeleteable->getRootDad()->getChilds();
+			Position<TNodo<E>*>* positionTheDeleteable = listChildsDad->whatElementPosition(theDeleteable);
+			listChildsDad->remove(positionTheDeleteable);
+		}
+		else {
+			root = nullptr;
+		}
 		size--;
 		return saveElement;
 	}

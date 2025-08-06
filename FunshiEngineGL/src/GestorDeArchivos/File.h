@@ -14,9 +14,9 @@ public:
 		this->pathName = pathName;
 	}
 
-	string getPathRoot() { return pathRoot; }
-	string getPathName() { return pathName; }
-	string setPathRoot(string pathRoot) {
+	virtual string getPathRoot() { return pathRoot; }
+	virtual string getPathName() { return pathName; }
+	virtual void setPathRoot(string pathRoot) {
 		this->pathRoot = pathRoot;
 	}
 	//generar archivo

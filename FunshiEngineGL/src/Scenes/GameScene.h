@@ -18,6 +18,7 @@
 #include "../Objetos/Modelos3D.h"
 #include "../Objetos/Malla.h"
 #include "../Objetos/Componentes/Color.h"
+#include "../GUIManager/GUIManager.h"
 
 //ACTIVAR GUARDADO Y DIBUJO DE OBJETOS
 using namespace std;
@@ -25,12 +26,18 @@ using namespace std;
 class GameScene : Time {
 private:
     // PRE FABRICADOS PARA TESTING
+    //Necesito una estructura fija luego de parchar el bug
+    //de pintado
     ListaDE<GameObject*>* nodosScene;
     PriorityListaDE<GameObject*>* gameObjectsPorDistancia;
     Camera* camera;
+    GUIManager* managerGUI;
+    SceneSelectedInterface* selecteableGUI;
 public:
-    GameScene(Camera* camera) {
+    GameScene(Camera* camera,GUIManager* managerGUI) {
         this->camera = camera;
+        this->managerGUI = managerGUI;
+        this->selecteableGUI = managerGUI->getSelecteableGUI();
         nodosScene = new ListaDE<GameObject*>();
         gameObjectsPorDistancia = new PriorityListaDE<GameObject*>(camera);
     }
@@ -72,7 +79,6 @@ public:
             while (pos != nullptr && !encontre) {
                 if (pos->getElement()->getId() == id) {
                     gameObjectsPorDistancia->remove(pos);
-                    cout << "Eliminado: " << pos->getElement()->getId() << endl;
                     encontre = true;
                 }
                 else {
@@ -131,7 +137,6 @@ public:
             Position<GameObject*>* pos = gameObjectsPorDistancia->first();
             while (pos != nullptr && pos->getElement() != nullptr) {
                 dibujarObject(pos->getElement());
-                cout << "Dibujando: " << pos->getElement()->getId() << endl;
                 pos = (pos != gameObjectsPorDistancia->last()) ? gameObjectsPorDistancia->next(pos) : nullptr;
             }
         }
@@ -151,6 +156,12 @@ public:
     }
 
     void createGameObject(GameObject* newGameObject) {
+        if (gameObjectsPorDistancia->isEmpty()) {
+            newGameObject->setId(0);
+        }
+        else {
+            newGameObject->setId(gameObjectsPorDistancia->last()->getElement()->getId() + 1);
+        }
         gameObjectsPorDistancia->insertarOrdenado(newGameObject);
     }
 
@@ -184,8 +195,22 @@ public:
         glEndList();
     }
 
+    void GUI() {
+        //le paso los ENTITY => refactorizar todo eso
+        selecteableGUI->setEntitys(gameObjectsPorDistancia);
+        selecteableGUI->printGUI();
+        
+        //Obtengo el objeto que fue seleccionado en la selecteableGUI si se apreto un boton
+        if (gameObjectsPorDistancia->isElement(selecteableGUI->getReturnableEntity())) {
+            managerGUI->getSettingGUI(selecteableGUI->getReturnableEntity())->printGUI();
+        }
+        
+		
+    }
+
     void gameScene() {
-        glLoadIdentity();
+        glMatrixMode(GL_MODELVIEW);
+        glLoadIdentity(); 
         camera->activar();
 
         //Autiomatizar Creacion De Objetos
@@ -193,8 +218,14 @@ public:
         mallaScene(70.0);
         glPopMatrix();
 
-        reSorting();
+
+        GLfloat lightPos[] = { 5.0f, 5.0f, 5.0f, 1.0f }; // Posición mundial
+        glLightfv(GL_LIGHT0, GL_POSITION, lightPos);
+        //reSorting();
         dibujarGameObjects();
+        
+
+        GUI();
     }
 
 };

@@ -21,9 +21,8 @@ public:
 		this->rootDad = rootDad;
 		childs = new ListaDE<TNodo<E>*>();
 	}
-	//TESTEO HABER SI FUNCIONA COMO EN JAVA
-	TNodo(E element) {
-		this(element, nullptr);
+
+	TNodo(E element) : TNodo(element, nullptr) {
 	}
 
 	void setRootDad(TNodo<E>* rootDad) { this->rootDad = rootDad; }

@@ -3,17 +3,9 @@
 
 #include <iostream>
 #include <stdlib.h>
-
-//#define GLFW_INCLUDE_VULKAN
-//#include <glfw3.h>
-//HERRAMIENTAS ADICIONALES
-//#include "ListaDE.h"
-//TODAS LAS GUI
-//#include "ContentFolderInterface.h"
 #include "../GUI/MenusGUI/MenuInterface.h"
-//#include "SceneSelectedInterface.h"
-//#include "SettingsObjetInterface.h"
-//#include "TreeFilesInterface.h"
+#include "../GUI/SceneGUI/SceneSelectedInterface.h"
+#include "../GUI/FileManagerGUI/TreeFilesInterface.h"
 
 using namespace std;
 
@@ -24,10 +16,19 @@ using namespace std;
 class GUIManager {
 private:
 	//ContentFolderInterface* contentGUI;
+	
+	
+	//LosMenuDelMotor
 	MenuInterface* menuGUI;
-	//SceneSelectedInterface* sceneGUI;
-	//ListaDE<SettingsObjectInterface*>* settingsGUI;
-	//TreeFilesInterface* treeFilesGUI;
+	//UltimoSettingsObjectInterface
+	SettingsObjectInterface* settingGUI;
+
+	//SelecteableDeGameObjects,GizmosYScenes
+	//adaptar luego para todos las ENTIDADES
+	SceneSelectedInterface* selecteableGUI;
+
+
+	TreeFilesInterface* treeFilesGUI;
 	//Armar GUI de paths de proyecto
 	//Armar GUI para opciones
 	//Armar GUI para Manejo de Objetos
@@ -36,11 +37,46 @@ private:
 public:
 	GUIManager(GLFWwindow* window){
 		menuGUI = new MenuInterface(window,true);
+		selecteableGUI = new SceneSelectedInterface(true);
+		settingGUI = new SettingsObjectInterface(new GameObject(),false);
+		treeFilesGUI = new TreeFilesInterface(true,"C:/MotorGraficoArchivos");
 	}
 
-	MenuInterface* getMenuInterface() {
+	MenuInterface* getMenuGUI() {
 		return menuGUI;
 	}
+
+	TreeFilesInterface* getTreeFilesGUI() {
+		return treeFilesGUI;
+	}
+
+	
+	SettingsObjectInterface* getSettingGUI(GameObject* gameObject) {
+		if (gameObject != nullptr && settingGUI->getObjectInInspector() == gameObject) {
+			settingGUI->setStateGui(true);
+			return settingGUI;
+		}
+		else if(gameObject != nullptr){
+			settingGUI->setStateGui(false);
+			settingGUI = new SettingsObjectInterface(gameObject, true);
+			return settingGUI;
+		}
+	}
+
+	void removeSettingsGUI() {
+		settingGUI->setStateGui(false);
+	}
+
+	//metodos para agregar con todas las estructuras de entidades
+	void setSelecteableGUI(PriorityListaDE<GameObject*>* gameObjects) {
+		selecteableGUI->setEntitys(gameObjects);
+	}
+	
+
+	SceneSelectedInterface* getSelecteableGUI() {
+		return selecteableGUI;
+	}
+
 	//Crear las instancias mediante los metodos
 	//una vez echo esto asignarlos asi se mantiene unicicidad y coherencia
 	//metodos getters para leer lass GUI

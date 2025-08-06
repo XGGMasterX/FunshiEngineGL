@@ -19,6 +19,7 @@
 #include "../Objetos/Componentes/Color.h"
 #include "../GestorDeArchivos/Binario.h"
 #include "../Estructuras/Comparable.h"
+#include "../Estructuras/ListasEnlazadas/ListasDoblementeEnlazada/ListaDE.h"
 
 using namespace std;
 class GameObject : public Comparable<GameObject> {
@@ -32,6 +33,7 @@ protected:
 
 public:
 	GameObject() {
+		components = new ListaDE<Component*>();
 		addComponent(new Transform());
 		addComponent(new Color());
 	}
@@ -54,36 +56,37 @@ public:
 
 
 	//COMPONENT
-	std::vector<Component*> components;
+	ListaDE<Component*>* components;
 	int inputId;
 	//COLLIDER
 
 	//GET ONE SPECIFIC COMPONENT M�todo para agregar un componente al GameObject.
 	void addComponent(Component* component) {
-		component->settingsObjectComponent = true;
-		components.push_back(component);
+	   //if (component != nullptr) {
+	      	component->settingsObjectComponent = true;
+	    	components->addLast(component);
+	   //}
 	}
 
 	// Metodo GetComponent.
 	template <typename T>
 	T* getComponent() {
-		for (Component* componente : components) {
-			if (dynamic_cast<T*>(componente)) {
-				return dynamic_cast<T*>(componente); // Devuelve el componente si se encuentra y es casteable a <T>.
+		Position<Component*>* position = components->first();
+		T* component = nullptr;
+		while(position != nullptr){
+			if (dynamic_cast<T*>(position->getElement())) {
+				component = dynamic_cast<T*>(position->getElement());
+				position = nullptr;
+			}
+			else {
+				position = (position != components->last()) ? components->next(position) : nullptr;
 			}
 		}
-		return nullptr; // Devuelve nullptr si no se encuentra el componente.
+		return component;
 	}
 
-	//GET MULTIPLES SPECIFIC COMPONENT
-	//GET IN (VARIABLE) OBJECT HERETED COMPONENT
-	template <typename C, typename T, typename = std::enable_if_t<std::is_base_of_v<GameObject, T>>>
-	C** getComponents(/*ARRAY para guardar Objects de Component , usando polimorfismo*/T* arr[], int tam,
-		/*ARRAY para guardar Objects Component*/ C* arrComponent[], int tamComponent) {
-		for (int i = 0; i < tamComponent; i++) {
-			arrComponent[i] = arr[i]->template getComponent<C>();
-		}
-		return arrComponent;
+	ListaDE<Component*>* getComponents() {
+		return components;
 	}
 
 	int compareTo(GameObject* other) override {
@@ -177,11 +180,13 @@ protected:
 
 	virtual void serializeObjectComponents() {
 		// Guardar el número de componentes
-		size_t numComponents = components.size();
+		size_t numComponents = components->tam();
 		myBinario->getOfBinariFile()->write(reinterpret_cast<const char*>(&numComponents), sizeof(size_t));
 
+		Position<Component*>* position = components->first();
 		// Guardar cada componente
-		for (const auto& component : components) {
+		while (position != nullptr) {
+		    Component* component = position->getElement();
 			// Obtener el nombre del tipo y limpiar "class " si está presente (MSVC)
 			std::string cleanTypeName = typeid(*component).name();
 			const std::string classPrefix = "class ";
@@ -196,6 +201,7 @@ protected:
 
 			// Guardar los datos del componente
 			component->saveComponent(myBinario->getOfBinariFile());
+			position = (position != components->last()) ? components->next(position) : nullptr;
 		}
 	}
 
@@ -205,7 +211,10 @@ protected:
 		size_t numComponents = 0;
 		myBinario->getIfBinariFile()->read(reinterpret_cast<char*>(&numComponents), sizeof(size_t));
 
-		components.clear();
+		if (components->tam() > 0) {
+			components->clear();
+		}
+		
 
 		//leer cada componente
 		for (size_t i = 0; i < numComponents; ++i) {

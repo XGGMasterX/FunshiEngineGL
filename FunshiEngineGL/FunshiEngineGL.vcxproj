@@ -21,38 +21,31 @@
   <ItemGroup>
     <ClInclude Include="..\..\..\..\OneDrive\Desktop\DescargasParaMotorGrafico\GLAD\include\glad\glad.h" />
     <ClInclude Include="..\..\..\..\OneDrive\Desktop\DescargasParaMotorGrafico\GLAD\include\KHR\khrplatform.h" />
-    <ClInclude Include="..\..\FunshiMotorGrafico\FunshiMotorGrafico\src\Estructuras\Comparable.h" />
-    <ClInclude Include="..\..\FunshiMotorGrafico\FunshiMotorGrafico\src\Estructuras\ListasEnlazadas\ListasConPrioridad\PriorityListaDE.h" />
-    <ClInclude Include="..\..\FunshiMotorGrafico\FunshiMotorGrafico\src\Estructuras\ListasEnlazadas\ListasDoblementeEnlazada\ListaDE.h" />
-    <ClInclude Include="..\..\FunshiMotorGrafico\FunshiMotorGrafico\src\Estructuras\ListasEnlazadas\PositionList.h" />
-    <ClInclude Include="..\..\FunshiMotorGrafico\FunshiMotorGrafico\src\Estructuras\MetodosDeOrdenamiento\ListMergeSort.h" />
-    <ClInclude Include="..\..\FunshiMotorGrafico\FunshiMotorGrafico\src\Estructuras\Nodos\DNodo.h" />
-    <ClInclude Include="..\..\FunshiMotorGrafico\FunshiMotorGrafico\src\Estructuras\Nodos\TNodo.h" />
-    <ClInclude Include="..\..\FunshiMotorGrafico\FunshiMotorGrafico\src\Estructuras\Ordenadora.h" />
-    <ClInclude Include="..\..\FunshiMotorGrafico\FunshiMotorGrafico\src\Estructuras\Position\Position.h" />
-    <ClInclude Include="..\..\FunshiMotorGrafico\FunshiMotorGrafico\src\Estructuras\Trees\ArbolesEnlazados\ArbolBinarioEnlazado.h" />
-    <ClInclude Include="..\..\FunshiMotorGrafico\FunshiMotorGrafico\src\Estructuras\Trees\ArbolesEnlazados\ArbolEnlazado.h" />
+    <ClInclude Include="..\..\..\..\OneDrive\Desktop\DescargasParaMotorGrafico\stb-master\stb_image.h" />
     <ClInclude Include="..\..\FunshiMotorGrafico\FunshiMotorGrafico\src\Estructuras\Trees\Heap\Heap.h" />
     <ClInclude Include="..\..\FunshiMotorGrafico\FunshiMotorGrafico\src\Estructuras\Trees\Heap\MaxHeap.h" />
     <ClInclude Include="..\..\FunshiMotorGrafico\FunshiMotorGrafico\src\Estructuras\Trees\Heap\MinHeap.h" />
-    <ClInclude Include="..\..\FunshiMotorGrafico\FunshiMotorGrafico\src\Estructuras\Trees\Tree.h" />
-    <ClInclude Include="..\..\FunshiMotorGrafico\FunshiMotorGrafico\src\ExcepcionesCPP\BoundaryViolationException.h" />
-    <ClInclude Include="..\..\FunshiMotorGrafico\FunshiMotorGrafico\src\ExcepcionesCPP\ClassCastException.h" />
-    <ClInclude Include="..\..\FunshiMotorGrafico\FunshiMotorGrafico\src\ExcepcionesCPP\ExcepcionesEstructuras\ArbolesEnlazados\EmptyTreeException.h" />
-    <ClInclude Include="..\..\FunshiMotorGrafico\FunshiMotorGrafico\src\ExcepcionesCPP\ExcepcionesEstructuras\InvalidPositionException.h" />
-    <ClInclude Include="..\..\FunshiMotorGrafico\FunshiMotorGrafico\src\ExcepcionesCPP\ExcepcionesEstructuras\ListasEnlazadas\EmptyListException.h" />
-    <ClInclude Include="..\..\FunshiMotorGrafico\FunshiMotorGrafico\src\ExcepcionesCPP\InvalidOperationException.h" />
-    <ClInclude Include="..\..\FunshiMotorGrafico\FunshiMotorGrafico\src\ExcepcionesCPP\NullPointerException.h" />
-    <ClInclude Include="..\..\FunshiMotorGrafico\FunshiMotorGrafico\src\ExcepcionesCPP\RuntimeException.h" />
-    <ClInclude Include="..\..\FunshiMotorGrafico\FunshiMotorGrafico\src\ExcepcionesCPP\Throwable.h" />
-    <ClInclude Include="..\..\FunshiMotorGrafico\FunshiMotorGrafico\src\Objetos\Componentes\Color.h" />
-    <ClInclude Include="..\..\FunshiMotorGrafico\FunshiMotorGrafico\src\Objetos\Componentes\Component.h" />
-    <ClInclude Include="..\..\FunshiMotorGrafico\FunshiMotorGrafico\src\Objetos\Componentes\Phisics.h" />
-    <ClInclude Include="..\..\FunshiMotorGrafico\FunshiMotorGrafico\src\Objetos\Malla.h" />
-    <ClInclude Include="..\..\FunshiMotorGrafico\FunshiMotorGrafico\src\Objetos\Materiales\Material.h" />
-    <ClInclude Include="..\..\FunshiMotorGrafico\FunshiMotorGrafico\src\Objetos\Materiales\materiales.h" />
-    <ClInclude Include="..\..\FunshiMotorGrafico\FunshiMotorGrafico\src\Objetos\Modelos3D.h" />
-    <ClInclude Include="..\..\FunshiMotorGrafico\FunshiMotorGrafico\src\Scenes\Ilumination.h" />
+    <ClInclude Include="src\Estructuras\Comparable.h" />
+    <ClInclude Include="src\Estructuras\ListasEnlazadas\ListasConPrioridad\PriorityListaDE.h" />
+    <ClInclude Include="src\Estructuras\ListasEnlazadas\ListasDoblementeEnlazada\ListaDE.h" />
+    <ClInclude Include="src\Estructuras\ListasEnlazadas\PositionList.h" />
+    <ClInclude Include="src\Estructuras\MetodosDeOrdenamiento\ListMergeSort.h" />
+    <ClInclude Include="src\Estructuras\Nodos\DNodo.h" />
+    <ClInclude Include="src\Estructuras\Nodos\TNodo.h" />
+    <ClInclude Include="src\Estructuras\Ordenadora.h" />
+    <ClInclude Include="src\Estructuras\Position\Position.h" />
+    <ClInclude Include="src\Estructuras\Trees\ArbolesEnlazados\ArbolBinarioEnlazado.h" />
+    <ClInclude Include="src\Estructuras\Trees\ArbolesEnlazados\ArbolEnlazado.h" />
+    <ClInclude Include="src\Estructuras\Trees\Tree.h" />
+    <ClInclude Include="src\ExcepcionesCPP\BoundaryViolationException.h" />
+    <ClInclude Include="src\ExcepcionesCPP\ClassCastException.h" />
+    <ClInclude Include="src\ExcepcionesCPP\ExcepcionesEstructuras\ArbolesEnlazados\EmptyTreeException.h" />
+    <ClInclude Include="src\ExcepcionesCPP\ExcepcionesEstructuras\InvalidPositionException.h" />
+    <ClInclude Include="src\ExcepcionesCPP\ExcepcionesEstructuras\ListasEnlazadas\EmptyListException.h" />
+    <ClInclude Include="src\ExcepcionesCPP\InvalidOperationException.h" />
+    <ClInclude Include="src\ExcepcionesCPP\NullPointerException.h" />
+    <ClInclude Include="src\ExcepcionesCPP\RuntimeException.h" />
+    <ClInclude Include="src\ExcepcionesCPP\Throwable.h" />
     <ClInclude Include="src\GestorDeArchivos\Binario.h" />
     <ClInclude Include="src\GestorDeArchivos\File.h" />
     <ClInclude Include="src\GestorDeArchivos\Folder.h" />
@@ -60,14 +53,18 @@
     <ClInclude Include="src\Gizmo\Camera.h" />
     <ClInclude Include="src\Gizmo\Gizmo.h" />
     <ClInclude Include="src\GUIManager\GUIManager.h" />
+    <ClInclude Include="src\GUI\FileManagerGUI\ContentFolderInterface.h" />
+    <ClInclude Include="src\GUI\FileManagerGUI\TreeFilesInterface.h" />
     <ClInclude Include="src\GUI\GeneralUserInterface.h" />
     <ClInclude Include="src\GUI\MenusGUI\MenuInterface.h" />
     <ClInclude Include="src\GUI\MenusGUI\MenuOpcionesInterface.h" />
     <ClInclude Include="src\GUI\MenusGUI\MenuProyectoInterface.h" />
     <ClInclude Include="src\GUI\ObjetosGUI\SettingsColor.h" />
     <ClInclude Include="src\GUI\ObjetosGUI\SettingsComponent.h" />
-    <ClInclude Include="src\GUI\ObjetosGUI\SettingsObjetInterface.h" />
+    <ClInclude Include="src\GUI\ObjetosGUI\SettingsObjectInterface.h" />
     <ClInclude Include="src\GUI\ObjetosGUI\SettingsTransform.h" />
+    <ClInclude Include="src\GUI\SceneGUI\SceneMenuBar.h" />
+    <ClInclude Include="src\GUI\SceneGUI\SceneSelectedInterface.h" />
     <ClInclude Include="src\ImGui\imconfig.h" />
     <ClInclude Include="src\ImGui\imgui.h" />
     <ClInclude Include="src\ImGui\imgui_impl_glfw.h" />
@@ -78,16 +75,23 @@
     <ClInclude Include="src\ImGui\imstb_textedit.h" />
     <ClInclude Include="src\ImGui\imstb_truetype.h" />
     <ClInclude Include="src\Matematicas\StructVec3.h" />
+    <ClInclude Include="src\Objetos\Componentes\Color.h" />
+    <ClInclude Include="src\Objetos\Componentes\Component.h" />
+    <ClInclude Include="src\Objetos\Componentes\Phisics.h" />
     <ClInclude Include="src\Objetos\Componentes\Transform.h" />
     <ClInclude Include="src\Objetos\GameObject.h" />
+    <ClInclude Include="src\Objetos\Malla.h" />
+    <ClInclude Include="src\Objetos\Materiales\Material.h" />
+    <ClInclude Include="src\Objetos\Materiales\materiales.h" />
+    <ClInclude Include="src\Objetos\Modelos3D.h" />
     <ClInclude Include="src\Scenes\GameScene.h" />
+    <ClInclude Include="src\Scenes\Ilumination.h" />
     <ClInclude Include="src\Time.h" />
     <ClInclude Include="src\Ventana.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\..\..\OneDrive\Desktop\DescargasParaMotorGrafico\GLAD\src\glad.c" />
-    <ClCompile Include="..\..\FunshiMotorGrafico\FunshiMotorGrafico\src\ExcepcionesCPP\RuntimeException.cpp" />
-    <ClCompile Include="..\..\FunshiMotorGrafico\FunshiMotorGrafico\src\Objetos\Materiales\Material.cpp" />
+    <ClCompile Include="src\ExcepcionesCPP\RuntimeException.cpp" />
     <ClCompile Include="src\ImGui\imgui.cpp" />
     <ClCompile Include="src\ImGui\imgui_demo.cpp" />
     <ClCompile Include="src\ImGui\imgui_draw.cpp" />
@@ -97,6 +101,7 @@
     <ClCompile Include="src\ImGui\imgui_widgets.cpp" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\Matematicas\Vector.cpp" />
+    <ClCompile Include="src\Objetos\Materiales\Material.cpp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
@@ -182,7 +187,8 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>C:\Users\gianf\OneDrive\Desktop\DescargasParaMotorGrafico\GLAD\include\glad;C:\Users\gianf\OneDrive\Desktop\DescargasParaMotorGrafico\glm-master\glm;C:\Users\gianf\OneDrive\Desktop\DescargasParaMotorGrafico\copyGLFW;C:\Users\gianf\vcpkg\installed\x64-windows\include;C:\Users\gianf\source\repos\FunshiEngineGL\FunshiEngineGL\src\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\gianf\OneDrive\Desktop\DescargasParaMotorGrafico\stb-master;C:\Users\gianf\OneDrive\Desktop\DescargasParaMotorGrafico\GLAD\include\glad;C:\Users\gianf\OneDrive\Desktop\DescargasParaMotorGrafico\glm-master\glm;C:\Users\gianf\OneDrive\Desktop\DescargasParaMotorGrafico\copyGLFW;C:\Users\gianf\vcpkg\installed\x64-windows\include;C:\Users\gianf\source\repos\FunshiEngineGL\FunshiEngineGL\src\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp14</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
