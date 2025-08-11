@@ -26,7 +26,7 @@ public:
 	virtual Position<E>* addNodeChildOf(Position<E>* p,E e) = 0; //por defecto addLast()
 	virtual Position<E>* addNodeChildAfterOf(Position<E>* dad, Position<E>* plChild, E e) = 0;
 	virtual Position<E>* addNodeChildBeforeOf(Position<E>* dad, Position<E>* prChild, E e) = 0;
-
+	virtual void positionToChildOf(Position<E>* dad, Position<E>* pChild) = 0; //si no hay relacion parental (pre orden)
 
 	//=>eliminar
 	virtual E deleteRoot() = 0;

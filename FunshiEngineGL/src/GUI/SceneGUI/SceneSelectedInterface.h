@@ -3,27 +3,35 @@
 #include <iostream>
 #include <string>
 #include "../ObjetosGUI/SettingsObjectInterface.h"
-char inputImGuiString[128] = "";
-int inputImGuiID;
+#include "../../Estructuras/Trees/ArbolesEnlazados/ArbolEnlazado.h"
+#include "../../Objetos/Modelos3D.h"
+
+
 
 using namespace std;
 
 //ADAPTAR DE GAMEOBJECT A PRIORITY DE ENTITY
 class SceneSelectedInterface : public GeneralUserInterface {
 protected:
-	ListaDE<GameObject*>* Entitys;
+	ArbolEnlazado<GameObject*>* entitys;
+	ListaDE<GameObject*>* gameObjects;
 	GameObject* returneableObject;
+	char inputImGuiString[128] = "";
+	int inputImGuiID;
+	bool deleteObject = false;
 	//CREAR LOS PRE FABRICADOS
 public:
 	SceneSelectedInterface(bool stateGUI) :
 		GeneralUserInterface("SelectedObjects", stateGUI , ImGuiWindowFlags_MenuBar) {
-		Entitys = new ListaDE<GameObject*>();
+		entitys = new ArbolEnlazado<GameObject*>();
+		entitys->createRoot(new Modelos3D());
+		gameObjects = new ListaDE<GameObject*>();
 		returneableObject = nullptr;
 	}
 	
 
-	virtual void setEntitys(ListaDE<GameObject*>* Entitys) {
-		this->Entitys = Entitys;
+	virtual void setEntitys(ListaDE<GameObject*>* gameObjects) {
+		this->gameObjects = gameObjects;
 	}
 
 	
@@ -36,50 +44,68 @@ public:
 		ImGui::PushID(this);
 	}
 
-	virtual void contentGUI() override {
-		if (!Entitys->isEmpty()) {
-			Position<GameObject*>* position = Entitys->first();
-			while (position != nullptr) {
-				GameObject* object = position->getElement();
+	void drawPreOrder(Position<GameObject*>* pos) {
+		if (pos != entitys->rootOfTree()) {
+			// Mostrar el nombre o ID del GameObject
+			std::string label = "Object:" + std::to_string(pos->getElement()->getId());
 
-				
-				string label = "Object " + to_string(object->getId());
-				ImGui::PushID(object);
-				ImGui::Selectable(label.c_str());
-
-				
-				if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None)) {
-					ImGui::SetDragDropPayload("GAMEOBJECT_DRAG", &position, sizeof(Position<GameObject*>*));
-					ImGui::Text("Mover %s", label.c_str());
-					ImGui::EndDragDropSource();
-				}
-
-				
-				if (ImGui::BeginDragDropTarget()) {
-					if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("GAMEOBJECT_DRAG")) {
-						Position<GameObject*>* draggedPos = *(Position<GameObject*>**)payload->Data;
-
-						if (draggedPos != position) {
-							GameObject* aux = position->getElement();
-							Entitys->swapPositions(draggedPos, position);
-						}
-					}
-					ImGui::EndDragDropTarget();
-				}
-
-				
-				if (ImGui::IsItemClicked()) {
-					returneableObject = object;
-				}
-
-				ImGui::PopID();
-				position = (position != Entitys->last()) ? Entitys->next(position) : nullptr;
+			bool clicked = ImGui::Selectable(label.c_str(), returneableObject == pos->getElement());
+			if (clicked) {
+				returneableObject = pos->getElement();
 			}
+
+			// Drag source
+			if (ImGui::BeginDragDropSource()) {
+				Position<GameObject*>* dragged = pos;
+				ImGui::SetDragDropPayload("ENTITY_NODE", &dragged, sizeof(dragged));
+				ImGui::Text("Moviendo %s", label.c_str());
+				ImGui::EndDragDropSource();
+			}
+
+			// Drop target
+			if (ImGui::BeginDragDropTarget()) {
+				if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("ENTITY_NODE")) {
+					Position<GameObject*>* dragged;
+					memcpy(&dragged, payload->Data, sizeof(dragged));
+					if (dragged != pos) {
+						entitys->positionToChildOf(pos, dragged);
+					}
+				}
+				ImGui::EndDragDropTarget();
+			}
+		}
+
+		// Si el nodo tiene hijos, los dibujamos con indentación
+		if (entitys->isInternal(pos)) {
+			ImGui::Indent(); // Aumenta la indentación visual
+			ListaDE<Position<GameObject*>*>* hijos = entitys->childsOf(pos);
+			Position<Position<GameObject*>*>* position = hijos->first();
+			while (position != nullptr) {
+				drawPreOrder(position->getElement());
+				position = (position != hijos->last()) ? hijos->next(position) : nullptr;
+			}
+			ImGui::Unindent(); // Vuelve la indentación
+		}
+	}
+
+
+
+	virtual void contentGUI() override {
+		if (!entitys->isEmpty()) {
+			if (deleteObject) {
+				ImGui::InputInt("Id", &inputImGuiID);
+				if (ImGui::Button("Delete"))
+				{
+					deleteObjectByID(inputImGuiID);
+					deleteObject = false;
+				}
+			}
+			drawPreOrder(entitys->rootOfTree());
 		}
 
 		if (ImGui::BeginPopupContextWindow("SelectedEntitysPopup", ImGuiPopupFlags_MouseButtonRight)) {
 			if (ImGui::MenuItem("New Object")) {
-				//MOSTRAR LISTA PRE DEFINIDA DE OBJETOS
+               
 			}
 			if (ImGui::MenuItem("New RenderObject")) {
 				//MOSTRAR ENTRADA PARA PONER PATH DEL RENDER
@@ -94,45 +120,47 @@ public:
 				createGameObject(newModelos3);
 			}
 			if (ImGui::MenuItem("Delete By ID")) {
-				ImGui::InputInt("Id", &inputImGuiID);
-				if (ImGui::Button("Delete"))
-				{
-					deleteObjectByID(inputImGuiID);
-				}
+				deleteObject = true;
 			}
 			ImGui::EndPopup();
 		}
 	}
 
 	void createGameObject(GameObject* newGameObject) {
-		if (Entitys->isEmpty()) {
+		if (gameObjects->isEmpty()) {
 			newGameObject->setId(0);
 		}
 		else {
-			newGameObject->setId(Entitys->last()->getElement()->getId() + 1);
+			newGameObject->setId(gameObjects->last()->getElement()->getId() + 1);
 		}
-		Entitys->addLast(newGameObject);
+		gameObjects->addLast(newGameObject);
+		entitys->addNodeChildOf(entitys->rootOfTree(), newGameObject);
 	}
+
+	//EMULAR PARA ENTIDADES Y OTROS
 
 	bool deleteObjectByID(int id) {
 		bool encontre = false;
-		if (!Entitys->isEmpty()) {
-			Position<GameObject*>* pos = Entitys->first();
+		if (!gameObjects->isEmpty() && !entitys->isEmpty()) {
+			Position<GameObject*>* pos = gameObjects->first();
 			while (pos != nullptr && !encontre) {
 				if (pos->getElement()->getId() == id) {
-					Entitys->remove(pos);
+					gameObjects->remove(pos);
 					encontre = true;
 				}
 				else {
-					pos = (pos != Entitys->last()) ? Entitys->next(pos) : nullptr;
+					pos = (pos != gameObjects->last()) ? gameObjects->next(pos) : nullptr;
 				}
+			}
+			if (encontre) {
+				//QUITAR SI ESTA EN ENTITY , SINO VARIAR ENCONTRE A FALSO
 			}
 		}
 		return encontre;
 	}
 
 	virtual ListaDE<GameObject*>* getGameObjects() {
-		return Entitys;
+		return gameObjects;
 	}
 
 	virtual void endGUI() override {
