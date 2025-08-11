@@ -3,6 +3,8 @@
 #include "../../GestorDeArchivos/Binario.h"
 using namespace std;
 
+
+
 class Component {
 private:
 	bool terminalSelectScript = false;

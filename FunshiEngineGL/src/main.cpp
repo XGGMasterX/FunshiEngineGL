@@ -11,48 +11,54 @@
 #include <GLFW/glfw3.h>
 #endif
 #include <iostream>
+//testing
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb_image.h>
 /////////////////////////////////////////////////////////////////////////////////
 /*
-                           \\\\COSAS PARA AGREGAR////
+                           \\\\COSAS PARA AGREGAR///
+
+*revisar error en el root del treefile
+*arreglar lo del id que no deje meter si ya existen (que no haga nada)
+
+*Agregar animaciones
+*Agregar Materiales
+*Agregar texturas
+
+//AL ELIMINAR UN OBJETO SE QUEDA EL BINARIO , ARMAR LISTA DE OBJETOS ELIMINADOS Y QUITAR Y LIMPIAR
+//Cuadro de log donde se indique lo que se esta haciendo mal
+//ERROR NO DEJA LEER ARCHIVOS RAROS , DEBO QUITAR FILTROS
+//ES ERROR QUE MANTEGA EL RADIO AL ELIMINAR COLLIDERS ? : SI
+//TERMINAR TODOS LOS POPUP
+//HACER METODO PARA LOS POPUP EN CADA GUI
+//UN SETTING SE ABRE AL ARRASTRAR EL OTRO
+//seria ideal crear un metodo que recorra todos los objetos
+//obtenga sus collider y verifique si se chocan con el mio
+//si es true entonces devolver quien es el objeto
+//SE DIBUJAN MAL LOS COLORES DEL COLLIDER
+//AL CREA APARECE UNA BARRA / CONTRARIA QUE ES \
+
 *sistema de seguimiento de scripts y asociaciones junto a git
-*Mejorar Controles
-* arreglar la iluminacion y texturados y de dibujado por priorizacion distancial
-* agregar refactor para compatible con linux
-* agregar interface imgui reactiva por clicking
-* agregar reaccion por clicking
-*Agregar funcion para deletear todos los gameObject
-*Interfaz y botones
+*arreglar la iluminacion y independizar mediantee clases y entidades , gizmos
+*Crear sistema de Entitys e incluir sitema de Arboles de dependencia , soy DependencyNode
+*Agregar imagenes en botones del contentFolder y para gizmos
+*Que no se mueva la camara si estoy en una GUI , ???quitar lo de E y escape , poner boton para salir al menu???
+*agregar interface imgui reactiva por clicking
+*agregar reaccion por clicking
+*Agregar funcion para deletear todos los gameObject y para los gamesObjects de selecteable
+
+*AGREGAR EL SISTEMA DE PROGRAMACION DINAMICA
 *Agregar metodo update
 *Agregar metodo Start
-*Agregar Classe Input
-*Crear Colliders
+*Agregar en settings zona de scripts
+*crear un typedef [SerializeField] es una extencion define para atributos privados mutables
+
 *Agregar contenedores
 *Corregir Archivos Header
-*Mejorar settings de objetos desde imgui
-*Crear el menu
-*Agregar en settings zona de scripts , crear un typedef [SerializeField] y etc
-*Colocar limite en Y para camara que evite inversion en el input del eje Y
-*Agregar otros archivos al gestor de archivos y agregar su edicion
+*Agregar Classe Input
 */
 /////////////////////////////////////////////////////////////////////////////////
 
-/////////////////////////////////////////////////////////////////////////////////
-/*
-                           \\\\COSAS PARA ARREGLAR////
-*No se pintan bien los objetos
-*Muchos content folder , mover la generacion de estos al GUIManager
-*Error , las modificaciones no se establecen en el arbol , el gestor esta recargandose ?
-*quitar metodos sin uso del gestor revisar reutilidad.
-*/
-/////////////////////////////////////////////////////////////////////////////////
-
-/////////////////////////////////////////////////////////////////////////////////
-/*
-                           \\\\COSAS PARA DEBUGGEAR////
-*Observar version de OPENGL
-*/
-/////////////////////////////////////////////////////////////////////////////////
-// 
 /////////////////////////////////////////////////////////////////////////////////
 /*
                            \\\\COSAS PARA HACER////
@@ -73,62 +79,28 @@ static float lastMousePosY = 0.0;
 static bool firstTimeMouseX = true;
 static bool firstTimeMouseY = true;
 bool recFilesInit = true;
-//imgui
-bool my_tool_active;
-int inputImGuiID;
-char inputImGuiString[128] = "";
 bool menuActivo = false;
+
 // Variables de estado
 bool showMenu = true;
 bool sceneRunning = false;
+float deltaTime = 0;
+
+
 class MiAPP {
 private:
     Camera* camera;
     GameScene* scene;
 
 
-
 public:
     static MiAPP* instancia;
+    
 
     MiAPP(Camera* camera, GameScene* scene) {
         this->camera = camera;
         this->scene = scene;
         instancia = this;
-    }
-
-    void interfaceCreateNewObject() {
-        ImGui::Begin("CreateObject", &my_tool_active, ImGuiWindowFlags_MenuBar);
-
-        ImGui::Text("Objects");
-        if (ImGui::TreeNode("===CreateObject==="))
-        {
-            ImGui::Text("Modelo3D");
-            if (ImGui::Button("CreateModelo3D"))
-            {
-                Modelos3D* newModelos1 = new Modelos3D("C:/MotorGraficoArchivos/Binarios/BlenderModelos/cubo.obj");//AUTOMATIZAR
-                Modelos3D* newModelos2 = new Modelos3D("C:/MotorGraficoArchivos/Binarios/BlenderModelos/monkey.obj");//AUTOMATIZAR
-                Modelos3D* newModelos3 = new Modelos3D("C:/MotorGraficoArchivos/Binarios/BlenderModelos/head_fixed.obj");//AUTOMATIZAR
-                cout << "Objeto Creado" << endl;
-                ImGui::InputText("Path", inputImGuiString, IM_ARRAYSIZE(inputImGuiString), ImGuiInputTextFlags_EnterReturnsTrue);
-                scene->createGameObject(newModelos1);
-                scene->createGameObject(newModelos2);
-                scene->createGameObject(newModelos3);
-            }
-            ImGui::TreePop();
-        }
-        if (ImGui::TreeNode("===DeleteObject==="))
-        {
-            ImGui::InputInt("Id", &inputImGuiID);
-            if (ImGui::Button("Delete"))
-            {
-                scene->deleteObjectByID(inputImGuiID);
-            }
-            ImGui::TreePop();
-
-        }
-
-        ImGui::End();
     }
 
     static void teclado_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
@@ -149,58 +121,58 @@ public:
         }
         else if (key == GLFW_KEY_W && (action == GLFW_PRESS || action == GLFW_REPEAT))
         {
-            // Forward
-            camera->forward();
+            
+            camera->forward(deltaTime);
             if (key == GLFW_KEY_W && key == GLFW_KEY_D && (action == GLFW_PRESS || action == GLFW_REPEAT))
             {
-                //DERECHA ADELANTE
-                camera->forwardRight();
+                
+                camera->forwardRight(deltaTime);
             }
 
             else if (key == GLFW_KEY_W && key == GLFW_KEY_A && (action == GLFW_PRESS || action == GLFW_REPEAT))
             {
-                //IZQUIERDA ADELANTE
-                camera->forwardLeft();
+                
+                camera->forwardLeft(deltaTime);
 
             }
         }
         else if (key == GLFW_KEY_S && (action == GLFW_PRESS || action == GLFW_REPEAT))
         {
-            // Back
-            camera->back();
+            
+            camera->back(deltaTime);
             if (key == GLFW_KEY_S && key == GLFW_KEY_D && (action == GLFW_PRESS || action == GLFW_REPEAT))
             {
-                //DERECHA ATRAS
-                camera->backRight();
+                
+                camera->backRight(deltaTime);
 
             }
 
             else if (key == GLFW_KEY_S && key == GLFW_KEY_A && (action == GLFW_PRESS || action == GLFW_REPEAT))
             {
-                //IZQUIERDA ATRAS
-                camera->backLeft();
+                
+                camera->backLeft(deltaTime);
             }
         }
         else if (key == GLFW_KEY_A && (action == GLFW_PRESS || action == GLFW_REPEAT))
         {
-            // Left
-            camera->left();
+            
+            camera->left(deltaTime);
 
         }
         else if (key == GLFW_KEY_D && (action == GLFW_PRESS || action == GLFW_REPEAT))
         {
-            // Right
-            camera->right();
+            
+            camera->right(deltaTime);
         }
         if (key == GLFW_KEY_SPACE && (action == GLFW_PRESS || action == GLFW_REPEAT))
         {
-            // Up
-            camera->up();
+           
+            camera->up(deltaTime);
         }
         else if (key == GLFW_KEY_LEFT_SHIFT && (action == GLFW_PRESS || action == GLFW_REPEAT))
         {
-            // Down
-            camera->down();
+            
+            camera->down(deltaTime);
         }
 
         if (key == GLFW_KEY_E && action == GLFW_PRESS) {
@@ -255,11 +227,8 @@ int main(void)
     Ventana* auxVentana = new Ventana();
     auxVentana->initVentana();
     GLFWwindow* window = auxVentana->getWindow();
-    //MENU
     GUIManager* managerOfGUI = new GUIManager(window);
-    //CAMARA
     Camera* camera = new Camera(vec3(1, 1, -50));
-    //ESCENA
     GameScene* scene = new GameScene(camera, managerOfGUI);
     MenuInterface* mainMenu = managerOfGUI->getMenuGUI();
     TreeFilesInterface* treeFilesInterface = managerOfGUI->getTreeFilesGUI();
@@ -307,29 +276,28 @@ int main(void)
 //scene->loadScene("/home/ggmaster/MotorGraficoArchivos/Binarios/SceneBBDDObjetos.txt", 
 //                "/home/ggmaster/MotorGraficoArchivos/Binarios/Scene/");
  #endif
+
+
     while (!glfwWindowShouldClose(window)) //BUCLE PRINCIPAL
     {
 
         Time::limitFPS(FPS);
-        float deltaTime = Time::getDeltaTime();
+        deltaTime = Time::getDeltaTime();
         
-        /* Poll for and process events */
+        
         glfwPollEvents();
-       
+        
+        if (scene->isStart()) { //MODIFICAR , si se activa comenzar normal , si se quita volver todo al comienzo.
+            //loadNewComponents(); // Buscar y cargar componentes nuevas
+            scene->update(deltaTime);
+        }
 
-        //usar delta para updates de scene y gui
-
-        /* Render here */
+        
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-
-
-        if (true /*ImGui::Button */) {
             ImGui_ImplOpenGL3_NewFrame();
             ImGui_ImplGlfw_NewFrame();
             ImGui::NewFrame();
-
-
 
             //Obtenemos El tam del Frame De La ventana en X y Y
             glfwGetFramebufferSize(window, &ventanaWidthEjeX, &ventanaHeightEjeY);     
@@ -342,7 +310,6 @@ int main(void)
                 showMenu = mainMenu->getMenusState();
                 sceneRunning = !showMenu;
             }
-          
 
             if (sceneRunning) {
                 scene->gameScene();
@@ -350,31 +317,18 @@ int main(void)
             showMenu = !sceneRunning;
             mainMenu->setStateGui(showMenu);
 
-
-            if (menuActivo) { //menuActivo = !menuActivo si E es presionada
+            if (menuActivo) { //menuActivo = !menuActivo si E es presionada (CAMBIAR)
                 treeFilesInterface->printGUI();
                 if (treeFilesInterface->getFolderContent() != nullptr){
                     managerOfGUI->setContentFolderGUI();
                     contentFolderInterface->printGUI();
                 }
-
-
-                //si se abre un folder se abre el contentFolder
-                //CONTENIDO PINTADO ACA
-                //muestra los datos de cada archivo en tabla
-                //se pueden crear mas archivos y arrastrar a la carpeta
-                
-                //MAS GUI DE LA SCENE
-                app->interfaceCreateNewObject(); //MOSTRAMOS LA VENTANA DE INSTANCIACION DE OBJETOS
             }
-        }
+
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
-        glfwSwapBuffers(window);
-
-
-        
+        glfwSwapBuffers(window);    
     }
 
 #if defined(_WIN32)

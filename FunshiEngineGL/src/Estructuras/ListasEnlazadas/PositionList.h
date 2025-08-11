@@ -26,6 +26,8 @@ public:
 	virtual Position<E>* prev(Position<E>* p) = 0;
 	virtual E remove(Position<E>* p) = 0;
 	virtual E remplace(Position<E>* p, E e) = 0;
+	virtual void swapPositions(Position<E>* p1, Position<E>* p2) = 0;
 	virtual void clear() = 0;
+	virtual void deleteByElement(E e) = 0;
 };
 #endif

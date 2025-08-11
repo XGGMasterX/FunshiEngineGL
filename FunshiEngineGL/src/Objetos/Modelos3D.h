@@ -71,8 +71,7 @@ private:
         }
     }
 
-public:
-    int d;
+public: 
     Modelos3D(std::string filePath) : GameObject() {
 #if defined(_WIN32)
         strncpy_s(this->filePath, sizeof(this->filePath), filePath.c_str(), _TRUNCATE);
@@ -99,15 +98,22 @@ public:
         return filePath;
     }
 
-    void dibujar() override {
+    void dibujar(float deltaTime) override {
         const int tam = 3;
         float* color[tam];
 
+        update(deltaTime);
         getComponent<Transform>()->position();
 
         //AGREGA EL Color
-        glMaterialfv(GL_FRONT, GL_DIFFUSE, getColor(*color, tam));
-
+        if (getComponent<Color>() != nullptr) {
+            glMaterialfv(GL_FRONT, GL_DIFFUSE, getColor(*color, tam));
+        }
+        else {
+            GLfloat white[] = { 1.0f, 1.0f, 1.0f, 1.0f };
+            glMaterialfv(GL_FRONT, GL_DIFFUSE, white);
+        }
+        
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
         glBegin(GL_TRIANGLES);
 
@@ -174,7 +180,7 @@ public:
         }
         archivo << path << std::endl;
 
-        GameObject::serializeObject();
+        GameObject::serializeEntity();
         serializeObject();
 
         myBinario->ofCloseBinary();
@@ -185,7 +191,7 @@ public:
         myBinario = new Binario(path);
         myBinario->ifOpenBinary();
 
-        GameObject::deserializeObject();
+        GameObject::deserializeEntity();
         deserializeObject();
 
         myBinario->ifCloseBinary();

@@ -6,6 +6,7 @@
 #include "../GUI/MenusGUI/MenuInterface.h"
 #include "../GUI/SceneGUI/SceneSelectedInterface.h"
 #include "../GUI/FileManagerGUI/TreeFilesInterface.h"
+#include "../GUI/SceneGUI/SceneMenuBarInterface.h"
 
 using namespace std;
 
@@ -19,7 +20,6 @@ using namespace std;
 //metodos getters para leer lass GUI
 class GUIManager {
 private:
-	//ContentFolderInterface* contentGUI;
 	
 	
 	//LosMenuDelMotor
@@ -30,6 +30,7 @@ private:
 	//SelecteableDeGameObjects,GizmosYScenes
 	//adaptar luego para todos las ENTIDADES
 	SceneSelectedInterface* selecteableGUI;
+	SceneMenuBarInterface* menuBarGUI;
 
 
 	TreeFilesInterface* treeFilesGUI;
@@ -37,15 +38,20 @@ private:
 	//Armar GUI para opciones
 	//Armar GUI para Manejo de Objetos
 	//Actualizar para admitir desplazamiento de archivos y carga dinamica
-
+	PhysicsEngine* phisics;
 	ContentFolderInterface* contentOfThisFolder;
 public:
 	GUIManager(GLFWwindow* window){
 		menuGUI = new MenuInterface(window,true);
 		selecteableGUI = new SceneSelectedInterface(true);
-		settingGUI = new SettingsObjectInterface(new GameObject(),false);
+		settingGUI = new SettingsObjectInterface(new Modelos3D(),false);
 		treeFilesGUI = new TreeFilesInterface(true, "C:/MotorGraficoArchivos");
 		contentOfThisFolder = new ContentFolderInterface(false);
+		menuBarGUI = new SceneMenuBarInterface(true);
+	}
+
+	void setPhysics(PhysicsEngine* phisics) {
+		this->phisics = phisics;
 	}
 
 	MenuInterface* getMenuGUI() {
@@ -59,10 +65,12 @@ public:
 	
 	SettingsObjectInterface* getSettingGUI(GameObject* gameObject) {
 		if (gameObject != nullptr && settingGUI->getObjectInInspector() == gameObject) {
+			settingGUI->setPhysics(phisics);
 			settingGUI->setStateGui(true);
 			return settingGUI;
 		}
 		else if(gameObject != nullptr){
+			settingGUI->setPhysics(phisics);
 			settingGUI->setStateGui(false);
 			settingGUI = new SettingsObjectInterface(gameObject, true);
 			return settingGUI;
@@ -78,14 +86,24 @@ public:
 		selecteableGUI->setEntitys(gameObjects);
 	}
 	
+	SceneMenuBarInterface* getMenuBarGUI(bool* targetBool) {
+		menuBarGUI->setActivador(targetBool);
+		return menuBarGUI;
+	}
 
 	SceneSelectedInterface* getSelecteableGUI() {
 		return selecteableGUI;
 	}
 
 	void setContentFolderGUI() {
-		contentOfThisFolder->setFolderRoot(treeFilesGUI->getFolderContent());
-		contentOfThisFolder->setStateGui(true);
+		if (treeFilesGUI->getFolderContent() == nullptr) {
+			contentOfThisFolder->setStateGui(false);
+		}
+		else {
+			contentOfThisFolder->setFolderRoot(treeFilesGUI->getFolderContent());
+			contentOfThisFolder->setStateGui(true);
+		}
+
 	}
 	
 	ContentFolderInterface* getContentFolderGUI(){

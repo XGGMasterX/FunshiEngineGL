@@ -153,7 +153,7 @@ public:
 		bool esDeLista = false;
 		if (!isEmpty() && p != nullptr) {
 			Position<E>* iterador = first();
-			while (!esDeLista) {
+			while (!esDeLista && iterador != nullptr) {
 				if (iterador->getElement() == p) {
 					esDeLista = true;
 				}
@@ -170,7 +170,7 @@ public:
 		if (!isEmpty() && p != nullptr) {
 			bool esDeLista = false;
 			iterador = first();
-			while (!esDeLista) {
+			while (!esDeLista && iterador != nullptr) {
 				if (iterador->getElement() == p) {
 					esDeLista = true;
 				}
@@ -195,5 +195,71 @@ public:
 			size = 0;
 		}
 	}
+
+	virtual void deleteByElement(E e) {
+		Position<E>* iterador = nullptr;
+		if (!isEmpty() && e != nullptr) {
+			bool esDeLista = false;
+			iterador = first();
+			while (!esDeLista && iterador != nullptr) {
+				if (iterador->getElement() == e) {
+					esDeLista = true;
+					remove(iterador);
+				}
+				else {
+					iterador = (iterador != last()) ? next(iterador) : nullptr;
+				}
+			}
+		}
+	}
+
+	virtual void swapPositions(Position<E>* p1, Position<E>* p2) override {
+		DNodo<E>* nodo1 = checkPosition(p1);
+		DNodo<E>* nodo2 = checkPosition(p2);
+
+		if (p1 == p2 || size <= 1) {
+			throw InvalidOperationException("LosParametrosSonIgualesONoHaySuficientes");
+		}
+
+		if (nodo1->getRight() == nodo2) {
+			// nodo1 está antes de nodo2
+			DNodo<E>* prev = nodo1->getLeft();
+			DNodo<E>* next = nodo2->getRight();
+
+			prev->setRight(nodo2);
+			nodo2->setLeft(prev);
+
+			nodo2->setRight(nodo1);
+			nodo1->setLeft(nodo2);
+
+			nodo1->setRight(next);
+			next->setLeft(nodo1);
+		}
+		else if (nodo2->getRight() == nodo1) {
+			// nodo2 está antes de nodo1
+			swapPositions(p2, p1);  // Reutilizamos el caso anterior
+		}
+		else {
+			// Caso general: no son adyacentes
+			// Guardamos referencias de vecinos
+			DNodo<E>* nodo1Prev = nodo1->getLeft();
+			DNodo<E>* nodo1Next = nodo1->getRight();
+			DNodo<E>* nodo2Prev = nodo2->getLeft();
+			DNodo<E>* nodo2Next = nodo2->getRight();
+
+			// Reenlazar nodo1 en posición de nodo2
+			nodo1Prev->setRight(nodo2);
+			nodo1Next->setLeft(nodo2);
+			nodo2->setLeft(nodo1Prev);
+			nodo2->setRight(nodo1Next);
+
+			// Reenlazar nodo2 en posición de nodo1
+			nodo2Prev->setRight(nodo1);
+			nodo2Next->setLeft(nodo1);
+			nodo1->setLeft(nodo2Prev);
+			nodo1->setRight(nodo2Next);
+		}
+
+	}  
 };
 #endif

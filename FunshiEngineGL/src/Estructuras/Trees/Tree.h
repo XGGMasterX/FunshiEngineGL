@@ -13,6 +13,7 @@ public:
 	//consultas de una posicion en la estructura
 	virtual ListaDE<Position<E>*>* childsOf(Position<E>* p) = 0;
 	virtual Position<E>* dadOf(Position<E>* p) = 0;
+	virtual Position<E>* whatIsPositionOf(E e) = 0;
 
 	//consultas tipo de nodo
 	virtual bool isRoot(Position<E>* p) = 0;
@@ -26,9 +27,11 @@ public:
 	virtual Position<E>* addNodeChildAfterOf(Position<E>* dad, Position<E>* plChild, E e) = 0;
 	virtual Position<E>* addNodeChildBeforeOf(Position<E>* dad, Position<E>* prChild, E e) = 0;
 
+
 	//=>eliminar
 	virtual E deleteRoot() = 0;
 	virtual E deleteInternalNode(Position<E>* p) = 0;
 	virtual E deleteExternalNode(Position<E>* p) = 0;
+	virtual E deleteNode(Position<E>* p) = 0;
 };
 #endif

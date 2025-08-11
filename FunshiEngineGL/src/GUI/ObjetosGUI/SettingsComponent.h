@@ -8,5 +8,6 @@ class SettingsComponent {
 public:
 	SettingsComponent(){}
 	virtual void showDataComponent() = 0;
+	virtual Component* getComponent() = 0;
 };
 #endif

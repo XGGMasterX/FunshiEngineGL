@@ -5,11 +5,11 @@
 #include "File.h"
 using namespace std;
 
-class Folder : public File {
+class Carpeta : public File {
 protected:
 	bool open;
 public:
-	Folder(string pathName) : File(pathName) {}
+	Carpeta(string pathName) : File(pathName) {}
 
 	bool isOpen() {
 		return open;
