@@ -121,11 +121,38 @@
     <Filter Include="Archivos de encabezado\Estructuras\ListasEnlazadas\MetodosDeOrdenamiento">
       <UniqueIdentifier>{1ec9e41d-d260-417a-9a59-578eb02c7a80}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Archivos de encabezado\STBImage">
-      <UniqueIdentifier>{093ba712-0a74-4ff8-b67e-b140ed39eb9b}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Archivos de encabezado\Entitys">
       <UniqueIdentifier>{f5f5a45b-8fd1-45a6-b442-e73b2559da00}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Archivos de encabezado\Objetos\Componentes\Colliders">
+      <UniqueIdentifier>{6d5c9378-a8c0-422e-addd-73666595c43a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Archivos de encabezado\GUI\ObjetosGUI\Colliders">
+      <UniqueIdentifier>{b8cd6b26-b9c8-4341-a62d-a516c4c4719b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Archivos de encabezado\GUI\ObjetosGUI\Color">
+      <UniqueIdentifier>{ddc1f2a8-4f2f-48b4-977d-b1d7f5bb9ed5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Archivos de encabezado\GUI\ObjetosGUI\Transform">
+      <UniqueIdentifier>{f39b4cb1-3249-4273-b00c-db3abdb6e0b4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Archivos de encabezado\GUI\ObjetosGUI\Script">
+      <UniqueIdentifier>{ab13a0fb-d82a-4258-8b87-311f223d6c73}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Archivos de encabezado\Fisicas">
+      <UniqueIdentifier>{826ebe09-cb69-4af0-83a9-68e37c54c351}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Archivos de origen\Fisicas">
+      <UniqueIdentifier>{5476696b-9a33-4625-9d3b-23c6db6bfc3b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Archivos de encabezado\Objetos\Componentes\RigidBody">
+      <UniqueIdentifier>{e32d0138-c802-4413-8dc7-569e97fda425}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Archivos de encabezado\GUI\ObjetosGUI\RigidBody">
+      <UniqueIdentifier>{8467bc7f-4413-435c-9e69-e72ce73dcca6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Archivos de encabezado\Behaviour">
+      <UniqueIdentifier>{b7ec1f08-de37-4051-bd34-0afe5a1ec980}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -147,7 +174,7 @@
     <ClInclude Include="src\GestorDeArchivos\File.h">
       <Filter>Archivos de encabezado\GestorDeArchivos</Filter>
     </ClInclude>
-    <ClInclude Include="src\GestorDeArchivos\Folder.h">
+    <ClInclude Include="src\GestorDeArchivos\Carpeta.h">
       <Filter>Archivos de encabezado\GestorDeArchivos</Filter>
     </ClInclude>
     <ClInclude Include="src\GestorDeArchivos\GestorDeArchivos.h">
@@ -219,19 +246,13 @@
     <ClInclude Include="src\Gizmo\Camera.h">
       <Filter>Archivos de encabezado\Gizmo</Filter>
     </ClInclude>
-    <ClInclude Include="src\GUI\ObjetosGUI\SettingsColor.h">
-      <Filter>Archivos de encabezado\GUI\ObjetosGUI</Filter>
-    </ClInclude>
     <ClInclude Include="src\GUI\ObjetosGUI\SettingsComponent.h">
       <Filter>Archivos de encabezado\GUI\ObjetosGUI</Filter>
     </ClInclude>
     <ClInclude Include="src\GUI\ObjetosGUI\SettingsObjectInterface.h">
       <Filter>Archivos de encabezado\GUI\ObjetosGUI</Filter>
     </ClInclude>
-    <ClInclude Include="src\GUI\ObjetosGUI\SettingsTransform.h">
-      <Filter>Archivos de encabezado\GUI\ObjetosGUI</Filter>
-    </ClInclude>
-    <ClInclude Include="src\GUI\SceneGUI\SceneMenuBar.h">
+    <ClInclude Include="src\GUI\SceneGUI\SceneMenuBarInterface.h">
       <Filter>Archivos de encabezado\GUI\SceneGUI</Filter>
     </ClInclude>
     <ClInclude Include="src\GUI\SceneGUI\SceneSelectedInterface.h">
@@ -333,11 +354,53 @@
     <ClInclude Include="src\Matematicas\StructVec3.h">
       <Filter>Archivos de encabezado\Matematicas</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\..\..\OneDrive\Desktop\DescargasParaMotorGrafico\stb-master\stb_image.h">
-      <Filter>Archivos de encabezado\STBImage</Filter>
-    </ClInclude>
     <ClInclude Include="src\Entity\Entity.h">
       <Filter>Archivos de encabezado\Entitys</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Objetos\Componentes\Colliders\Collider.h">
+      <Filter>Archivos de encabezado\Objetos\Componentes\Colliders</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Objetos\Componentes\Colliders\CubeCollider.h">
+      <Filter>Archivos de encabezado\Objetos\Componentes\Colliders</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Objetos\Componentes\Colliders\EsfereCollider.h">
+      <Filter>Archivos de encabezado\Objetos\Componentes\Colliders</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Objetos\Componentes\Script.h">
+      <Filter>Archivos de encabezado\Objetos\Componentes</Filter>
+    </ClInclude>
+    <ClInclude Include="src\GUI\ObjetosGUI\Colliders\SettingsColliderCubo.h">
+      <Filter>Archivos de encabezado\GUI\ObjetosGUI\Colliders</Filter>
+    </ClInclude>
+    <ClInclude Include="src\GUI\ObjetosGUI\Colliders\SettingsColliderEsfera.h">
+      <Filter>Archivos de encabezado\GUI\ObjetosGUI\Colliders</Filter>
+    </ClInclude>
+    <ClInclude Include="src\GUI\ObjetosGUI\Color\SettingsColor.h">
+      <Filter>Archivos de encabezado\GUI\ObjetosGUI\Color</Filter>
+    </ClInclude>
+    <ClInclude Include="src\GUI\ObjetosGUI\Script\SettingsScript.h">
+      <Filter>Archivos de encabezado\GUI\ObjetosGUI\Script</Filter>
+    </ClInclude>
+    <ClInclude Include="src\GUI\ObjetosGUI\Transform\SettingsTransform.h">
+      <Filter>Archivos de encabezado\GUI\ObjetosGUI\Transform</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Objetos\Componentes\Colliders\MallaCollider.h">
+      <Filter>Archivos de encabezado\Objetos\Componentes\Colliders</Filter>
+    </ClInclude>
+    <ClInclude Include="src\GUI\ObjetosGUI\Colliders\SettingsColliderMalla.h">
+      <Filter>Archivos de encabezado\GUI\ObjetosGUI\Colliders</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Fisicas\PhysicsEngine.h">
+      <Filter>Archivos de encabezado\Fisicas</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Objetos\Componentes\RigidBody\RigidBody.h">
+      <Filter>Archivos de encabezado\Objetos\Componentes\RigidBody</Filter>
+    </ClInclude>
+    <ClInclude Include="src\GUI\ObjetosGUI\RigidBody\SettingsRigidBody.h">
+      <Filter>Archivos de encabezado\GUI\ObjetosGUI\RigidBody</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Behaviour\IScriptBehaviour.h">
+      <Filter>Archivos de encabezado\Behaviour</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -376,6 +439,9 @@
     </ClCompile>
     <ClCompile Include="src\Matematicas\Vector.cpp">
       <Filter>Archivos de origen\Matematicas</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Fisicas\PhysicsEngine.cpp">
+      <Filter>Archivos de origen\Fisicas</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

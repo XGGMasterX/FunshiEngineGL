@@ -19,78 +19,61 @@
 #include "../Objetos/Malla.h"
 #include "../Objetos/Componentes/Color.h"
 #include "../GUIManager/GUIManager.h"
+#include "../Fisicas/PhysicsEngine.h"
 
 //ACTIVAR GUARDADO Y DIBUJO DE OBJETOS
 using namespace std;
 
-class GameScene : Time {
+class GameScene {
 private:
-    // PRE FABRICADOS PARA TESTING
-    //Necesito una estructura fija luego de parchar el bug
-    //de pintado
-    ListaDE<GameObject*>* nodosScene;
-    PriorityListaDE<GameObject*>* gameObjectsPorDistancia;
+    ListaDE<GameObject*>* gameObjects;
     Camera* camera;
     GUIManager* managerGUI;
     SceneSelectedInterface* selecteableGUI;
+    PhysicsEngine* phisics;
+    SceneMenuBarInterface* menuBarGUI;
+    float deltaTime;
+    bool start = false;
 public:
     GameScene(Camera* camera,GUIManager* managerGUI) {
         this->camera = camera;
         this->managerGUI = managerGUI;
         this->selecteableGUI = managerGUI->getSelecteableGUI();
-        nodosScene = new ListaDE<GameObject*>();
-        gameObjectsPorDistancia = new PriorityListaDE<GameObject*>(camera);
+        this->menuBarGUI = managerGUI->getMenuBarGUI(&start);
+        gameObjects = selecteableGUI->getGameObjects();
+        phisics = new PhysicsEngine();
     }
 
     ~GameScene() {
-        gameObjectsPorDistancia->clear();
+        gameObjects->clear();
     }
-
-
 
     //------LISTA IMGUI------
-    ListaDE<GameObject*>* getNodosScene() {
-        return nodosScene;
-    }
-
-    void setNodosScene(ListaDE<GameObject*>* nodosScene) {
-        this->nodosScene = nodosScene;
+    ListaDE<GameObject*>* getGameObjectsScene() {
+        return gameObjects;
     }
 
 
 public:
     //------------Scene------------
     void saveScene(const std::string& filename) {
-        if (!gameObjectsPorDistancia->isEmpty()) {
-            Position<GameObject*>* pos = gameObjectsPorDistancia->first();
+        if (!gameObjects->isEmpty()) {
+            Position<GameObject*>* pos = gameObjects->first();
             while (pos != nullptr && pos->getElement() != nullptr) {
-                pos->getElement()->saveObject(filename);
+                pos->getElement()->saveEntity(filename);
                 cout << "Guardado: " << pos->getElement()->getId() << endl;
-                pos = (pos != gameObjectsPorDistancia->last()) ? gameObjectsPorDistancia->next(pos) : nullptr;
+                pos = (pos != gameObjects->last()) ? gameObjects->next(pos) : nullptr;
             }
         }
 
     }
 
-    bool deleteObjectByID(int id) {
-        bool encontre = false;
-        if (!gameObjectsPorDistancia->isEmpty()) {
-            Position<GameObject*>* pos = gameObjectsPorDistancia->first();
-            while (pos != nullptr && !encontre) {
-                if (pos->getElement()->getId() == id) {
-                    gameObjectsPorDistancia->remove(pos);
-                    encontre = true;
-                }
-                else {
-                    pos = (pos != gameObjectsPorDistancia->last()) ? gameObjectsPorDistancia->next(pos) : nullptr;
-                }
-            }
-        }
-        return encontre;
+    bool isStart() {
+        return start;
     }
 
     void loadScene(const std::string& pathTxt, const std::string& semiPath) {
-        gameObjectsPorDistancia->clear(); // Evitar duplicados al cargar
+        gameObjects->clear(); // Evitar duplicados al cargar
         std::ifstream file(pathTxt);
         if (!file.is_open()) {
             std::cerr << "No se pudo abrir el archivo de paths: " << pathTxt << std::endl;
@@ -116,9 +99,9 @@ public:
 
 
             obj->setId(std::stoi(idStr));
-            obj->loadObject(semiPath);
+            obj->loadEntity(semiPath);
             idStr = idStr.substr(0, idStr.find(".db"));          // eliminar ".db" si es necesario
-            gameObjectsPorDistancia->insertarOrdenado(obj);
+            gameObjects->addLast(obj);
         }
 
         file.close();
@@ -133,45 +116,21 @@ public:
     //recorro la lista
     //revisar de que punta a que punta
     void dibujarGameObjects() {
-        if (!gameObjectsPorDistancia->isEmpty()) {
-            Position<GameObject*>* pos = gameObjectsPorDistancia->first();
+        if (!gameObjects->isEmpty()) {
+            Position<GameObject*>* pos = gameObjects->first();
             while (pos != nullptr && pos->getElement() != nullptr) {
                 dibujarObject(pos->getElement());
-                pos = (pos != gameObjectsPorDistancia->last()) ? gameObjectsPorDistancia->next(pos) : nullptr;
+                pos = (pos != gameObjects->last()) ? gameObjects->next(pos) : nullptr;
             }
         }
-    }
-
-    void reSorting() {
-        if (!gameObjectsPorDistancia->isEmpty()) {
-            PriorityListaDE<GameObject*>* aux = new PriorityListaDE<GameObject*>(camera);
-            //al lista ordenada ya no tiene orden de peso porque me movi
-            Position<GameObject*>* pos = gameObjectsPorDistancia->last();
-            while (pos != nullptr) {
-                aux->insertarOrdenado(pos->getElement());//le doy peso
-                pos = (pos != gameObjectsPorDistancia->first()) ? gameObjectsPorDistancia->prev(pos) : nullptr;
-            }
-            gameObjectsPorDistancia = aux;
-        }
-    }
-
-    void createGameObject(GameObject* newGameObject) {
-        if (gameObjectsPorDistancia->isEmpty()) {
-            newGameObject->setId(0);
-        }
-        else {
-            newGameObject->setId(gameObjectsPorDistancia->last()->getElement()->getId() + 1);
-        }
-        gameObjectsPorDistancia->insertarOrdenado(newGameObject);
     }
 
     void dibujarObject(GameObject* obj) {
-        //GameObject::selectedObject(obj, obj->buttonPress);
         obj->setTam(10);
         obj->setColor(obj->auxColor);
-        obj->dibujar();
-        //mejorar esto
-       // setListObjectByID(getNodosScene()->listID, obj);
+        if (obj->getComponent<Transform>() != nullptr) {
+            obj->dibujar(deltaTime);
+        }
     }
 
     void mallaScene(float tam) {
@@ -197,34 +156,39 @@ public:
 
     void GUI() {
         //le paso los ENTITY => refactorizar todo eso
-        selecteableGUI->setEntitys(gameObjectsPorDistancia);
         selecteableGUI->printGUI();
         
         //Obtengo el objeto que fue seleccionado en la selecteableGUI si se apreto un boton
-        if (gameObjectsPorDistancia->isElement(selecteableGUI->getReturnableEntity())) {
+        if (gameObjects->isElement(selecteableGUI->getReturnableEntity()) && this->phisics != nullptr) {
+            managerGUI->setPhysics(this->phisics);
             managerGUI->getSettingGUI(selecteableGUI->getReturnableEntity())->printGUI();
         }
-        
-		
+        menuBarGUI->printGUI();
+	    
+    }
+
+    void update(float deltaTime) {
+        //float aux = this->deltaTime;
+        this->deltaTime = deltaTime;// +aux;
+        phisics->stepSimulation(deltaTime);
+        //cout << this->deltaTime << endl;
     }
 
     void gameScene() {
         glMatrixMode(GL_MODELVIEW);
         glLoadIdentity(); 
-        camera->activar();
+        camera->activate();
 
         //Autiomatizar Creacion De Objetos
         glPushMatrix();
         mallaScene(70.0);
         glPopMatrix();
 
-
+        //TESTEAR
         GLfloat lightPos[] = { 5.0f, 5.0f, 5.0f, 1.0f }; // Posición mundial
         glLightfv(GL_LIGHT0, GL_POSITION, lightPos);
-        //reSorting();
-        dibujarGameObjects();
-        
 
+        dibujarGameObjects();
         GUI();
     }
 

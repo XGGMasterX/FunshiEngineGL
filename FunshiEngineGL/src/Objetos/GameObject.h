@@ -20,72 +20,51 @@
 #include "../GestorDeArchivos/Binario.h"
 #include "../Estructuras/Comparable.h"
 #include "../Estructuras/ListasEnlazadas/ListasDoblementeEnlazada/ListaDE.h"
+#include "../Objetos/Componentes/Colliders/EsfereCollider.h"
+#include "../Objetos/Componentes/Colliders/CubeCollider.h"
+#include "../Objetos/Componentes/Colliders/MallaCollider.h"
+#include "../Objetos/Componentes/RigidBody/RigidBody.h"
+#include "../Objetos/Componentes/Script.h"
+#include "../Entity/Entity.h"
 
 using namespace std;
-class GameObject : public Comparable<GameObject> {
+
+class GameObject : public Comparable<GameObject> , public Entity{
 
 protected:
 
 	bool state = true;
 	int id;
 	int tam = 1;
-	Binario* myBinario;
 
 public:
 	GameObject() {
-		components = new ListaDE<Component*>();
-		addComponent(new Transform());
-		addComponent(new Color());
 	}
 
 	virtual ~GameObject() {
 
 	} // Destructor virtual para que se llame al de las clases derivadas
 
-
-
-	bool buttonPress = true;
-	bool activeSelectedObject = true;
-	bool activeComponentSettingsObject = false;
-	//ImGui
 	char inputName[25];
-	bool dense;
-	bool points;
-	bool lines;
 	color auxColor = { 0.0f, 0.0f, 0.0f, 1.0f };
 
+public:
 
-	//COMPONENT
-	ListaDE<Component*>* components;
-	int inputId;
-	//COLLIDER
-
-	//GET ONE SPECIFIC COMPONENT M�todo para agregar un componente al GameObject.
-	void addComponent(Component* component) {
-	   //if (component != nullptr) {
+	void addComponent(Component* component) override {
+	   if (component != nullptr) {
 	      	component->settingsObjectComponent = true;
 	    	components->addLast(component);
-	   //}
+	   }
 	}
 
-	// Metodo GetComponent.
-	template <typename T>
-	T* getComponent() {
-		Position<Component*>* position = components->first();
-		T* component = nullptr;
-		while(position != nullptr){
-			if (dynamic_cast<T*>(position->getElement())) {
-				component = dynamic_cast<T*>(position->getElement());
-				position = nullptr;
-			}
-			else {
-				position = (position != components->last()) ? components->next(position) : nullptr;
-			}
+	//ASUMO QUE NO SE REPITEN
+	void deleteComponent(Component* component) override {
+		if (component != nullptr && !components->isEmpty()) {
+			components->deleteByElement(component);
 		}
-		return component;
 	}
 
-	ListaDE<Component*>* getComponents() {
+	ListaDE<Component*>* getComponents() override {
 		return components;
 	}
 
@@ -109,7 +88,6 @@ public:
 	//quiero que devuelva la distancia de yo (this) a other
 	// Devuelve la distancia euclidiana entre this y other
 	float distanciaA(GameObject* other) {
-
 		Transform* myTransform = this->getComponent<Transform>();
 		Transform* otherTransform = other->getComponent<Transform>();
 
@@ -124,7 +102,6 @@ public:
 
 		return sqrt(dx * dx + dy * dy + dz * dz);
 	}
-	static void selectedObject(GameObject*, bool&);
 
 	void setId(int id) {
 		this->id = id;
@@ -142,9 +119,6 @@ public:
 		Color* color = getComponent<Color>();
 		if (color != nullptr) {
 			color->setColor(cor);
-		}
-		else {
-			cout << "Color no es componente" << endl;
 		}
 	}
 
@@ -168,45 +142,47 @@ public:
 		return tam;
 	}
 
-	Binario* getMyBinario() {
-		return myBinario;
-	}
-
 public:
-	virtual void dibujar() {}//se deja para implementar
+	virtual void dibujar(float deltaTime) = 0; //se deja para implementar
 
-	//HACER PARA COLOR Y COMPONENT LO MISMO
+	virtual void update(float deltaTime) {
+		if (getComponent<RigidBody>() != nullptr) {
+			getComponent<RigidBody>()->syncPhysicsToGameObject();
+		}
+	}
 protected:
 
-	virtual void serializeObjectComponents() {
+	virtual void serializeEntityComponents() override {
 		// Guardar el número de componentes
 		size_t numComponents = components->tam();
 		myBinario->getOfBinariFile()->write(reinterpret_cast<const char*>(&numComponents), sizeof(size_t));
 
-		Position<Component*>* position = components->first();
-		// Guardar cada componente
-		while (position != nullptr) {
-		    Component* component = position->getElement();
-			// Obtener el nombre del tipo y limpiar "class " si está presente (MSVC)
-			std::string cleanTypeName = typeid(*component).name();
-			const std::string classPrefix = "class ";
-			if (cleanTypeName.compare(0, classPrefix.size(), classPrefix) == 0) {
-				cleanTypeName = cleanTypeName.substr(classPrefix.size());
+		if (!components->isEmpty()) {
+			Position<Component*>* position = components->first();
+			// Guardar cada componente
+			while (position != nullptr) {
+				Component* component = position->getElement();
+				// Obtener el nombre del tipo y limpiar "class " si está presente (MSVC)
+				std::string cleanTypeName = typeid(*component).name();
+				const std::string classPrefix = "class ";
+				if (cleanTypeName.compare(0, classPrefix.size(), classPrefix) == 0) {
+					cleanTypeName = cleanTypeName.substr(classPrefix.size());
+				}
+
+				// Guardar el nombre del tipo limpio
+				size_t typeNameLength = cleanTypeName.size();
+				myBinario->getOfBinariFile()->write(reinterpret_cast<const char*>(&typeNameLength), sizeof(size_t));
+				myBinario->getOfBinariFile()->write(cleanTypeName.c_str(), typeNameLength);
+
+				// Guardar los datos del componente
+				component->saveComponent(myBinario->getOfBinariFile());
+				position = (position != components->last()) ? components->next(position) : nullptr;
 			}
-
-			// Guardar el nombre del tipo limpio
-			size_t typeNameLength = cleanTypeName.size();
-			myBinario->getOfBinariFile()->write(reinterpret_cast<const char*>(&typeNameLength), sizeof(size_t));
-			myBinario->getOfBinariFile()->write(cleanTypeName.c_str(), typeNameLength);
-
-			// Guardar los datos del componente
-			component->saveComponent(myBinario->getOfBinariFile());
-			position = (position != components->last()) ? components->next(position) : nullptr;
 		}
 	}
 
 
-	virtual void deserializeObjectComponents() {
+	virtual void deserializeEntityComponents() override {
 		//numero de componentes
 		size_t numComponents = 0;
 		myBinario->getIfBinariFile()->read(reinterpret_cast<char*>(&numComponents), sizeof(size_t));
@@ -216,7 +192,7 @@ protected:
 		}
 		
 
-		//leer cada componente
+		//leer cada componente , GENERALIZAR
 		for (size_t i = 0; i < numComponents; ++i) {
 			//leer el nombre del tipo
 			size_t typeNameLength = 0;
@@ -246,6 +222,33 @@ protected:
 					}
 				}
 			}
+			else if (typeName == "EsfereCollider") {
+				component = new EsfereCollider(5.0f, getComponent<Transform>());
+				component->loadComponent(myBinario->getIfBinariFile());
+				addComponent(component);
+			}
+			else if (typeName == "CubeCollider" && getComponent<Transform>() != nullptr) {
+				component = new CubeCollider(5.0f, getComponent<Transform>());
+				component->loadComponent(myBinario->getIfBinariFile());
+				addComponent(component);
+			}
+			else if (typeName == "MallaCollider" && getComponent<Transform>() != nullptr) {
+				component = new MallaCollider(5.0f, getComponent<Transform>());
+				component->loadComponent(myBinario->getIfBinariFile());
+				addComponent(component);
+			}
+			else if (typeName == "RigidBody" && getComponent<Collider>() != nullptr) {
+				component = new RigidBody(getComponent<Collider>(),1.0f);
+				component->loadComponent(myBinario->getIfBinariFile());
+				addComponent(component);
+			}
+			else if (typeName == "Script") {
+				component = new Script();
+				component->loadComponent(myBinario->getIfBinariFile());
+				addComponent(component);
+			}
+			//SOPORTE PARA COMPONENTES SCRIPTS
+
 			else {
 				std::cerr << "Tipo de componente desconocido: " << typeName << "\n";
 			}
@@ -253,40 +256,32 @@ protected:
 	}
 
 
-	virtual void serializeObject() {
+	virtual void serializeEntity() override {
 		myBinario->getOfBinariFile()->write(reinterpret_cast<const char*>(&state), sizeof(bool));
 		myBinario->getOfBinariFile()->write(reinterpret_cast<const char*>(&id), sizeof(int));
 		myBinario->getOfBinariFile()->write(reinterpret_cast<const char*>(&tam), sizeof(int));
 		myBinario->getOfBinariFile()->write(inputName, sizeof(char) * 25);
-		myBinario->getOfBinariFile()->write(reinterpret_cast<const char*>(&dense), sizeof(bool));
-		myBinario->getOfBinariFile()->write(reinterpret_cast<const char*>(&points), sizeof(bool));
-		myBinario->getOfBinariFile()->write(reinterpret_cast<const char*>(&lines), sizeof(bool));
-		myBinario->getOfBinariFile()->write(reinterpret_cast<const char*>(&inputId), sizeof(int));
 
 		//guarda atributos de componentes
-		serializeObjectComponents();
+		serializeEntityComponents();
 	}
 
 
-	virtual void deserializeObject() {
+	virtual void deserializeEntity() override {
 		myBinario->getIfBinariFile()->read(reinterpret_cast<char*>(&state), sizeof(bool));
 		myBinario->getIfBinariFile()->read(reinterpret_cast<char*>(&id), sizeof(int));
 		myBinario->getIfBinariFile()->read(reinterpret_cast<char*>(&tam), sizeof(int));
 		myBinario->getIfBinariFile()->read(inputName, sizeof(inputName));
-		myBinario->getIfBinariFile()->read(reinterpret_cast<char*>(&dense), sizeof(bool));
-		myBinario->getIfBinariFile()->read(reinterpret_cast<char*>(&points), sizeof(bool));
-		myBinario->getIfBinariFile()->read(reinterpret_cast<char*>(&lines), sizeof(bool));
-		myBinario->getIfBinariFile()->read(reinterpret_cast<char*>(&inputId), sizeof(int));
 
 		//carga atributos de componentes
-		deserializeObjectComponents();
+		deserializeEntityComponents();
 	}
 
 
 public:
 
 
-	virtual void saveObject(string filename) {
+	virtual void saveEntity(string filename) override {
 		//crear binario y si existe lo limpia internamente el objeto Binario
 		string path = filename + "/ObjectN" + to_string(getId()) + ".db";
 		myBinario = new Binario(path);
@@ -300,19 +295,19 @@ public:
 		}
 		archivo << path << std::endl;
 
-		serializeObject();
+		serializeEntity();
 
 		myBinario->ofCloseBinary();
 	}
 
 
 
-	virtual void loadObject(string filename) {
+	virtual void loadEntity(string filename) override {
 		string path = filename + "/ObjectN" + to_string(getId()) + ".db";
 		myBinario = new Binario(path);
 		myBinario->ifOpenBinary();
 
-		deserializeObject();
+		deserializeEntity();
 
 		myBinario->ifCloseBinary();
 	}

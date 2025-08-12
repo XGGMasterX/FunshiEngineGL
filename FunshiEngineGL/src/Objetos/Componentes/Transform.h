@@ -13,13 +13,13 @@ private:
 	float objectScalef[3] = { 1.0f, 1.0f, 1.0f };
 	float objectRotatef[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
 
-	void serializeComponent(std::ofstream* fileNamePathContentObject) {
+	void serializeComponent(std::ofstream* fileNamePathContentObject) override {
 		fileNamePathContentObject->write(reinterpret_cast<const char*>(&objectTranslatef), sizeof(float) * 3);
 		fileNamePathContentObject->write(reinterpret_cast<const char*>(&objectScalef), sizeof(float) * 3);
 		fileNamePathContentObject->write(reinterpret_cast<const char*>(&objectRotatef), sizeof(float) * 4);
 	}
 
-	void deserializeComponent(std::ifstream* fileNamePathContentObject) {
+	void deserializeComponent(std::ifstream* fileNamePathContentObject) override {
 		fileNamePathContentObject->read(reinterpret_cast<char*>(&objectTranslatef), sizeof(float) * 3);
 		fileNamePathContentObject->read(reinterpret_cast<char*>(&objectScalef), sizeof(float) * 3);
 		fileNamePathContentObject->read(reinterpret_cast<char*>(&objectRotatef), sizeof(float) * 4);
@@ -90,20 +90,11 @@ public:
 	float* getScalef() { return arrScalef; }
 	float* getRotatef() { return arrRotatef; }
 
-	vec3 getPosition() const {
-		return vec3(objectTranslatef[0], objectTranslatef[1], objectTranslatef[2]);
-	}
-
-	void setPosition(const vec3& pos) {
-		setTranslatef(pos.x, pos.y, pos.z);
-	}
-
-
-	void saveComponent(std::ofstream* fileNamePathContentObject) {
+	void saveComponent(std::ofstream* fileNamePathContentObject) override {
 		serializeComponent(fileNamePathContentObject);
 	}
 
-	void loadComponent(std::ifstream* fileNamePathContentObject) {
+	void loadComponent(std::ifstream* fileNamePathContentObject) override {
 		deserializeComponent(fileNamePathContentObject);
 	}
 

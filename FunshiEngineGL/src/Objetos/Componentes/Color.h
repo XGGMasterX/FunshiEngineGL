@@ -45,11 +45,11 @@ public:
         range[3] = 1.0f;
     }
 
-    void saveComponent(std::ofstream* file) {
+    void saveComponent(std::ofstream* file) override {
         serializeComponent(file);
     }
 
-    void loadComponent(std::ifstream* file) {
+    void loadComponent(std::ifstream* file) override {
         deserializeComponent(file);
     }
 

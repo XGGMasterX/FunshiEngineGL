@@ -10,7 +10,7 @@
 #include <dirent.h>
 #include <sys/stat.h>
 #endif
-#include "Folder.h"
+#include "Carpeta.h"
 using namespace std;
 
 //recorre el sistema de carpetas del proyecto
@@ -28,7 +28,7 @@ public:
 	ArbolEnlazado<File*>* getTreeFilePath() {
 		return treeFilePath;
 	}
-    //que el root sea actual no el hijo
+    
     void recorrer(const std::string& path) {
         std::string searchPath = path + "\\*";
 
@@ -66,7 +66,7 @@ public:
             std::string fullPath = path + "\\" + nombre;
 
             if (findData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
-                Folder* newDirectory = new Folder(nombre);
+                Carpeta* newDirectory = new Carpeta(nombre);
                 newDirectory->setPathRoot(path);
 
                 if (treeFilePath->isEmpty()) {
@@ -91,7 +91,7 @@ public:
         FindClose(hFind);
     }
 
-	//llamar solo si hay cambios desde el motor
+	
 	bool setTreeFilePath(const std::string& path) {
         ArbolEnlazado<File*>* nuevaTree = new ArbolEnlazado<File*>();
         ArbolEnlazado<File*>* original = treeFilePath;
@@ -122,14 +122,14 @@ public:
         Position<File*>* r1, Position<File*>* r2) {
         if (r1 == nullptr || r2 == nullptr) return false;
 
-        // Comparar nombres y rutas
+        
         File* file1 = r1->getElement();
         File* file2 = r2->getElement();
         if (file1->getPathName() != file2->getPathName() || file1->getPathRoot() != file2->getPathRoot()) {
             return false;
         }
 
-        // Verificar si son externos: si ambos lo son, terminamos esta rama
+       
         bool external1 = t1->isExternal(r1);
         bool external2 = t2->isExternal(r2);
 
@@ -137,12 +137,12 @@ public:
             return true;
         }
 
-        // Si uno es external y el otro no, son diferentes
+        
         if (external1 != external2) {
             return false;
         }
 
-        // Ambos son internos, comparamos hijos
+        
         ListaDE<Position<File*>*>* hijos1 = t1->childsOf(r1);
         ListaDE<Position<File*>*>* hijos2 = t2->childsOf(r2);
 
@@ -165,6 +165,87 @@ public:
 
         return true;
     }
+    private:
+
+        bool eliminarCarpetaWindows(const std::string& path) {
+            if (path.empty()) return false;
+
+            // SHFILEOPSTRUCT requiere doble null terminador
+            std::string pathDobleNull = path + '\0';
+            pathDobleNull.push_back('\0');
+
+            SHFILEOPSTRUCTA fileOp = { 0 };
+            fileOp.wFunc = FO_DELETE;
+            fileOp.pFrom = pathDobleNull.c_str();
+            fileOp.fFlags = FOF_NOCONFIRMATION | FOF_SILENT | FOF_NOERRORUI;
+
+            int res = SHFileOperationA(&fileOp);
+            return (res == 0 && !fileOp.fAnyOperationsAborted);
+        }
+
+        bool eliminarCarpetaLinux(const std::string& path) {
+            if (path.empty()) return false;
+
+            std::string comando = "rm -rf \"" + path + "\"";
+            int res = system(comando.c_str());
+            return (res == 0);
+        }
+
+public:
+    // Método público que delega según plataforma
+    bool eliminarCarpeta(const std::string& path) {
+#if defined(_WIN32)
+        return eliminarCarpetaWindows(path);
+#elif defined(__linux__)
+        return eliminarCarpetaLinux(path);
+#else
+        std::cerr << "Eliminar ruta no soportado en esta plataforma\n";
+        return false;
+#endif
+    }
+
+    private:
+
+        bool crearCarpetaWindows(const std::string& path) {
+            if (path.empty()) return false;
+
+            // CreateDirectoryA devuelve 0 si falla, distinto de 0 si crea o ya existe
+            BOOL res = CreateDirectoryA(path.c_str(), NULL);
+            if (res == 0) {
+                DWORD err = GetLastError();
+                if (err == ERROR_ALREADY_EXISTS) {
+                    return true; // ya existía la carpeta, ok
+                }
+                else {
+                    std::cerr << "Error creando carpeta: " << err << "\n";
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        bool crearCarpetaLinux(const std::string& path) {
+            if (path.empty()) return false;
+
+            // Usamos mkdir -p para crear la carpeta y todas sus padres
+            std::string comando = "mkdir -p \"" + path + "\"";
+            int res = system(comando.c_str());
+            return (res == 0);
+        }
+
+public:
+    // Método público que delega según plataforma
+    bool crearCarpeta(const std::string& path) {
+#if defined(_WIN32)
+        return crearCarpetaWindows(path);
+#elif defined(__linux__)
+        return crearCarpetaLinux(path);
+#else
+        std::cerr << "Crear carpeta no soportado en esta plataforma\n";
+        return false;
+#endif
+    }
+
 
 };
 #endif

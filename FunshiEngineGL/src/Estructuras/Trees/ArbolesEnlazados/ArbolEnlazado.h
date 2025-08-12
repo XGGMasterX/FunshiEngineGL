@@ -216,5 +216,103 @@ public:
 		size--;
 		return saveElement;
 	}
+
+	virtual E deleteNode(Position<E>* p) override {
+		E resultado = nullptr;
+		if (isInternal(p)) {
+			resultado = deleteInternalNode(p);
+		}
+		else if (isExternal(p)) {
+			resultado = deleteExternalNode(p);
+		}
+		return resultado;
+	}
+
+	virtual Position<E>* whatIsPositionOf(E e) override {
+		Position<E>* resultado = nullptr;
+		if (!isEmpty() && e != nullptr) {
+			resultado = busquedaDeElementoPreOrden(root, e);
+		}
+		return resultado;
+	}
+
+	virtual void positionToChildOf(Position<E>* dad, Position<E>* pChild) {
+		TNodo<E>* nodeDad = checkPosition(dad);
+		TNodo<E>* nodePChild = checkPosition(pChild);
+		bool esHijo = false;
+		esHijo = busquedaDePositionPreOrden(nodeDad, nodePChild);
+		if (!esHijo) {
+			//Me quito de mi padre
+			ListaDE<TNodo<E>*>* hermanos = nodePChild->getRootDad()->getChilds();
+			Position<TNodo<E>*>* position = hermanos->whatElementPosition(nodePChild);
+			hermanos->remove(position);
+
+			nodePChild->setRootDad(nodeDad);
+			nodeDad->getChilds()->addLast(nodePChild);
+		}
+	}
+
+private:
+	bool busquedaDePositionPreOrden(TNodo<E>* root, TNodo<E>* e) {
+		bool resultado = false;
+		resultado = (root == e);
+
+		if (resultado) {
+			return resultado;
+		}
+		else if (isInternal(root)) {
+			ListaDE<TNodo<E>*>* childs = root->getChilds();
+			Position<TNodo<E>*>* child = childs->first();
+			TNodo<E>* position = child->getElement();
+
+			while (position != nullptr && !resultado) {
+				if (position == e) {
+					resultado = true;
+				}
+				else {
+					resultado = busquedaDePositionPreOrden(position, e);
+					child = (child != childs->last()) ? childs->next(child) : nullptr;
+					if (child != nullptr) {
+						position = child->getElement();
+					}
+					else {
+						position = nullptr;
+					}
+				}
+			}
+		}
+		return resultado;
+	}
+
+
+
+	Position<E>* busquedaDeElementoPreOrden(Position<E>* root,E e) {
+		TNodo<E>* node = checkPosition(root);
+		Position<E>* resultado = nullptr;
+		if (node->getElement() == e) {
+			resultado = node;
+		}
+		else if(isInternal(node)){
+			ListaDE<TNodo<E>*>* childs = node->getChilds();
+			Position<TNodo<E>*>* child = childs->first();
+			TNodo<E>* position = child->getElement();
+			while (position != nullptr && resultado == nullptr) {
+				if (position->getElement() == e) {
+					resultado = position;
+				}
+				else {
+					resultado = busquedaDeElementoPreOrden(position, e);
+					child = (child != childs->last()) ? childs->next(child) : nullptr;
+					if (child != nullptr) {
+						position = child->getElement();
+					}
+					else {
+						position = nullptr;
+					}
+				}
+			}
+		}
+		return resultado;
+	}
 };
 #endif

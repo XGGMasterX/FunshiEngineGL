@@ -21,10 +21,10 @@
   <ItemGroup>
     <ClInclude Include="..\..\..\..\OneDrive\Desktop\DescargasParaMotorGrafico\GLAD\include\glad\glad.h" />
     <ClInclude Include="..\..\..\..\OneDrive\Desktop\DescargasParaMotorGrafico\GLAD\include\KHR\khrplatform.h" />
-    <ClInclude Include="..\..\..\..\OneDrive\Desktop\DescargasParaMotorGrafico\stb-master\stb_image.h" />
     <ClInclude Include="..\..\FunshiMotorGrafico\FunshiMotorGrafico\src\Estructuras\Trees\Heap\Heap.h" />
     <ClInclude Include="..\..\FunshiMotorGrafico\FunshiMotorGrafico\src\Estructuras\Trees\Heap\MaxHeap.h" />
     <ClInclude Include="..\..\FunshiMotorGrafico\FunshiMotorGrafico\src\Estructuras\Trees\Heap\MinHeap.h" />
+    <ClInclude Include="src\Behaviour\IScriptBehaviour.h" />
     <ClInclude Include="src\Entity\Entity.h" />
     <ClInclude Include="src\Estructuras\Comparable.h" />
     <ClInclude Include="src\Estructuras\ListasEnlazadas\ListasConPrioridad\PriorityListaDE.h" />
@@ -47,9 +47,10 @@
     <ClInclude Include="src\ExcepcionesCPP\NullPointerException.h" />
     <ClInclude Include="src\ExcepcionesCPP\RuntimeException.h" />
     <ClInclude Include="src\ExcepcionesCPP\Throwable.h" />
+    <ClInclude Include="src\Fisicas\PhysicsEngine.h" />
     <ClInclude Include="src\GestorDeArchivos\Binario.h" />
     <ClInclude Include="src\GestorDeArchivos\File.h" />
-    <ClInclude Include="src\GestorDeArchivos\Folder.h" />
+    <ClInclude Include="src\GestorDeArchivos\Carpeta.h" />
     <ClInclude Include="src\GestorDeArchivos\GestorDeArchivos.h" />
     <ClInclude Include="src\Gizmo\Camera.h" />
     <ClInclude Include="src\Gizmo\Gizmo.h" />
@@ -60,11 +61,16 @@
     <ClInclude Include="src\GUI\MenusGUI\MenuInterface.h" />
     <ClInclude Include="src\GUI\MenusGUI\MenuOpcionesInterface.h" />
     <ClInclude Include="src\GUI\MenusGUI\MenuProyectoInterface.h" />
-    <ClInclude Include="src\GUI\ObjetosGUI\SettingsColor.h" />
+    <ClInclude Include="src\GUI\ObjetosGUI\Colliders\SettingsColliderCubo.h" />
+    <ClInclude Include="src\GUI\ObjetosGUI\Colliders\SettingsColliderEsfera.h" />
+    <ClInclude Include="src\GUI\ObjetosGUI\Colliders\SettingsColliderMalla.h" />
+    <ClInclude Include="src\GUI\ObjetosGUI\Color\SettingsColor.h" />
+    <ClInclude Include="src\GUI\ObjetosGUI\RigidBody\SettingsRigidBody.h" />
+    <ClInclude Include="src\GUI\ObjetosGUI\Script\SettingsScript.h" />
     <ClInclude Include="src\GUI\ObjetosGUI\SettingsComponent.h" />
     <ClInclude Include="src\GUI\ObjetosGUI\SettingsObjectInterface.h" />
-    <ClInclude Include="src\GUI\ObjetosGUI\SettingsTransform.h" />
-    <ClInclude Include="src\GUI\SceneGUI\SceneMenuBar.h" />
+    <ClInclude Include="src\GUI\ObjetosGUI\Transform\SettingsTransform.h" />
+    <ClInclude Include="src\GUI\SceneGUI\SceneMenuBarInterface.h" />
     <ClInclude Include="src\GUI\SceneGUI\SceneSelectedInterface.h" />
     <ClInclude Include="src\ImGui\imconfig.h" />
     <ClInclude Include="src\ImGui\imgui.h" />
@@ -76,9 +82,15 @@
     <ClInclude Include="src\ImGui\imstb_textedit.h" />
     <ClInclude Include="src\ImGui\imstb_truetype.h" />
     <ClInclude Include="src\Matematicas\StructVec3.h" />
+    <ClInclude Include="src\Objetos\Componentes\Colliders\Collider.h" />
+    <ClInclude Include="src\Objetos\Componentes\Colliders\CubeCollider.h" />
+    <ClInclude Include="src\Objetos\Componentes\Colliders\EsfereCollider.h" />
+    <ClInclude Include="src\Objetos\Componentes\Colliders\MallaCollider.h" />
     <ClInclude Include="src\Objetos\Componentes\Color.h" />
     <ClInclude Include="src\Objetos\Componentes\Component.h" />
     <ClInclude Include="src\Objetos\Componentes\Phisics.h" />
+    <ClInclude Include="src\Objetos\Componentes\RigidBody\RigidBody.h" />
+    <ClInclude Include="src\Objetos\Componentes\Script.h" />
     <ClInclude Include="src\Objetos\Componentes\Transform.h" />
     <ClInclude Include="src\Objetos\GameObject.h" />
     <ClInclude Include="src\Objetos\Malla.h" />
@@ -93,6 +105,7 @@
   <ItemGroup>
     <ClCompile Include="..\..\..\..\OneDrive\Desktop\DescargasParaMotorGrafico\GLAD\src\glad.c" />
     <ClCompile Include="src\ExcepcionesCPP\RuntimeException.cpp" />
+    <ClCompile Include="src\Fisicas\PhysicsEngine.cpp" />
     <ClCompile Include="src\ImGui\imgui.cpp" />
     <ClCompile Include="src\ImGui\imgui_demo.cpp" />
     <ClCompile Include="src\ImGui\imgui_draw.cpp" />
@@ -188,13 +201,14 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>C:\Users\gianf\OneDrive\Desktop\DescargasParaMotorGrafico\stb-master;C:\Users\gianf\OneDrive\Desktop\DescargasParaMotorGrafico\GLAD\include\glad;C:\Users\gianf\OneDrive\Desktop\DescargasParaMotorGrafico\glm-master\glm;C:\Users\gianf\OneDrive\Desktop\DescargasParaMotorGrafico\copyGLFW;C:\Users\gianf\vcpkg\installed\x64-windows\include;C:\Users\gianf\source\repos\FunshiEngineGL\FunshiEngineGL\src\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\gianf\vcpkg\installed\x64-windows\include;C:\Users\gianf\vcpkg\installed\x64-windows\include\bullet;C:\Users\gianf\OneDrive\Desktop\DescargasParaMotorGrafico\GLAD\include\glad;C:\Users\gianf\OneDrive\Desktop\DescargasParaMotorGrafico\glm-master\glm;C:\Users\gianf\OneDrive\Desktop\DescargasParaMotorGrafico\copyGLFW;C:\Users\gianf\source\repos\FunshiEngineGL\FunshiEngineGL\src\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp14</LanguageStandard>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>glfw3.lib;assimp-vc143-mt.lib;opengl32.lib;glu32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>glfw3.lib;assimp-vc143-mt.lib;opengl32.lib;glu32.lib;BulletDynamics_Debug.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>C:\Users\gianf\OneDrive\Desktop\DescargasParaMotorGrafico\copyGLFW;C:\Users\gianf\vcpkg\installed\x64-windows\lib;C:\Users\gianf\source\repos\FunshiEngineGL\FunshiEngineGL\src\ImGui;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
