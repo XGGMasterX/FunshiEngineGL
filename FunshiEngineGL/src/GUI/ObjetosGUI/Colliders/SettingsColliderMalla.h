@@ -19,7 +19,6 @@ public:
 		ImGui::InputFloat("Radio", &newRadio);
 		if (ImGui::Button("Confirmar")) {
 			myCollider->setRadio(newRadio);
-			newRadio = 1.0f;
 		}
 		settingsTransform->showDataComponent();
 		myCollider->dibujarCollider();

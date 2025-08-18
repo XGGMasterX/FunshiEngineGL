@@ -1,7 +1,11 @@
 #ifndef SCRIPT_H
 #define SCTIPT_H
+
 #include "Component.h"
+#if defined(_WIN32)
 #include <windows.h>
+#elif defined(__linux__)
+#endif
 #include <string>
 
 class Script : public Component{

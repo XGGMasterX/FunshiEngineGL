@@ -14,6 +14,8 @@
 #include <glm/glm.hpp>
 #endif
 
+
+#include "../Herramientas/TypeUtils.h"
 #include "../Objetos/Componentes/Phisics.h"
 #include "../Objetos/Componentes/Transform.h"
 #include "../Objetos/Componentes/Color.h"
@@ -25,6 +27,7 @@
 #include "../Objetos/Componentes/Colliders/MallaCollider.h"
 #include "../Objetos/Componentes/RigidBody/RigidBody.h"
 #include "../Objetos/Componentes/Script.h"
+#include "../Objetos/Componentes/Model.h"
 #include "../Entity/Entity.h"
 
 using namespace std;
@@ -38,14 +41,15 @@ protected:
 	int tam = 1;
 
 public:
-	GameObject() {
+	GameObject(Entity* origin) : Entity(origin){
 	}
+ GameObject() : Entity(){}
 
 	virtual ~GameObject() {
 
 	} // Destructor virtual para que se llame al de las clases derivadas
 
-	char inputName[25];
+	char inputName[25] = "";
 	color auxColor = { 0.0f, 0.0f, 0.0f, 1.0f };
 
 public:
@@ -152,34 +156,118 @@ public:
 	}
 protected:
 
-	virtual void serializeEntityComponents() override {
-		// Guardar el número de componentes
-		size_t numComponents = components->tam();
-		myBinario->getOfBinariFile()->write(reinterpret_cast<const char*>(&numComponents), sizeof(size_t));
+ //GUARDADOS
+ virtual void serializeGlobalAtributes() override{
+  serializeExternalAtributes();
+  serializeLocalAtributes();
+ }
+ virtual void serializeLocalAtributes() override{
+  //guarda atributos declarados
+   myBinario->getOfBinariFile()->write(reinterpret_cast<const char*>(&state), sizeof(bool));
+   myBinario->getOfBinariFile()->write(reinterpret_cast<const char*>(&id), sizeof(int));
+   myBinario->getOfBinariFile()->write(reinterpret_cast<const char*>(&tam), sizeof(int));
+   myBinario->getOfBinariFile()->write(inputName, sizeof(char) * 25);
 
-		if (!components->isEmpty()) {
-			Position<Component*>* position = components->first();
-			// Guardar cada componente
-			while (position != nullptr) {
-				Component* component = position->getElement();
-				// Obtener el nombre del tipo y limpiar "class " si está presente (MSVC)
-				std::string cleanTypeName = typeid(*component).name();
-				const std::string classPrefix = "class ";
-				if (cleanTypeName.compare(0, classPrefix.size(), classPrefix) == 0) {
-					cleanTypeName = cleanTypeName.substr(classPrefix.size());
-				}
+   serializeEntityComponents();
+ }
+ virtual void serializeExternalAtributes() override{
+  //guarda atributos heredados
+  serializeTransformOrigin();
+ }
 
-				// Guardar el nombre del tipo limpio
-				size_t typeNameLength = cleanTypeName.size();
-				myBinario->getOfBinariFile()->write(reinterpret_cast<const char*>(&typeNameLength), sizeof(size_t));
-				myBinario->getOfBinariFile()->write(cleanTypeName.c_str(), typeNameLength);
+ //SERIALIACION EXTERNAL ATRIBUTES
+virtual void serializeTransformOrigin() override {
+    bool hasTransform = (transformOrigin != nullptr);
+    myBinario->getOfBinariFile()->write(reinterpret_cast<const char*>(&hasTransform), sizeof(bool));
 
-				// Guardar los datos del componente
-				component->saveComponent(myBinario->getOfBinariFile());
-				position = (position != components->last()) ? components->next(position) : nullptr;
-			}
-		}
-	}
+    if (hasTransform) {
+        // guardamos nombre fijo para identificar
+        std::string typeName = "TransformOrigin";
+        size_t typeNameLength = typeName.size();
+        myBinario->getOfBinariFile()->write(reinterpret_cast<const char*>(&typeNameLength), sizeof(size_t));
+        myBinario->getOfBinariFile()->write(typeName.c_str(), typeNameLength);
+
+        // guardamos los datos
+        transformOrigin->saveComponent(myBinario->getOfBinariFile());
+    }
+}
+ 
+
+ //CARGAS
+ virtual void deserializeGlobalAtributes() override{
+  deserializeExternalAtributes();
+  deserializeLocalAtributes();
+ }
+ virtual void deserializeLocalAtributes() override{
+  //carga atributos declarados
+   myBinario->getIfBinariFile()->read(reinterpret_cast<char*>(&state), sizeof(bool));
+   myBinario->getIfBinariFile()->read(reinterpret_cast<char*>(&id), sizeof(int));
+   myBinario->getIfBinariFile()->read(reinterpret_cast<char*>(&tam), sizeof(int));
+   myBinario->getIfBinariFile()->read(inputName, sizeof(inputName));
+   
+   deserializeEntityComponents();
+ }
+ virtual void deserializeExternalAtributes() override{
+  //carga atributos heredados
+  deserializeTransformOrigin();
+ }
+
+ //SERIALIZACION EXTERNAL ATRIBUTES
+virtual void deserializeTransformOrigin() override {
+    bool hasTransform = false;
+    myBinario->getIfBinariFile()->read(reinterpret_cast<char*>(&hasTransform), sizeof(bool));
+
+    if (hasTransform) {
+        size_t typeNameLength = 0;
+        myBinario->getIfBinariFile()->read(reinterpret_cast<char*>(&typeNameLength), sizeof(size_t));
+        std::string typeName(typeNameLength, '\0');
+        myBinario->getIfBinariFile()->read(&typeName[0], typeNameLength);
+
+        if (typeName == "TransformOrigin") {
+            if (!transformOrigin) {
+                transformOrigin = new Transform();
+            }
+            transformOrigin->loadComponent(myBinario->getIfBinariFile());
+        }
+        else {
+            std::cerr << "Tipo de atributo heredado desconocido: " << typeName << "\n";
+        }
+    }
+}
+
+ //OTROS
+
+virtual void serializeEntityComponents() override {
+    size_t numComponents = components->tam();
+    myBinario->getOfBinariFile()->write(reinterpret_cast<const char*>(&numComponents), sizeof(size_t));
+
+    if (!components->isEmpty()) {
+        Position<Component*>* position = components->first();
+        while (position != nullptr) {
+            Component* component = position->getElement();
+
+            // Obtener nombre limpio multiplataforma
+            std::string cleanTypeName = demangle(typeid(*component).name());
+
+#if defined(_MSC_VER) // Compilador MSVC
+            const std::string classPrefix = "class ";
+            if (cleanTypeName.compare(0, classPrefix.size(), classPrefix) == 0) {
+                cleanTypeName = cleanTypeName.substr(classPrefix.size());
+            }
+#endif
+
+            // Guardar nombre del tipo
+            size_t typeNameLength = cleanTypeName.size();
+            myBinario->getOfBinariFile()->write(reinterpret_cast<const char*>(&typeNameLength), sizeof(size_t));
+            myBinario->getOfBinariFile()->write(cleanTypeName.c_str(), typeNameLength);
+
+            // Guardar datos del componente
+            component->saveComponent(myBinario->getOfBinariFile());
+            position = (position != components->last()) ? components->next(position) : nullptr;
+        }
+    }
+}
+
 
 
 	virtual void deserializeEntityComponents() override {
@@ -247,6 +335,11 @@ protected:
 				component->loadComponent(myBinario->getIfBinariFile());
 				addComponent(component);
 			}
+             else if(typeName == "Model"){
+                component = new Model();
+                component->loadComponent(myBinario->getIfBinariFile());
+				addComponent(component);
+            }
 			//SOPORTE PARA COMPONENTES SCRIPTS
 
 			else {
@@ -257,29 +350,17 @@ protected:
 
 
 	virtual void serializeEntity() override {
-		myBinario->getOfBinariFile()->write(reinterpret_cast<const char*>(&state), sizeof(bool));
-		myBinario->getOfBinariFile()->write(reinterpret_cast<const char*>(&id), sizeof(int));
-		myBinario->getOfBinariFile()->write(reinterpret_cast<const char*>(&tam), sizeof(int));
-		myBinario->getOfBinariFile()->write(inputName, sizeof(char) * 25);
-
-		//guarda atributos de componentes
-		serializeEntityComponents();
+  //guarda los atributos
+  serializeGlobalAtributes();
 	}
 
 
 	virtual void deserializeEntity() override {
-		myBinario->getIfBinariFile()->read(reinterpret_cast<char*>(&state), sizeof(bool));
-		myBinario->getIfBinariFile()->read(reinterpret_cast<char*>(&id), sizeof(int));
-		myBinario->getIfBinariFile()->read(reinterpret_cast<char*>(&tam), sizeof(int));
-		myBinario->getIfBinariFile()->read(inputName, sizeof(inputName));
-
-		//carga atributos de componentes
-		deserializeEntityComponents();
+  //carga los atributos
+  deserializeGlobalAtributes();
 	}
 
-
 public:
-
 
 	virtual void saveEntity(string filename) override {
 		//crear binario y si existe lo limpia internamente el objeto Binario
@@ -300,8 +381,6 @@ public:
 		myBinario->ofCloseBinary();
 	}
 
-
-
 	virtual void loadEntity(string filename) override {
 		string path = filename + "/ObjectN" + to_string(getId()) + ".db";
 		myBinario = new Binario(path);
@@ -311,5 +390,30 @@ public:
 
 		myBinario->ifCloseBinary();
 	}
+
+virtual Transform* getGlobalTransform(){
+ Transform* resultado = getComponent<Transform>();
+ if(transformOrigin != nullptr){
+ float dx = 0.0f;
+ float dy = 0.0f;
+ float dz = 0.0f;
+ //TRANSLACION
+ float* myPos = resultado->getTranslatef();
+ float* myOrigin = transformOrigin->getTranslatef();
+ dx = myPos[0] + myOrigin[0];
+ dy = myPos[1] + myOrigin[1];
+ dz = myPos[2] + myOrigin[2];
+ //OTRAS IFLUENCIAS TEMPORALES
+ float* myRot = resultado->getRotatef();
+ float* myScale = resultado->getScalef();
+ resultado = new Transform();
+ resultado->setTranslatef(dx,dy,dz);
+ //ROTACION
+ resultado->setRotatef(myRot[0],myRot[1],myRot[2],myRot[3]);
+ //SLALACION
+ resultado->setScalef(myScale[0],myScale[1],myScale[2]);
+ }
+ return resultado;
+ }
 };
 #endif

@@ -62,7 +62,7 @@ public:
 	}
 	virtual Position<E>* last() override {
 		if (isEmpty()) {
-			throw EmptyListException("ListaDE::first:NoHayPrimerNodo");
+			throw EmptyListException("ListaDE::last:NoHayUltimoNodo");
 		}
 		return tail->getLeft();
 	}

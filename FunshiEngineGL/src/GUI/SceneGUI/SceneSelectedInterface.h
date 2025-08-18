@@ -6,7 +6,7 @@
 #include "../../Estructuras/Trees/ArbolesEnlazados/ArbolEnlazado.h"
 #include "../../Objetos/Modelos3D.h"
 
-
+string homePath = (getenv("HOME"));
 
 using namespace std;
 
@@ -24,11 +24,16 @@ public:
 	SceneSelectedInterface(bool stateGUI) :
 		GeneralUserInterface("SelectedObjects", stateGUI , ImGuiWindowFlags_MenuBar) {
 		entitys = new ArbolEnlazado<GameObject*>();
-		entitys->createRoot(new Modelos3D());
+  GameObject* newRoot = new Modelos3D();
+  newRoot->setId(0);
+		entitys->createRoot(newRoot);
 		gameObjects = new ListaDE<GameObject*>();
 		returneableObject = nullptr;
 	}
-	
+  
+ virtual ArbolEnlazado<GameObject*>* getEntitysTree(){
+  return entitys;
+ } 
 
 	virtual void setEntitys(ListaDE<GameObject*>* gameObjects) {
 		this->gameObjects = gameObjects;
@@ -69,6 +74,7 @@ public:
 					memcpy(&dragged, payload->Data, sizeof(dragged));
 					if (dragged != pos) {
 						entitys->positionToChildOf(pos, dragged);
+      dragged->getElement()->setOriginTransform(pos->getElement()->getComponent<Transform>());
 					}
 				}
 				ImGui::EndDragDropTarget();
@@ -110,15 +116,10 @@ public:
 			if (ImGui::MenuItem("New RenderObject")) {
 				//MOSTRAR ENTRADA PARA PONER PATH DEL RENDER
 				//PERMITIR ARRASTRAR DESDE OTRA GUI (CONTENT GUI)
-				Modelos3D* newModelos1 = new Modelos3D("C:/MotorGraficoArchivos/Binarios/BlenderModelos/cubo.obj");//AUTOMATIZAR
-				Modelos3D* newModelos2 = new Modelos3D("C:/MotorGraficoArchivos/Binarios/BlenderModelos/monkey.obj");//AUTOMATIZAR
-				Modelos3D* newModelos3 = new Modelos3D("C:/MotorGraficoArchivos/Binarios/BlenderModelos/head_fixed.obj");//AUTOMATIZAR
-				cout << "Objeto Creado" << endl;
+				Modelos3D* newModelos = new Modelos3D();
 				ImGui::InputText("Path", inputImGuiString, IM_ARRAYSIZE(inputImGuiString), ImGuiInputTextFlags_EnterReturnsTrue);
-				createGameObject(newModelos1);
-				createGameObject(newModelos2);
-				createGameObject(newModelos3);
-			}
+				createGameObject(newModelos);
+   }
 			if (ImGui::MenuItem("Delete By ID")) {
 				deleteObject = true;
 			}
@@ -127,13 +128,12 @@ public:
 	}
 
 	void createGameObject(GameObject* newGameObject) {
-		if (gameObjects->isEmpty()) {
-			newGameObject->setId(0);
-		}
-		else {
-			newGameObject->setId(gameObjects->last()->getElement()->getId() + 1);
-		}
-		gameObjects->addLast(newGameObject);
+  if(entitys->tam() < 2){
+   newGameObject->setId(entitys->rootOfTree()->getElement()->getId() + 1);
+  }else{
+   newGameObject->setId(gameObjects->last()->getElement()->getId() + 1);
+  }
+  gameObjects->addLast(newGameObject);
 		entitys->addNodeChildOf(entitys->rootOfTree(), newGameObject);
 	}
 
@@ -153,7 +153,7 @@ public:
 				}
 			}
 			if (encontre) {
-				//QUITAR SI ESTA EN ENTITY , SINO VARIAR ENCONTRE A FALSO
+				   //QUITAR DE EL ARBOL SI SE ENCONTRO , ARMAR PRE ORDEN
 			}
 		}
 		return encontre;

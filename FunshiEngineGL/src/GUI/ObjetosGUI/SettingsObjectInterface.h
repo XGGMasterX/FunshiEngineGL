@@ -12,13 +12,14 @@
 #include "Colliders/SettingsColliderMalla.h"
 #include "RigidBody/SettingsRigidBody.h"
 #include "Script/SettingsScript.h"
+#include "Model/SettingsModel.h"
 #include "../../Fisicas/PhysicsEngine.h"
 
 class SettingsObjectInterface : public GeneralUserInterface {
 private:
 	GameObject* object;
 	ListaDE<SettingsComponent*>* listaDESettingsComponent;
-    PhysicsEngine* phisics;
+    PhysicsEngine* phisics = nullptr;
 
 public:
 	
@@ -67,6 +68,10 @@ public:
         Script* script = object->getComponent<Script>();
         if (script != nullptr) {
             listaDESettingsComponent->addLast(new SettingsScript(object));
+        }
+        Model* model = object->getComponent<Model>();
+        if(model != nullptr){
+            listaDESettingsComponent->addLast(new SettingsModel(object));
         }
     }
 
@@ -145,73 +150,78 @@ public:
                     listaDESettingsComponent->addLast(new SettingsScript(object));
                 }
             }
+            if (ImGui::MenuItem("Model")){
+             if (object->getComponent<Model>() == nullptr){
+                    object->addComponent(new Model());
+                    listaDESettingsComponent->addLast(new SettingsModel(object));
+             }
+            }
             ImGui::EndPopup();
         }
 
-        //MOSTRAMOS COMPONENTES
-        if (!listaDESettingsComponent->isEmpty()) {
-            Position<SettingsComponent*>* position = listaDESettingsComponent->first();
-            int index = 0;
+        // MOSTRAMOS COMPONENTES
+if (!listaDESettingsComponent->isEmpty()) {
+    Position<SettingsComponent*>* position = listaDESettingsComponent->first();
+    int index = 0;
 
-            while (position != nullptr && position->getElement() != nullptr) {
-                SettingsComponent* comp = position->getElement();
-                ImGui::PushID(index);
+    while (position != nullptr && position->getElement() != nullptr) {
+        SettingsComponent* comp = position->getElement();
+        ImGui::PushID(index);
 
-                bool open = ImGui::CollapsingHeader(
-                    typeid(*comp).name(),
-                    ImGuiTreeNodeFlags_DefaultOpen
-                );
+        // Usamos demangle para obtener un nombre legible
+        std::string compName = demangle(typeid(*comp).name());
 
-                
-                if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceNoHoldToOpenOthers)) {
-                    ImGui::SetDragDropPayload("COMPONENT_DRAG", &comp, sizeof(SettingsComponent*));
-                    ImGui::Text("%s", typeid(*comp).name());
-                    ImGui::EndDragDropSource();
-                }
+        bool open = ImGui::CollapsingHeader(
+            compName.c_str(),
+            ImGuiTreeNodeFlags_DefaultOpen
+        );
 
-                
-                if (ImGui::BeginDragDropTarget()) {
-                    if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("COMPONENT_DRAG")) {
-                        SettingsComponent* draggedComp = *(SettingsComponent**)payload->Data;
-                        auto posA = listaDESettingsComponent->whatElementPosition(draggedComp);
-                        auto posB = listaDESettingsComponent->whatElementPosition(comp);
-                        if (posA && posB && posA != posB) {
-                            listaDESettingsComponent->swapPositions(posA, posB);
-                        }
-                    }
-                    ImGui::EndDragDropTarget();
-                }
-
-
-                
-                if (ImGui::BeginPopupContextItem("DeleteComponent", ImGuiPopupFlags_MouseButtonRight)) {
-                    if (ImGui::MenuItem("Eliminar Componente")) {
-                        object->deleteComponent(comp->getComponent());
-                        listaDESettingsComponent->remove(position);
-                        RigidBody* rb = object->getComponent<RigidBody>();
-                        //SI ESTA RELACIONADO QUITAR SINO SEGUIR
-                        if ((rb != nullptr && rb == comp->getComponent())) {
-                            phisics->getWorld()->removeRigidBody(rb->getRigidBody());
-                        }
-                        ImGui::EndPopup();
-                        ImGui::PopID();
-                        break;
-                    }
-                    ImGui::EndPopup();
-                }
-
-                
-                if (open) {
-                    comp->showDataComponent();
-                }
-
-                ImGui::PopID();
-                position = (position != listaDESettingsComponent->last()) ?
-                    listaDESettingsComponent->next(position) : nullptr;
-                index++;
-            }
+        if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceNoHoldToOpenOthers)) {
+            ImGui::SetDragDropPayload("COMPONENT_DRAG", &comp, sizeof(SettingsComponent*));
+            ImGui::Text("%s", compName.c_str());
+            ImGui::EndDragDropSource();
         }
+
+        if (ImGui::BeginDragDropTarget()) {
+            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("COMPONENT_DRAG")) {
+                SettingsComponent* draggedComp = *(SettingsComponent**)payload->Data;
+                auto posA = listaDESettingsComponent->whatElementPosition(draggedComp);
+                auto posB = listaDESettingsComponent->whatElementPosition(comp);
+                if (posA && posB && posA != posB) {
+                    listaDESettingsComponent->swapPositions(posA, posB);
+                }
+            }
+            ImGui::EndDragDropTarget();
+        }
+
+        if (ImGui::BeginPopupContextItem("DeleteComponent", ImGuiPopupFlags_MouseButtonRight)) {
+            if (ImGui::MenuItem("Eliminar Componente")) {
+                object->deleteComponent(comp->getComponent());
+                listaDESettingsComponent->remove(position);
+                RigidBody* rb = object->getComponent<RigidBody>();
+                //SI ESTA RELACIONADO QUITAR SINO SEGUIR
+                if ((rb != nullptr && rb == comp->getComponent())) {
+                    phisics->getWorld()->removeRigidBody(rb->getRigidBody());
+                }
+                ImGui::EndPopup();
+                ImGui::PopID();
+                break;
+            }
+            ImGui::EndPopup();
+        }
+
+        if (open) {
+            comp->showDataComponent();
+        }
+
+        ImGui::PopID();
+        position = (position != listaDESettingsComponent->last()) ?
+            listaDESettingsComponent->next(position) : nullptr;
+        index++;
     }
+   }
+
+}
 
 
 	virtual void endGUI() override {

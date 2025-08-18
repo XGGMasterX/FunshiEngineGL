@@ -20,33 +20,27 @@ using namespace std;
 //metodos getters para leer lass GUI
 class GUIManager {
 private:
-	
-	
 	//LosMenuDelMotor
 	MenuInterface* menuGUI;
 	//UltimoSettingsObjectInterface
 	SettingsObjectInterface* settingGUI;
-
 	//SelecteableDeGameObjects,GizmosYScenes
 	//adaptar luego para todos las ENTIDADES
 	SceneSelectedInterface* selecteableGUI;
 	SceneMenuBarInterface* menuBarGUI;
-
-
 	TreeFilesInterface* treeFilesGUI;
-	//Armar GUI de paths de proyecto
-	//Armar GUI para opciones
-	//Armar GUI para Manejo de Objetos
-	//Actualizar para admitir desplazamiento de archivos y carga dinamica
 	PhysicsEngine* phisics;
-	ContentFolderInterface* contentOfThisFolder;
+ ContentFolderInterface* contentOfThisFolder;
+
 public:
 	GUIManager(GLFWwindow* window){
+  const char* homeDir = getenv("HOME");
 		menuGUI = new MenuInterface(window,true);
 		selecteableGUI = new SceneSelectedInterface(true);
 		settingGUI = new SettingsObjectInterface(new Modelos3D(),false);
-		treeFilesGUI = new TreeFilesInterface(true, "C:/MotorGraficoArchivos");
-		contentOfThisFolder = new ContentFolderInterface(false);
+		std::string path = std::string(homeDir) + "/MotorGrafico";
+  treeFilesGUI = new TreeFilesInterface(true, path);
+  contentOfThisFolder = new ContentFolderInterface(false);
 		menuBarGUI = new SceneMenuBarInterface(true);
 	}
 
@@ -67,14 +61,13 @@ public:
 		if (gameObject != nullptr && settingGUI->getObjectInInspector() == gameObject) {
 			settingGUI->setPhysics(phisics);
 			settingGUI->setStateGui(true);
-			return settingGUI;
 		}
 		else if(gameObject != nullptr){
 			settingGUI->setPhysics(phisics);
 			settingGUI->setStateGui(false);
 			settingGUI = new SettingsObjectInterface(gameObject, true);
-			return settingGUI;
 		}
+  return settingGUI;
 	}
 
 	void removeSettingsGUI() {
@@ -95,16 +88,15 @@ public:
 		return selecteableGUI;
 	}
 
-	void setContentFolderGUI() {
-		if (treeFilesGUI->getFolderContent() == nullptr) {
-			contentOfThisFolder->setStateGui(false);
-		}
-		else {
-			contentOfThisFolder->setFolderRoot(treeFilesGUI->getFolderContent());
-			contentOfThisFolder->setStateGui(true);
-		}
+void setContentFolderGUI() {
+    if (treeFilesGUI->getFolderContent() == nullptr) {
+        contentOfThisFolder->setStateGui(false);
+    } else {
+        contentOfThisFolder->setFolderRoot(treeFilesGUI->getFolderContent());
+        contentOfThisFolder->setStateGui(true);
+    }
+}
 
-	}
 	
 	ContentFolderInterface* getContentFolderGUI(){
 		return contentOfThisFolder;

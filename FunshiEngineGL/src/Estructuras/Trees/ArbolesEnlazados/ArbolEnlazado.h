@@ -49,6 +49,13 @@ public:
 		size = 1;
 	}
 
+     ~ArbolEnlazado() {
+        if (root) {
+            delete root;  // Esto llama destructor de Nodo y borra todo recursivamente
+            root = nullptr;
+        }
+    }
+
 	//consultas de la estructura
 	virtual int tam() const override { return size; }
 	virtual bool isEmpty() const override { return size == 0; }
@@ -151,10 +158,12 @@ public:
 		E saveElement = nullptr;
 		if (!isEmpty()) {
 			saveElement = root->getElement();
-			root->setElement(nullptr);
+   if(isInternal(root)){
+   root->setElement(nullptr);
 			ListaDE<TNodo<E>*>* listChildsRoot = root->getChilds();
 			Position<TNodo<E>*>* firstChildPosition = listChildsRoot->first();
 			listChildsRoot->remove(firstChildPosition);
+   delete root;
 			root = firstChildPosition->getElement();
 			ListaDE<TNodo<E>*>* listChildNewRoot = root->getChilds();
 			Position<TNodo<E>*>* iterador = listChildsRoot->first();
@@ -163,10 +172,20 @@ public:
 				((TNodo<E>*)iterador->getElement())->setRootDad(root);
 				iterador = (iterador != listChildsRoot->last()) ? listChildsRoot->next(iterador) : nullptr;
 			}
+   }else{
+    root->setElement(nullptr);
+    delete root;
+    root = nullptr;
+   }
 			size--;
 		}
+  else{
+   throw InvalidOperationException("ArbolEnlazado::deleteRoot::NoHayRoot");
+  }
 		return saveElement;
 	}
+
+
 	virtual E deleteInternalNode(Position<E>* p) override {
 		TNodo<E>* theDeleteable = checkPosition(p);
 		if (!isInternal(theDeleteable)) {
@@ -184,7 +203,8 @@ public:
 		TNodo<E>* theDeleteableDad = theDeleteable->getRootDad();
 		ListaDE<TNodo<E>*>* listBrosTheDeleteable = theDeleteableDad->getChilds();
 		Position<TNodo<E>*>* theDeleteablePosition = listBrosTheDeleteable->whatElementPosition(theDeleteable);
-		listBrosTheDeleteable->remplace(theDeleteablePosition, firstChildTheDeleteablePosition->getElement());
+	 delete theDeleteable;
+  listBrosTheDeleteable->remplace(theDeleteablePosition, firstChildTheDeleteablePosition->getElement());
 		TNodo<E>* firstChildTheDeleteable = firstChildTheDeleteablePosition->getElement();
 		firstChildTheDeleteable->setRootDad(theDeleteableDad);
 		
@@ -208,7 +228,8 @@ public:
 		if (theDeleteable != root) {
 			ListaDE<TNodo<E>*>* listChildsDad = theDeleteable->getRootDad()->getChilds();
 			Position<TNodo<E>*>* positionTheDeleteable = listChildsDad->whatElementPosition(theDeleteable);
-			listChildsDad->remove(positionTheDeleteable);
+			delete theDeleteable;
+   listChildsDad->remove(positionTheDeleteable);
 		}
 		else {
 			root = nullptr;
@@ -240,7 +261,7 @@ public:
 		TNodo<E>* nodeDad = checkPosition(dad);
 		TNodo<E>* nodePChild = checkPosition(pChild);
 		bool esHijo = false;
-		esHijo = busquedaDePositionPreOrden(nodeDad, nodePChild);
+		esHijo = busquedaDePositionPreOrden(nodePChild, nodeDad);
 		if (!esHijo) {
 			//Me quito de mi padre
 			ListaDE<TNodo<E>*>* hermanos = nodePChild->getRootDad()->getChilds();

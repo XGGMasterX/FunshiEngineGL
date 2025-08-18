@@ -18,9 +18,9 @@ public:
 		componentTransform->setTranslatef(componentTransform->getTranslatef()[0], componentTransform->getTranslatef()[1], componentTransform->getTranslatef()[2]);
 
 		ImGui::Text("Scale");
-		ImGui::SliderFloat("Xs", &componentTransform->getScalef()[0], -100.0f, 100.0f);
-		ImGui::SliderFloat("Ys", &componentTransform->getScalef()[1], -100.0f, 100.0f);
-		ImGui::SliderFloat("Zs", &componentTransform->getScalef()[2], -100.0f, 100.0f);
+		ImGui::SliderFloat("Xs", &componentTransform->getScalef()[0], -50.0f, 50.0f);
+		ImGui::SliderFloat("Ys", &componentTransform->getScalef()[1], -50.0f, 50.0f);
+		ImGui::SliderFloat("Zs", &componentTransform->getScalef()[2], -50.0f, 50.0f);
 		componentTransform->setScalef(componentTransform->getScalef()[0], componentTransform->getScalef()[1], componentTransform->getScalef()[2]);
 
 		ImGui::Text("Rotate");

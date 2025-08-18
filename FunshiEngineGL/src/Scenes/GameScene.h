@@ -26,6 +26,7 @@ using namespace std;
 
 class GameScene {
 private:
+    ArbolEnlazado<GameObject*>* entitys;
     ListaDE<GameObject*>* gameObjects;
     Camera* camera;
     GUIManager* managerGUI;
@@ -40,6 +41,7 @@ public:
         this->managerGUI = managerGUI;
         this->selecteableGUI = managerGUI->getSelecteableGUI();
         this->menuBarGUI = managerGUI->getMenuBarGUI(&start);
+        entitys = selecteableGUI->getEntitysTree();
         gameObjects = selecteableGUI->getGameObjects();
         phisics = new PhysicsEngine();
     }
@@ -53,64 +55,105 @@ public:
         return gameObjects;
     }
 
+private:
 
-public:
-    //------------Scene------------
-    void saveScene(const std::string& filename) {
-        if (!gameObjects->isEmpty()) {
-            Position<GameObject*>* pos = gameObjects->first();
-            while (pos != nullptr && pos->getElement() != nullptr) {
-                pos->getElement()->saveEntity(filename);
-                cout << "Guardado: " << pos->getElement()->getId() << endl;
-                pos = (pos != gameObjects->last()) ? gameObjects->next(pos) : nullptr;
+    void saveInPreOrden(Position<GameObject*>* root,const std::string& filename){
+     if(root != nullptr){
+       root->getElement()->saveEntity(filename);
+       if(entitys->isInternal(root)){
+          ofstream archivo(filename+"BBDDObjetos.txt",std::ios::app);
+          archivo << "=>" << endl;
+          ListaDE<Position<GameObject*>*>* hijosDeRoot = entitys->childsOf(root);
+          Position<Position<GameObject*>*>* position = hijosDeRoot->first();
+           while(position != nullptr){
+            saveInPreOrden(position->getElement(),filename);
+            position = (position != hijosDeRoot->last()) ? hijosDeRoot->next(position) : nullptr;
+           }
+          archivo << "<=" << endl;
+         }
+       }
+    }
+
+void loadInPreOrdenRec(std::ifstream& file, Position<GameObject*>* parent,
+                       const std::string& semiPath)
+{
+    std::string line;
+    while (std::getline(file, line)) {
+        if (line == "<=") {
+            //RETROCEDO
+            return;
+        }
+        else if (line == "=>") {
+            //EL ULTIMO HIJO TIENE HIJOS
+            if (parent != nullptr) {
+                Position<GameObject*>* lastChild = entitys->childsOf(parent)->last()->getElement();
+                loadInPreOrdenRec(file, lastChild, semiPath);
+            } else {
+                //SI PARENT ES NULL ES PQ EL HIJO ES LA RAIZ
+                Position<GameObject*>* rootPos = entitys->rootOfTree();
+                loadInPreOrdenRec(file, rootPos, semiPath);
             }
         }
+        else if (!line.empty()) {
+            //EN CUALQUIER OTRO CASO LEEO EL BINARIO
+            GameObject* obj = new Modelos3D();
 
+            // Extraer ID del nombre de archivo
+            std::string nombreArchivo = line.substr(line.find_last_of("/\\") + 1);
+            size_t posN = nombreArchivo.find("ObjectN");
+            if (posN != std::string::npos) {
+                std::string idStr = nombreArchivo.substr(posN + 7);
+                idStr = idStr.substr(0, idStr.find(".db"));
+                obj->setId(std::stoi(idStr));
+            }
+
+            obj->loadEntity(semiPath);
+            //AGREGO EL ROOT AL ARBOL
+            if (parent == nullptr) {
+                entitys->deleteRoot();
+                entitys->createRoot(obj);
+            } else {
+                //AGREGO LOS QUE NO SON ROOT A LISTA Y ARBOL
+                gameObjects->addLast(obj);
+                entitys->addNodeChildOf(parent, obj);
+                obj->setOriginTransform(parent->getElement()->getComponent<Transform>());
+            }
+        }
     }
+}
+
+
+public:
+    //GUARDADO EN PRE ORDEN DE ENTIDADES
+    void saveScene(const std::string& filename) {
+        if (!entitys->isEmpty()) {
+            Position<GameObject*>* root = entitys->rootOfTree();
+            saveInPreOrden(root,filename);
+        }
+   }
 
     bool isStart() {
         return start;
     }
 
+    //CARGADO EN PRE ORDEN DE ENTIDADES
     void loadScene(const std::string& pathTxt, const std::string& semiPath) {
-        gameObjects->clear(); // Evitar duplicados al cargar
-        std::ifstream file(pathTxt);
-        if (!file.is_open()) {
-            std::cerr << "No se pudo abrir el archivo de paths: " << pathTxt << std::endl;
-            return;
-        }
+    gameObjects->clear();
+    std::ifstream file(pathTxt);
+    if (!file.is_open()) {
+        std::cerr << "No se pudo abrir el archivo de paths: " << pathTxt << std::endl;
+        return;
+    }
 
-        std::string rutaDb;
-        while (std::getline(file, rutaDb)) {
-            if (rutaDb.empty()) continue;
+    loadInPreOrdenRec(file, nullptr, semiPath);
 
-            //problema con el tipo dinamico y estatico
-            GameObject* obj = new Modelos3D();
+    file.close();
 
-            // Extraer el id desde el nombre del archivo: ObjectN4.db => 4 y carga el archivo de lectura
-            std::string nombreArchivo = rutaDb.substr(rutaDb.find_last_of("/\\") + 1);
-            size_t posN = nombreArchivo.find("ObjectN");
-            if (posN == std::string::npos) {
-                std::cerr << "Formato de nombre incorrecto: " << nombreArchivo << std::endl;
-                continue;
-            }
-
-            std::string idStr = nombreArchivo.substr(posN + 7); // 7 = length de "ObjectN"
-
-
-            obj->setId(std::stoi(idStr));
-            obj->loadEntity(semiPath);
-            idStr = idStr.substr(0, idStr.find(".db"));          // eliminar ".db" si es necesario
-            gameObjects->addLast(obj);
-        }
-
-        file.close();
-
-        // Limpiar el archivo después de cargar
-        std::ofstream cleanFile(pathTxt, std::ios::trunc);
-        if (!cleanFile.is_open()) {
-            std::cerr << "No se pudo limpiar el archivo de paths." << std::endl;
-        }
+    // Limpiar archivo después de cargar (opcional)
+    std::ofstream cleanFile(pathTxt, std::ios::trunc);
+    if (!cleanFile.is_open()) {
+        std::cerr << "No se pudo limpiar el archivo de paths." << std::endl;
+    }
     }
 
     //recorro la lista

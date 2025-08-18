@@ -12,8 +12,6 @@
 #endif
 #include <iostream>
 //testing
-#define STB_IMAGE_IMPLEMENTATION
-#include <stb_image.h>
 /////////////////////////////////////////////////////////////////////////////////
 /*
                            \\\\COSAS PARA AGREGAR///
@@ -75,29 +73,25 @@
 /////////////////////////////////////////////////////////////////////////////////
 
 
-
 //VENTANA
-int ventanaHeightEjeY, ventanaWidthEjeX;
+static int ventanaHeightEjeY, ventanaWidthEjeX;
 
 //INPUT
 static float lastMousePosX = 0.0;
 static float lastMousePosY = 0.0;
 static bool firstTimeMouseX = true;
 static bool firstTimeMouseY = true;
-bool recFilesInit = true;
-bool menuActivo = false;
+static bool recFilesInit = true;
+static bool menuActivo = false;
 
 // Variables de estado
-bool showMenu = true;
-bool sceneRunning = false;
-float deltaTime = 0;
-
-
+static bool showMenu = true;
+static bool sceneRunning = false;
+static float deltaTime = 0.0f;
 class MiAPP {
 private:
     Camera* camera;
     GameScene* scene;
-
 
 public:
     static MiAPP* instancia;
@@ -268,7 +262,6 @@ int main(void)
     glColorMaterial(GL_FRONT, GL_AMBIENT_AND_DIFFUSE);
 
     float FPS = 60.0;    //LIMITE DE FPS
-
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO(); (void)io;
@@ -279,8 +272,8 @@ int main(void)
  #if defined(_WIN32)
      scene->loadScene("C:/MotorGraficoArchivos/Binarios/SceneBBDDObjetos.txt", "C:/MotorGraficoArchivos/Binarios/Scene/");
  #elif defined(__linux__)
-//scene->loadScene("/home/ggmaster/MotorGraficoArchivos/Binarios/SceneBBDDObjetos.txt", 
-//                "/home/ggmaster/MotorGraficoArchivos/Binarios/Scene/");
+     scene->loadScene(homePath+"/MotorGrafico/Binarios/SceneBBDDObjetos.txt", 
+                homePath+"/MotorGrafico/Binarios/Scene/");
  #endif
 
 
@@ -338,10 +331,9 @@ int main(void)
     }
 
 #if defined(_WIN32)
-    scene->saveScene("C:/MotorGraficoArchivos/Binarios/Scene");
+    scene->saveScene(homePath+"/MotorGraficoArchivos/Binarios/Scene");
 #elif defined(__linux__)
-// Guardar escena
-//scene->saveScene("/home/ggmaster/MotorGraficoArchivos/Binarios/Scene");
+    scene->saveScene(homePath+"/MotorGrafico/Binarios/Scene");
 #endif
 
     ImGui_ImplOpenGL3_Shutdown();
