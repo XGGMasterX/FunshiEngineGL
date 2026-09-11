@@ -284,24 +284,44 @@ void GameScene::gameScene() {
             if (ImGuizmo::IsUsing()) {
                 Transform* localTransform = selected->getComponent<Transform>();
                 if (localTransform) {
-                    Transform* originTransform = selected->getOriginTransform();
-                    if (originTransform) {
-                        Transform temp;
-                        decomposeMatrixToTransform(matrix, &temp);
-                        float* tempPos = temp.getTranslatef();
-                        float* originPos = originTransform->getTranslatef();
-                        localTransform->setTranslatef(tempPos[0] - originPos[0],
-                                                      tempPos[1] - originPos[1],
-                                                      tempPos[2] - originPos[2]);
-                        localTransform->setRotatef(temp.getRotatef()[0],
-                                                   temp.getRotatef()[1],
-                                                   temp.getRotatef()[2],
-                                                   temp.getRotatef()[3]);
-                        localTransform->setScalef(temp.getScalef()[0],
-                                                  temp.getScalef()[1],
-                                                  temp.getScalef()[2]);
+                    bool freeze = localTransform->childsFreeze;
+                    std::vector<std::pair<Entity*, glm::mat4>> childSnapshots;
+                    if (freeze) {
+                        for (auto* child : selected->getChildEntities()) {
+                            if (child && child->getComponent<Transform>()) {
+                                float m[16];
+                                buildMatrixFromTransform(child->getGlobalTransform(), m);
+                                childSnapshots.push_back({child, glm::make_mat4(m)});
+                            }
+                        }
+                    }
+
+                    Entity* parentEnt = selected->getParentEntity();
+                    Transform* parentGlobal = parentEnt ? parentEnt->getGlobalTransform() : nullptr;
+                    if (parentGlobal) {
+                        float parentGlobalArr[16];
+                        buildMatrixFromTransform(parentGlobal, parentGlobalArr);
+                        glm::mat4 invParentGlobal = glm::inverse(glm::make_mat4(parentGlobalArr));
+                        glm::mat4 newLocal = invParentGlobal * glm::make_mat4(matrix);
+                        float localMatArr[16];
+                        const float* ptr = glm::value_ptr(newLocal);
+                        for (int i = 0; i < 16; ++i) localMatArr[i] = ptr[i];
+                        decomposeMatrixToTransform(localMatArr, localTransform);
                     } else {
                         decomposeMatrixToTransform(matrix, localTransform);
+                    }
+
+                    if (freeze && !childSnapshots.empty()) {
+                        float pM[16];
+                        buildMatrixFromTransform(selected->getGlobalTransform(), pM);
+                        glm::mat4 invParent = glm::inverse(glm::make_mat4(pM));
+                        for (auto& snap : childSnapshots) {
+                            glm::mat4 newLocal = invParent * snap.second;
+                            float localArr[16];
+                            const float* ptr = glm::value_ptr(newLocal);
+                            for (int i = 0; i < 16; ++i) localArr[i] = ptr[i];
+                            decomposeMatrixToTransform(localArr, snap.first->getComponent<Transform>());
+                        }
                     }
                 }
             }

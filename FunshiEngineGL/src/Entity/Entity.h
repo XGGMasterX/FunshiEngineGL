@@ -16,6 +16,8 @@ protected:
     std::unique_ptr<ListaDE<Component*>> components;
     std::vector<std::unique_ptr<Component>> componentOwners;
     std::unique_ptr<Binario> myBinario;
+    Entity* parentEntity = nullptr;
+    std::vector<Entity*> childEntities;
     Transform* transformOrigin = nullptr;
     std::unique_ptr<Transform> ownedTransformOrigin;
 
@@ -29,6 +31,10 @@ public:
     Binario* getMyBinario();
     void setOriginTransform(Transform* newOriginTransform);
     Transform* getOriginTransform() const { return transformOrigin; }
+
+    void setParentEntity(Entity* parent);
+    Entity* getParentEntity() const { return parentEntity; }
+    const std::vector<Entity*>& getChildEntities() const { return childEntities; }
 
     virtual void addComponent(Component* component) = 0;
     virtual void deleteComponent(Component* component) = 0;
