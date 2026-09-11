@@ -16,28 +16,20 @@ protected:
 	ImGuiWindowFlags flagGUI;
 
 public:
-	GeneralUserInterface(string nameGUI,bool stateGUI,ImGuiWindowFlags flagGUI) {
-		this->nameGUI = nameGUI;
-		this->stateGUI = stateGUI;
-		this->flagGUI = flagGUI;
-	}
+	GeneralUserInterface(string nameGUI, bool stateGUI, ImGuiWindowFlags flagGUI);
 
-	void setNameGui(string nameGUI) { this->nameGUI = nameGUI; }
-	void setStateGui(bool stateGUI) { this->stateGUI = stateGUI; }
+	void setNameGui(string nameGUI);
+	void setStateGui(bool stateGUI);
 
-	string getNameGui() { return nameGUI; }
-	bool getStateGui() { return stateGUI; }
-	ImGuiWindowFlags getFlagGui() { return flagGUI; }
+	string getNameGui();
+	bool getStateGui();
+	ImGuiWindowFlags getFlagGui();
 
-	virtual void initGUI() {
-		ImGui::Begin(getNameGui().c_str(), &stateGUI, getFlagGui());
-	}
+	virtual void initGUI();
 
 	virtual void contentGUI() = 0;
 	virtual void printGUI() = 0;
 
-	virtual void endGUI() {
-		ImGui::End();
-	}
+	virtual void endGUI();
 };
 #endif

@@ -4,6 +4,8 @@
 
 #include <btBulletDynamicsCommon.h>
 
+class RigidBody;
+
 class PhysicsEngine {
 private:
     btDefaultCollisionConfiguration* collisionConfig;
@@ -22,22 +24,22 @@ public:
         getWorld()->setGravity(btVector3(0, -1.0f, 0));
 
 
-        // Crear el suelo como un plano estático
+        // Crear el suelo como un plano estÃ¡tico
         btCollisionShape* groundShape = new btStaticPlaneShape(btVector3(0, 1, 0), 0);
         // El vector (0,1,0) es la normal del plano (eje Y hacia arriba)
-        // El segundo parámetro es la distancia desde el origen al plano, 0 para que pase por Y=0
+        // El segundo parÃ¡metro es la distancia desde el origen al plano, 0 para que pase por Y=0
 
         // Crear un MotionState para el suelo
         btDefaultMotionState* groundMotionState = new btDefaultMotionState(btTransform(btQuaternion(0, 0, 0, 1), btVector3(0, -1, 0)));
-        // Lo posicionamos justo en Y = -1 para que el suelo quede justo debajo de Y=0 (ajustalo según necesites)
+        // Lo posicionamos justo en Y = -1 para que el suelo quede justo debajo de Y=0 (ajustalo segÃºn necesites)
 
-        // Masa cero indica que es estático (no se moverá)
+        // Masa cero indica que es estÃ¡tico (no se moverÃ¡)
         btRigidBody::btRigidBodyConstructionInfo groundRigidBodyCI(0, groundMotionState, groundShape, btVector3(0, 0, 0));
 
         // Crear el rigid body para el suelo
         btRigidBody* groundRigidBody = new btRigidBody(groundRigidBodyCI);
 
-        // Añadir el suelo al mundo dinámico
+        // AÃ±adir el suelo al mundo dinÃ¡mico
         getWorld()->addRigidBody(groundRigidBody);
 
     }
@@ -57,6 +59,9 @@ public:
     void addRigidBody(btRigidBody* body) {
         dynamicsWorld->addRigidBody(body);
     }
+
+    void addRigidBody(RigidBody* body);
+    void removeRigidBody(RigidBody* body);
 
     btDiscreteDynamicsWorld* getWorld() { return dynamicsWorld; }
 };

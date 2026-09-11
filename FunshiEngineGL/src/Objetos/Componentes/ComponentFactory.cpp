@@ -1,0 +1,33 @@
+#include "ComponentFactory.h"
+
+#include "Colliders/CubeCollider.h"
+#include "Colliders/EsfereCollider.h"
+#include "Colliders/MallaCollider.h"
+#include "Color.h"
+#include "Model.h"
+#include "RigidBody/RigidBody.h"
+#include "Script.h"
+#include "Transform.h"
+#include "../GameObject.h"
+
+std::unique_ptr<Component> ComponentFactory::create(const std::string& typeName,
+                                                    GameObject& owner) {
+    Transform* transform = owner.getComponent<Transform>();
+
+    if (typeName == "Transform") return std::make_unique<Transform>();
+    if (typeName == "Color") return std::make_unique<Color>();
+    if (typeName == "EsfereCollider" && transform)
+        return std::make_unique<EsfereCollider>(5.0f, transform);
+    if (typeName == "CubeCollider" && transform)
+        return std::make_unique<CubeCollider>(5.0f, transform);
+    if (typeName == "MallaCollider" && transform)
+        return std::make_unique<MallaCollider>(5.0f, transform);
+    if (typeName == "RigidBody") {
+        Collider* collider = owner.getComponent<Collider>();
+        if (collider) return std::make_unique<RigidBody>(collider, 1.0f);
+    }
+    if (typeName == "Script") return std::make_unique<Script>();
+    if (typeName == "Model") return std::make_unique<Model>();
+
+    return nullptr;
+}

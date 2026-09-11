@@ -1,5 +1,5 @@
 #ifndef SCRIPT_H
-#define SCTIPT_H
+#define SCRIPT_H
 
 #include "Component.h"
 #if defined(_WIN32)
@@ -43,7 +43,7 @@ public:
     void setDllPath(std::string dllPath) {
             this->dllPath = dllPath; // Guarda el path completo
 
-            // Extraer nombre de clase (entre el último '/' y '.')
+            // Extraer nombre de clase (entre el Ãºltimo '/' y '.')
             size_t lastSlash = dllPath.find_last_of("/\\");
             size_t lastDot = dllPath.find_last_of('.');
 

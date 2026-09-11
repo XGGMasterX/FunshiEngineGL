@@ -3,6 +3,11 @@
 
 
 #include "../Componentes/Component.h"
+#include <GL/gl.h>
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtx/matrix_decompose.hpp>
+#include <glm/gtc/type_ptr.hpp>
 using namespace std;
 
 
@@ -48,8 +53,6 @@ public:
 	}
 
 	float arrTranslatef[3], arrScalef[3], arrRotatef[4];
-
-
 
 	void setTranslatef(float x, float y, float z) {
 		objectTranslatef[0] = x;
@@ -112,4 +115,39 @@ public:
 	}
 
 };
+
+inline void buildMatrixFromTransform(Transform* t, float outMatrix[16]) {
+    glm::mat4 mat(1.0f);
+    mat = glm::translate(mat, glm::vec3(t->getTranslatef()[0], t->getTranslatef()[1], t->getTranslatef()[2]));
+
+    float angle = t->getRotatef()[0];
+    glm::vec3 axis(t->getRotatef()[1], t->getRotatef()[2], t->getRotatef()[3]);
+    if (glm::length(axis) > 0.0001f)
+        mat = glm::rotate(mat, glm::radians(angle), glm::normalize(axis));
+
+    mat = glm::scale(mat, glm::vec3(t->getScalef()[0], t->getScalef()[1], t->getScalef()[2]));
+
+    const float* ptr = glm::value_ptr(mat); // ✅ value_ptr
+    for (int i = 0; i < 16; i++) outMatrix[i] = ptr[i];
+}
+
+inline void decomposeMatrixToTransform(float inMatrix[16], Transform* t) {
+    glm::mat4 mat = glm::make_mat4(inMatrix); // ✅ make_mat4
+    glm::vec3 scale;
+    glm::quat rotation;
+    glm::vec3 translation;
+    glm::vec3 skew;
+    glm::vec4 perspective;
+
+    glm::decompose(mat, scale, rotation, translation, skew, perspective);
+
+    t->setTranslatef(translation.x, translation.y, translation.z);
+
+    float angle = glm::degrees(glm::angle(rotation));
+    glm::vec3 axis = glm::axis(rotation);
+    if (glm::length(axis) < 0.0001f) axis = glm::vec3(0,1,0);
+    t->setRotatef(angle, axis.x, axis.y, axis.z);
+
+    t->setScalef(scale.x, scale.y, scale.z);
+}
 #endif

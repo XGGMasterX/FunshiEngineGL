@@ -5,12 +5,14 @@
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
 #include "../src/Objetos/Modelos3D.h"
+#include "../src/Gizmo/Camera.h"
 #if defined(_WIN32)
 #include <glfw3.h>
 #elif defined(__linux__)
 #include <GLFW/glfw3.h>
 #endif
 #include <iostream>
+#include <string>
 //testing
 /////////////////////////////////////////////////////////////////////////////////
 /*
@@ -235,6 +237,7 @@ int main(void)
     ContentFolderInterface* contentFolderInterface = managerOfGUI->getContentFolderGUI();
     MiAPP* app = new MiAPP(camera, scene);
     Time::start();
+    std::string homePath = std::getenv("HOME");
 
     
     glfwSetKeyCallback(window, MiAPP::teclado_callback);

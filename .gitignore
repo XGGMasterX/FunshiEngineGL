@@ -88,3 +88,22 @@ install_manifest.txt
 *.bak
 *.old
 *.orig
+
+# Build directories
+FunshiEngineGL/build/
+FunshiEngineGL/build_temp/
+FunshiEngineGL_BACKUP/
+
+# Temporary refactoring/build scripts
+FunshiEngineGL/fix_build.py
+FunshiEngineGL/gui_contents.txt
+FunshiEngineGL/patch_cube.py
+FunshiEngineGL/refactor_all.py
+FunshiEngineGL/refactor_gui.py
+
+# Local ImGui configuration
+imgui.ini
+
+# ImGuizmo examples
+FunshiEngineGL/ImGuizmo/example/
+FunshiEngineGL/ImGuizmo/vcpkg-example/

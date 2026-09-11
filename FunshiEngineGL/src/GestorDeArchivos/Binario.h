@@ -1,54 +1,29 @@
 #ifndef BINARIO_H
 #define BINARIO_H
 
-#include <iostream>
-#if defined(_WIN32)
-#include <Windows.h>
-#elif defined(__linux__)
-#endif
 #include <fstream>
-using namespace std;
-
+#include <string>
 
 class Binario {
-
 private:
-	string path;
-	ofstream* ofBin;
-	ifstream* ifBin;
+    std::string path;
+    std::ofstream* ofBin;
+    std::ifstream* ifBin;
 
 public:
-	Binario(string path) {
-		this->path = path;
-	}
+    explicit Binario(std::string path);
+    ~Binario();
 
-	string getPath() {
-		return path;
-	}
+    Binario(const Binario&) = delete;
+    Binario& operator=(const Binario&) = delete;
 
-	void ofOpenBinary() {
-		remove(path.c_str());
-		ofBin = new ofstream(path, ios::binary);
-	}
-
-	void ifOpenBinary() {
-		ifBin = new ifstream(path, ios::binary);
-	}
-
-	void ofCloseBinary() {
-		ofBin->close();
-	}
-
-	void ifCloseBinary() {
-		ifBin->close();
-	}
-
-	ofstream* getOfBinariFile() {
-		return ofBin;
-	}
-
-	ifstream* getIfBinariFile() {
-		return ifBin;
-	}
+    std::string getPath();
+    void ofOpenBinary();
+    void ifOpenBinary();
+    void ofCloseBinary();
+    void ifCloseBinary();
+    std::ofstream* getOfBinariFile();
+    std::ifstream* getIfBinariFile();
 };
+
 #endif
