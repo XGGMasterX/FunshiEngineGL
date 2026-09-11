@@ -3,6 +3,9 @@
 #include <GL/glu.h>
 #include <cmath>
 #include <cstring>
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
 
 Camera::Camera(vec3 pos, float speed) : m_pos(pos), m_speed(speed), m_yawX(0), m_yawY(0) {
     m_dir = vec3(0, 0, -1);
@@ -71,25 +74,17 @@ vec3 Camera::getPosition() const { return m_pos; }
 vec3 Camera::getDirection() const { return m_dir; }
 
 void Camera::getViewMatrix(float* outMatrix) const {
-    const vec3 f = m_dir;
-    const vec3 s = m_left;
-    const vec3 u(f.y*s.z - f.z*s.y, f.z*s.x - f.x*s.z, f.x*s.y - f.y*s.x);
-    std::memset(outMatrix, 0, sizeof(float) * 16);
-    outMatrix[0]=s.x; outMatrix[4]=s.y; outMatrix[8]=s.z;
-    outMatrix[1]=u.x; outMatrix[5]=u.y; outMatrix[9]=u.z;
-    outMatrix[2]=-f.x; outMatrix[6]=-f.y; outMatrix[10]=-f.z;
-    outMatrix[12]=-(s.x*m_pos.x+s.y*m_pos.y+s.z*m_pos.z);
-    outMatrix[13]=-(u.x*m_pos.x+u.y*m_pos.y+u.z*m_pos.z);
-    outMatrix[14]=f.x*m_pos.x+f.y*m_pos.y+f.z*m_pos.z;
-    outMatrix[15]=1.0f;
+    glm::vec3 eye(m_pos.x, m_pos.y, m_pos.z);
+    glm::vec3 center(m_pos.x + m_dir.x, m_pos.y + m_dir.y, m_pos.z + m_dir.z);
+    glm::vec3 up(m_up.x, m_up.y, m_up.z);
+    glm::mat4 v = glm::lookAt(eye, center, up);
+    const float* ptr = glm::value_ptr(v);
+    std::memcpy(outMatrix, ptr, sizeof(float) * 16);
 }
 
 void Camera::getProjectionMatrix(float* outMatrix, float fov, float aspect,
                                  float nearPlane, float farPlane) const {
-    const float f = 1.0f / std::tanf(fov * 0.5f * (m_PI / 180.0f));
-    std::memset(outMatrix, 0, sizeof(float) * 16);
-    outMatrix[0]=f/aspect; outMatrix[5]=f;
-    outMatrix[10]=(farPlane+nearPlane)/(nearPlane-farPlane);
-    outMatrix[11]=-1.0f;
-    outMatrix[14]=(2.0f*farPlane*nearPlane)/(nearPlane-farPlane);
+    glm::mat4 p = glm::perspective(glm::radians(fov), aspect, nearPlane, farPlane);
+    const float* ptr = glm::value_ptr(p);
+    std::memcpy(outMatrix, ptr, sizeof(float) * 16);
 }

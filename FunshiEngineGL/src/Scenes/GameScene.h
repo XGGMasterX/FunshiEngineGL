@@ -32,7 +32,7 @@ private:
     Ilumination* sun = nullptr;
     float deltaTime = 0.0f;
     bool start = false;
-    int gizmoOperation = 0;
+    int gizmoOperation = 7; // ImGuizmo::TRANSLATE
     bool gizmoReady = false;
 
 public:
@@ -51,7 +51,9 @@ public:
     void update(float deltaTime);
     void gameScene();
     void setGizmoOperation(int operation);
+    int getGizmoOperation() const;
     bool isGizmoCapturingInput() const;
+    GameObject* pickObject(float mouseX, float mouseY);
 };
 
 #endif
