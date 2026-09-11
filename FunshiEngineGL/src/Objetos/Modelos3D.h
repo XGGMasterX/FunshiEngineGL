@@ -23,6 +23,7 @@ public:
     void setPath(std::string path);
     std::string getPath();
     void dibujar(float deltaTime) override;
+    bool getBoundingBox(vec3& outMin, vec3& outMax) const;
 
 protected:
     void serializeEntity() override;

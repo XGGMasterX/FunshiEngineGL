@@ -566,52 +566,35 @@ void GameObject::loadEntity(std::string filename) {
 
 
 Transform* GameObject::getGlobalTransform() {
+    Transform* result = getComponent<Transform>();
+    if (result == nullptr) {
+        return nullptr;
+    }
 
-    Transform* result =
-        getComponent<Transform>();
+    Transform* parentGlobal = nullptr;
+    if (parentEntity) {
+        parentGlobal = parentEntity->getGlobalTransform();
+    } else if (transformOrigin) {
+        parentGlobal = transformOrigin;
+    }
 
-    if (transformOrigin == nullptr ||
-        result == nullptr)
-    {
+    if (parentGlobal == nullptr) {
         return result;
     }
 
-    float* p =
-        result->getTranslatef();
+    float parentMat[16], localMat[16];
+    buildMatrixFromTransform(parentGlobal, parentMat);
+    buildMatrixFromTransform(result, localMat);
 
-    float* o =
-        transformOrigin->getTranslatef();
+    glm::mat4 mParent = glm::make_mat4(parentMat);
+    glm::mat4 mLocal = glm::make_mat4(localMat);
+    glm::mat4 mGlobal = mParent * mLocal;
 
-    globalTransformCache =
-        std::make_unique<Transform>();
+    globalTransformCache = std::make_unique<Transform>();
+    float globalMat[16];
+    const float* ptr = glm::value_ptr(mGlobal);
+    for (int i = 0; i < 16; ++i) globalMat[i] = ptr[i];
+    decomposeMatrixToTransform(globalMat, globalTransformCache.get());
 
-    Transform* global =
-        globalTransformCache.get();
-
-    global->setTranslatef(
-        p[0] + o[0],
-        p[1] + o[1],
-        p[2] + o[2]
-    );
-
-    float* rotation =
-        result->getRotatef();
-
-    float* scale =
-        result->getScalef();
-
-    global->setRotatef(
-        rotation[0],
-        rotation[1],
-        rotation[2],
-        rotation[3]
-    );
-
-    global->setScalef(
-        scale[0],
-        scale[1],
-        scale[2]
-    );
-
-    return global;
+    return globalTransformCache.get();
 }

@@ -39,6 +39,7 @@ public:
 	virtual ArbolEnlazado<GameObject*>* getEntitysTree();
 	virtual void setEntitys(ListaDE<GameObject*>* gameObjects);
 	virtual GameObject* getReturnableEntity();
+	virtual void setReturnableEntity(GameObject* object);
 	virtual ListaDE<GameObject*>* getGameObjects();
 
 	virtual void initGUI() override;

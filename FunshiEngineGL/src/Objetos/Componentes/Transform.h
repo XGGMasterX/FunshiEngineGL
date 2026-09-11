@@ -53,6 +53,7 @@ public:
 	}
 
 	float arrTranslatef[3], arrScalef[3], arrRotatef[4];
+	bool childsFreeze = false;
 
 	void setTranslatef(float x, float y, float z) {
 		objectTranslatef[0] = x;
@@ -143,9 +144,13 @@ inline void decomposeMatrixToTransform(float inMatrix[16], Transform* t) {
 
     t->setTranslatef(translation.x, translation.y, translation.z);
 
+    rotation = glm::normalize(rotation);
     float angle = glm::degrees(glm::angle(rotation));
     glm::vec3 axis = glm::axis(rotation);
-    if (glm::length(axis) < 0.0001f) axis = glm::vec3(0,1,0);
+    if (std::isnan(angle) || glm::length(axis) < 0.0001f) {
+        angle = 0.0f;
+        axis = glm::vec3(0, 1, 0);
+    }
     t->setRotatef(angle, axis.x, axis.y, axis.z);
 
     t->setScalef(scale.x, scale.y, scale.z);

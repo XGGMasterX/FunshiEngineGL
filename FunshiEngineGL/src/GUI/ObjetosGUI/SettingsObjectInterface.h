@@ -40,7 +40,7 @@ public:
     void loadComponents() {
         Transform* transformComponent = object->getComponent<Transform>();
         if (transformComponent != nullptr) {
-            listaDESettingsComponent->addLast(new SettingsTransform(transformComponent));
+            listaDESettingsComponent->addLast(new SettingsTransform(transformComponent, object));
         }
         Color* colorComponent = object->getComponent<Color>();
         if (colorComponent != nullptr) {
@@ -105,7 +105,7 @@ public:
         if (ImGui::BeginPopupContextWindow("AddComponentPopup", ImGuiPopupFlags_MouseButtonRight)) {
             if (ImGui::MenuItem("Agregar Transform") && object->getComponent<Transform>() == nullptr) {
                 object->addComponent(new Transform());
-                listaDESettingsComponent->addLast(new SettingsTransform(object->getComponent<Transform>()));
+                listaDESettingsComponent->addLast(new SettingsTransform(object->getComponent<Transform>(), object));
             }
             if (ImGui::MenuItem("Agregar Color") && object->getComponent<Color>() == nullptr){
                 object->addComponent(new Color());

@@ -18,7 +18,7 @@ SceneRegistry::~SceneRegistry() {
 void SceneRegistry::createDefaultRoot() {
     auto root = std::make_unique<Modelos3D>();
     root->setId(0);
-    root->setOriginTransform(nullptr);
+    root->setParentEntity(nullptr);
     GameObject* rootRaw = root.get();
     ownedGameObjects.emplace_back(std::move(root));
     entitys.createRoot(rootRaw);
@@ -44,8 +44,7 @@ void SceneRegistry::refreshTransformOrigins(Position<GameObject*>* parent) {
     Position<Position<GameObject*>*>* child = children->first();
     while (child) {
         Position<GameObject*>* childPosition = child->getElement();
-        childPosition->getElement()->setOriginTransform(
-            parent->getElement()->getComponent<Transform>());
+        childPosition->getElement()->setParentEntity(parent->getElement());
         refreshTransformOrigins(childPosition);
         child = (child != children->last()) ? children->next(child) : nullptr;
     }
@@ -100,7 +99,7 @@ GameObject* SceneRegistry::createObject(std::unique_ptr<GameObject> object,
     GameObject* raw = object.get();
     ownedGameObjects.emplace_back(std::move(object));
     entitys.addNodeChildOf(parentPosition, raw);
-    raw->setOriginTransform(parent->getComponent<Transform>());
+    raw->setParentEntity(parent);
     refreshGameObjectView();
     return raw;
 }
@@ -110,7 +109,7 @@ bool SceneRegistry::replaceRoot(std::unique_ptr<GameObject> root) {
     clear();
     entitys.deleteRoot();
     ownedGameObjects.clear();
-    root->setOriginTransform(nullptr);
+    root->setParentEntity(nullptr);
     GameObject* raw = root.get();
     ownedGameObjects.emplace_back(std::move(root));
     entitys.createRoot(raw);
@@ -164,7 +163,7 @@ bool SceneRegistry::reparent(GameObject* object, GameObject* parent) {
     } catch (...) {
         return false;
     }
-    object->setOriginTransform(parent->getComponent<Transform>());
+    object->setParentEntity(parent);
     refreshGameObjectView();
     return true;
 }
