@@ -46,6 +46,12 @@ void SceneSelectedInterface::setEntitys(ListaDE<GameObject*>* value) {
     (void)value;
 }
 GameObject* SceneSelectedInterface::getReturnableEntity() { return returneableObject; }
+void SceneSelectedInterface::setReturnableEntity(GameObject* object) {
+    returneableObject = object;
+    if (events) {
+        events->publish({SceneEventType::ObjectSelected, returneableObject, nullptr});
+    }
+}
 void SceneSelectedInterface::setPhysics(PhysicsEngine* physics) {
     if (editor) editor->setPhysics(physics);
 }

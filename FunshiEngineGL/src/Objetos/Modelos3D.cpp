@@ -147,3 +147,19 @@ void Modelos3D::loadEntity(std::string filename) {
     deserializeEntity();
     myBinario->ifCloseBinary();
 }
+
+bool Modelos3D::getBoundingBox(vec3& outMin, vec3& outMax) const {
+    if (vertices.empty()) return false;
+    outMin = vertices[0];
+    outMax = vertices[0];
+    for (size_t i = 1; i < vertices.size(); ++i) {
+        outMin.x = std::min(outMin.x, vertices[i].x);
+        outMin.y = std::min(outMin.y, vertices[i].y);
+        outMin.z = std::min(outMin.z, vertices[i].z);
+        outMax.x = std::max(outMax.x, vertices[i].x);
+        outMax.y = std::max(outMax.y, vertices[i].y);
+        outMax.z = std::max(outMax.z, vertices[i].z);
+    }
+    return true;
+}
+

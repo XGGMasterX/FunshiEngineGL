@@ -28,6 +28,7 @@ public:
 
     Binario* getMyBinario();
     void setOriginTransform(Transform* newOriginTransform);
+    Transform* getOriginTransform() const { return transformOrigin; }
 
     virtual void addComponent(Component* component) = 0;
     virtual void deleteComponent(Component* component) = 0;

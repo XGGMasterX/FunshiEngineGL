@@ -6,6 +6,7 @@
 #include <imgui_impl_opengl3.h>
 #include "../src/Objetos/Modelos3D.h"
 #include "../src/Gizmo/Camera.h"
+#include "ImGuizmo.h"
 #if defined(_WIN32)
 #include <glfw3.h>
 #elif defined(__linux__)
@@ -181,7 +182,17 @@ public:
             menuActivo = !menuActivo;
         }
 
-
+        if (action == GLFW_PRESS) {
+            if (key == GLFW_KEY_1 || key == GLFW_KEY_T) {
+                if (scene) scene->setGizmoOperation(ImGuizmo::TRANSLATE);
+            }
+            else if (key == GLFW_KEY_2 || key == GLFW_KEY_R) {
+                if (scene) scene->setGizmoOperation(ImGuizmo::ROTATE);
+            }
+            else if (key == GLFW_KEY_3 || key == GLFW_KEY_Y) {
+                if (scene) scene->setGizmoOperation(ImGuizmo::SCALE);
+            }
+        }
     }
 
     void onMouse(GLFWwindow* window, double xpos, double ypos)
@@ -207,7 +218,10 @@ public:
 
         lastMousePosX = xpos;
         lastMousePosY = ypos;
-        if (!menuActivo) {
+        
+        ImGuiIO& io = ImGui::GetIO();
+        bool gizmoCapturing = scene && scene->isGizmoCapturingInput();
+        if (!menuActivo && !io.WantCaptureMouse && !gizmoCapturing) {
             camera->updateYaw(dx, dy);
             camera->update();
         }
@@ -249,19 +263,19 @@ int main(void)
     glClearColor(0.1, 0.1, 0.1, 1.0); //color de fondo
 
 
-    // Configuraci髇 de iluminaci髇 fija
+    // Configuraci贸n de iluminaci贸n fija
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LESS);
-    glEnable(GL_NORMALIZE);  // Normaliza autom醫icamente las normales
+    glEnable(GL_NORMALIZE);  // Normaliza autom谩ticamente las normales
 
-    // Configuraci髇 de iluminaci髇
+    // Configuraci贸n de iluminaci贸n
     glEnable(GL_LIGHTING);
     glEnable(GL_LIGHT0);
  
 
 
 
-    // Configuraci髇 de materiales
+    // Configuraci贸n de materiales
     glColorMaterial(GL_FRONT, GL_AMBIENT_AND_DIFFUSE);
 
     float FPS = 60.0;    //LIMITE DE FPS

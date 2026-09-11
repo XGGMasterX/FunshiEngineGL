@@ -7,23 +7,33 @@ SettingsTransform::SettingsTransform(Transform* componentTransform) {
 
 void SettingsTransform::showDataComponent() {
 	ImGui::Text("Translate");
-	ImGui::SliderFloat("Xt", &componentTransform->getTranslatef()[0], -100.0f, 100.0f);
-	ImGui::SliderFloat("Yt", &componentTransform->getTranslatef()[1], -100.0f, 100.0f);
-	ImGui::SliderFloat("Zt", &componentTransform->getTranslatef()[2], -100.0f, 100.0f);
-	componentTransform->setTranslatef(componentTransform->getTranslatef()[0], componentTransform->getTranslatef()[1], componentTransform->getTranslatef()[2]);
+	if (ImGui::DragFloat("Xt", &componentTransform->getTranslatef()[0], 0.05f, 0.0f, 0.0f, "%.2f") |
+	    ImGui::DragFloat("Yt", &componentTransform->getTranslatef()[1], 0.05f, 0.0f, 0.0f, "%.2f") |
+	    ImGui::DragFloat("Zt", &componentTransform->getTranslatef()[2], 0.05f, 0.0f, 0.0f, "%.2f")) {
+		componentTransform->setTranslatef(componentTransform->getTranslatef()[0],
+		                                  componentTransform->getTranslatef()[1],
+		                                  componentTransform->getTranslatef()[2]);
+	}
 
 	ImGui::Text("Scale");
-	ImGui::SliderFloat("Xs", &componentTransform->getScalef()[0], -50.0f, 50.0f);
-	ImGui::SliderFloat("Ys", &componentTransform->getScalef()[1], -50.0f, 50.0f);
-	ImGui::SliderFloat("Zs", &componentTransform->getScalef()[2], -50.0f, 50.0f);
-	componentTransform->setScalef(componentTransform->getScalef()[0], componentTransform->getScalef()[1], componentTransform->getScalef()[2]);
+	if (ImGui::DragFloat("Xs", &componentTransform->getScalef()[0], 0.01f, 0.001f, 100.0f, "%.3f") |
+	    ImGui::DragFloat("Ys", &componentTransform->getScalef()[1], 0.01f, 0.001f, 100.0f, "%.3f") |
+	    ImGui::DragFloat("Zs", &componentTransform->getScalef()[2], 0.01f, 0.001f, 100.0f, "%.3f")) {
+		componentTransform->setScalef(componentTransform->getScalef()[0],
+		                              componentTransform->getScalef()[1],
+		                              componentTransform->getScalef()[2]);
+	}
 
 	ImGui::Text("Rotate");
-	ImGui::SliderFloat("Angulo", &componentTransform->getRotatef()[0], -100.0f, 100.0f);
-	ImGui::SliderFloat("Xr", &componentTransform->getRotatef()[1], -100.0f, 100.0f);
-	ImGui::SliderFloat("Yr", &componentTransform->getRotatef()[2], -100.0f, 100.0f);
-	ImGui::SliderFloat("Zr", &componentTransform->getRotatef()[3], -100.0f, 100.0f);
-	componentTransform->setRotatef(componentTransform->getRotatef()[0], componentTransform->getRotatef()[1], componentTransform->getRotatef()[2], componentTransform->getRotatef()[3]);
+	if (ImGui::DragFloat("Angulo", &componentTransform->getRotatef()[0], 0.5f, -360.0f, 360.0f, "%.1f deg") |
+	    ImGui::DragFloat("Xr", &componentTransform->getRotatef()[1], 0.01f, -1.0f, 1.0f, "%.2f") |
+	    ImGui::DragFloat("Yr", &componentTransform->getRotatef()[2], 0.01f, -1.0f, 1.0f, "%.2f") |
+	    ImGui::DragFloat("Zr", &componentTransform->getRotatef()[3], 0.01f, -1.0f, 1.0f, "%.2f")) {
+		componentTransform->setRotatef(componentTransform->getRotatef()[0],
+		                               componentTransform->getRotatef()[1],
+		                               componentTransform->getRotatef()[2],
+		                               componentTransform->getRotatef()[3]);
+	}
 }
 
 Component* SettingsTransform::getComponent() {
