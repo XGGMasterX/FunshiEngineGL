@@ -5,8 +5,9 @@
 #include "../GUI/SceneGUI/SceneSelectedInterface.h"
 #include "../Gizmo/Camera.h"
 #include "../Fisicas/PhysicsEngine.h"
-#include "../Iluminacion/Ilumination.h"
+#include "../Iluminacion/LightSystem.h"
 #include "../Objetos/Componentes/Color.h"
+#include "../Objetos/Componentes/Light.h"
 #include "../Objetos/Componentes/Script.h"
 #include "../Objetos/Componentes/Transform.h"
 #include "../Objetos/Modelos3D.h"
@@ -52,8 +53,6 @@ ListaDE<GameObject*>* GameScene::getGameObjectsScene() {
     return sceneRegistry->getGameObjects();
 }
 
-void GameScene::setSun(Ilumination* value) { sun = value; }
-
 void GameScene::saveScene(const std::string& filename) {
     if (sceneSerializer) sceneSerializer->save(filename);
 }
@@ -84,6 +83,42 @@ void GameScene::dibujarObject(GameObject* object) {
     object->setTam(10);
     object->setColor(object->auxColor);
     if (object->getComponent<Transform>()) object->dibujar(deltaTime);
+    if (object->getComponent<Light>()) dibujarMarcadorLuz(object);
+}
+
+// Gizmo visual de una luz: un octaedro alambre amarillo en la posicion del
+// objeto, para poder ubicar y seleccionar luces que no tienen cuerpo.
+void GameScene::dibujarMarcadorLuz(GameObject* object) {
+    Transform* transform = object->getGlobalTransform();
+    if (!transform) return;
+
+    float modelArr[16];
+    buildMatrixFromTransform(transform, modelArr);
+
+    const float size = 0.5f;
+    const float v[6][3] = {
+        { 1.f, 0.f, 0.f}, {-1.f, 0.f, 0.f},
+        { 0.f, 1.f, 0.f}, { 0.f,-1.f, 0.f},
+        { 0.f, 0.f, 1.f}, { 0.f, 0.f,-1.f}};
+    const int edges[12][2] = {
+        {0,2},{0,3},{0,4},{0,5},
+        {1,2},{1,3},{1,4},{1,5},
+        {2,4},{2,5},{3,4},{3,5}};
+
+    glPushMatrix();
+    glMultMatrixf(modelArr);
+    glDisable(GL_LIGHTING);
+    glColor3f(1.f, 0.85f, 0.1f);
+    glBegin(GL_LINES);
+    for (int i = 0; i < 12; ++i) {
+        glVertex3f(v[edges[i][0]][0] * size, v[edges[i][0]][1] * size,
+                   v[edges[i][0]][2] * size);
+        glVertex3f(v[edges[i][1]][0] * size, v[edges[i][1]][1] * size,
+                   v[edges[i][1]][2] * size);
+    }
+    glEnd();
+    glEnable(GL_LIGHTING);
+    glPopMatrix();
 }
 
 void GameScene::mallaScene(float tam) {
@@ -245,7 +280,7 @@ void GameScene::gameScene() {
     glGetFloatv(GL_MODELVIEW_MATRIX, view);
     glGetFloatv(GL_PROJECTION_MATRIX, projection);
 
-    if (sun) sun->apply();
+    lightSystem.beginFrame(getGameObjectsScene());
     glPushMatrix();
     mallaScene(70.0f);
     glPopMatrix();

@@ -9,6 +9,8 @@
 #include <fstream>
 #include <iostream>
 
+#include "../Objetos/Componentes/Material.h"
+
 Modelos3D::Modelos3D(Entity* origin) : GameObject(origin) { filePath[0] = '\0'; }
 Modelos3D::Modelos3D() : GameObject() { filePath[0] = '\0'; }
 
@@ -67,9 +69,11 @@ void Modelos3D::dibujar(float deltaTime) {
     if (transform) transform->position();
     if (Model* model = getComponent<Model>(); model && model->getPath() != filePath)
         setPath(model->getPath());
-    if (Color* color = getComponent<Color>())
+    if (Material* material = getComponent<Material>()) {
+        material->aplicar();
+    } else if (Color* color = getComponent<Color>()) {
         glMaterialfv(GL_FRONT, GL_DIFFUSE, color->getColor());
-    else {
+    } else {
         const GLfloat white[] = {1.f, 1.f, 1.f, 1.f};
         glMaterialfv(GL_FRONT, GL_DIFFUSE, white);
     }
