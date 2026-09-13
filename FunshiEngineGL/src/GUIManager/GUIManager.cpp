@@ -6,7 +6,7 @@
 #include <cstdlib>
 
 GUIManager::GUIManager(GLFWwindow* window)
-    : menuGUI(new MenuInterface(window, true)),
+    : menuGUI(new MenuGUI(window)),
       settingGUI(new SettingsObjectInterface(new Modelos3D(), false)),
       selecteableGUI(new SceneSelectedInterface(true)),
       menuBarGUI(std::make_unique<SceneMenuBarInterface>(true)),
@@ -32,7 +32,7 @@ void GUIManager::bindScene(SceneRegistry* scene, EditorController* editor,
     this->editor = editor;
     selecteableGUI->bindScene(scene, editor, events);
 }
-MenuInterface* GUIManager::getMenuGUI() { return menuGUI.get(); }
+MenuGUI* GUIManager::getMenuGUI() { return menuGUI.get(); }
 TreeFilesInterface* GUIManager::getTreeFilesGUI() { return treeFilesGUI.get(); }
 
 SettingsObjectInterface* GUIManager::getSettingGUI(GameObject* gameObject) {

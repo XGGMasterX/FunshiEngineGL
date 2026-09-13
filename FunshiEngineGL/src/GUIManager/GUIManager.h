@@ -4,7 +4,7 @@
 #include <iostream>
 #include <memory>
 #include <cstdlib>
-#include "../GUI/MenusGUI/MenuInterface.h"
+#include "../GUI/MenusGUI/MenuGUI.h"
 #include "../GUI/SceneGUI/SceneSelectedInterface.h"
 #include "../GUI/FileManagerGUI/TreeFilesInterface.h"
 #include "../GUI/FileManagerGUI/ContentFolderInterface.h"
@@ -25,7 +25,9 @@ using namespace std;
 class GUIManager {
 private:
 	// Use unique_ptr for owned resources
-	std::unique_ptr<MenuInterface> menuGUI;
+	// menuGUI es la fachada del paquete MenuGUI (GUI de inicio del motor):
+	// GUIManager y main solo conversan con ella, no con las clases internas.
+	std::unique_ptr<MenuGUI> menuGUI;
 	std::unique_ptr<SettingsObjectInterface> settingGUI;
 	std::unique_ptr<SceneSelectedInterface> selecteableGUI;
 	std::unique_ptr<SceneMenuBarInterface> menuBarGUI;
@@ -43,7 +45,7 @@ public:
 	void setPhysics(PhysicsEngine* phisics);
 	void bindScene(SceneRegistry* scene, EditorController* editor, EventBus* events);
 
-	MenuInterface* getMenuGUI();
+	MenuGUI* getMenuGUI();
 	TreeFilesInterface* getTreeFilesGUI();
 	SettingsObjectInterface* getSettingGUI(GameObject* gameObject);
 	void removeSettingsGUI();

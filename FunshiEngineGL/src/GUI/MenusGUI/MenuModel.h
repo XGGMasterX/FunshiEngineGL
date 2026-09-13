@@ -1,0 +1,52 @@
+#ifndef MENUMODEL_H
+#define MENUMODEL_H
+
+#include <string>
+#include <vector>
+
+// Modelo del paquete MenuGUI: la capa de logica pura del menu de inicio del
+// motor (sin ImGui/GLFW ni rendering). Es el patron MVP de este paquete:
+// - MenuModel    (este archivo): estado + navegacion entre vistas + datos de
+//   configuracion. Independiente de la interfaz y testeable.
+// - MenuView     (MenuView.h): presentacion. Solo lee el estado y delega las
+//   acciones de vuelta aca; nunca decide la logica.
+// - StartMenuPresenter (StartMenuPresenter.h): puente con el resto del motor:
+//   traduce el estado del modelo a "el menu esta abierto/cerrado" para main
+//   y sincroniza de vuelta cambios externos (p. ej. el nombre leido del
+//   proyecto en disco).
+// - MenuGUI      (MenuGUI.h): fachada del paquete; main no conoce las clases
+//   internas, solo interactua con la interfaz publica del paquete (ver
+//   README.md del paquete).
+// El modelo centraliza el estado del menu para que las vistas se puedan
+// reemplazar o recorrer sin tocar la logica.
+class MenuModel {
+public:
+    enum class Vista { Principal, Opciones, ConfigProyecto, Ninguna };
+
+    // Abre el menu principal (por ejemplo desde el editor con Escape).
+    void mostrarMenu();
+    // Cierra el menu y deja el motor listo para editar (boton Iniciar Estudio).
+    void iniciarEstudio();
+    void abrirOpciones();
+    void abrirConfigProyecto();
+    // Vuelve de Opciones/ConfigProyecto al menu principal.
+    void volver();
+
+    bool estaVisible() const noexcept;
+    Vista getVista() const noexcept;
+
+    const std::string& getNombreProyecto() const noexcept;
+    void setNombreProyecto(const std::string& nombre);
+
+    const std::string& getIdioma() const noexcept;
+    void setIdioma(const std::string& valor);
+    const std::vector<std::string>& getIdiomas() const noexcept;
+
+private:
+    Vista vista = Vista::Principal;
+    std::string nombreProyecto = "Nuevo Proyecto";
+    std::string idioma = "Espanol";
+    std::vector<std::string> idiomasDisponibles = {"Espanol", "English"};
+};
+
+#endif
