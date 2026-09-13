@@ -6,7 +6,7 @@
 #include "../ObjetosGUI/SettingsObjectInterface.h"
 #include "../../Estructuras/Trees/ArbolesEnlazados/ArbolEnlazado.h"
 #include "../../Objetos/Modelos3D.h"
-#include "../../Events/EventBus.h"
+#include "SceneObjectTree.h"
 
 using namespace std;
 
@@ -14,27 +14,29 @@ using namespace std;
 class SceneRegistry;
 class EditorController;
 class PhysicsEngine;
+class EventBus;
+class IconosGUI;
 
-//ADAPTAR DE GAMEOBJECT A PRIORITY DE ENTITY
+// Ventana "SelectedObjects": jerarquia de la escena.
+//
+// Es una ventana fina: la logica del arbol vive en el widget reutilizable
+// SceneObjectTree y la seleccion en el EditorController (unica fuente de
+// verdad, publicada via EventBus).
 class SceneSelectedInterface : public GeneralUserInterface {
 protected:
-	GameObject* returneableObject = nullptr;
-	char inputImGuiString[128] = "";
-	int inputImGuiID = 0;
-	bool deleteObject = false;
-
 	// Scene integration
 	SceneRegistry* scene = nullptr;
 	EditorController* editor = nullptr;
-	EventBus* events = nullptr;
-	size_t eventSubscription = 0;
+
+	// Widget reutilizable de jerarquia (contenido de la ventana)
+	SceneObjectTree sceneTree;
 
 public:
 	SceneSelectedInterface(bool stateGUI);
-	virtual ~SceneSelectedInterface();
 
 	void bindScene(SceneRegistry* value, EditorController* controller, EventBus* bus);
 	void setPhysics(PhysicsEngine* physics);
+	void setIconosGUI(IconosGUI* iconosG) { sceneTree.setIconosGUI(iconosG); }
 
 	virtual ArbolEnlazado<GameObject*>* getEntitysTree();
 	virtual void setEntitys(ListaDE<GameObject*>* gameObjects);
@@ -43,7 +45,6 @@ public:
 	virtual ListaDE<GameObject*>* getGameObjects();
 
 	virtual void initGUI() override;
-	void drawPreOrder(Position<GameObject*>* pos);
 	virtual void contentGUI() override;
 	virtual void endGUI() override;
 	virtual void printGUI() override;

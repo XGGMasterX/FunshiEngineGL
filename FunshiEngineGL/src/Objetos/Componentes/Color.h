@@ -1,9 +1,5 @@
 #ifndef COLOR_H
 #define COLOR_H
-#include <iostream>
-#include <fstream>
-#include <vector>
-#include <string>
 #include "Component.h"
 
 typedef float color[4];
@@ -16,62 +12,17 @@ private:
     color range = { 0.0f, 0.0f, 0.0f, 1.0f };
 
 protected:
-    virtual void serializeComponent(std::ofstream* file) override {
-        file->write(reinterpret_cast<const char*>(&f1), sizeof(float));
-        file->write(reinterpret_cast<const char*>(&f2), sizeof(float));
-        file->write(reinterpret_cast<const char*>(&f3), sizeof(float));
-    }
-
-    virtual void deserializeComponent(std::ifstream* file) override {
-        if (!file || !file->is_open()) {
-            std::cerr << "Error: archivo inválido o no abierto para lectura.\n";
-            return;
-        }
-        file->read(reinterpret_cast<char*>(&f1), sizeof(float));
-        file->read(reinterpret_cast<char*>(&f2), sizeof(float));
-        file->read(reinterpret_cast<char*>(&f3), sizeof(float));
-
-        range[0] = f1;
-        range[1] = f2;
-        range[2] = f3;
-        range[3] = 1.0f;
-    }
+    void serializeComponent(std::ofstream* file) override;
+    void deserializeComponent(std::ifstream* file) override;
 
 public:
-    Color() {
-        range[0] = f1;
-        range[1] = f2;
-        range[2] = f3;
-        range[3] = 1.0f;
-    }
+    Color();
 
-    void saveComponent(std::ofstream* file) override {
-        serializeComponent(file);
-    }
+    void saveComponent(std::ofstream* file) override;
+    void loadComponent(std::ifstream* file) override;
 
-    void loadComponent(std::ifstream* file) override {
-        deserializeComponent(file);
-    }
-
-    void setColor(const color cor) {
-        f1 = cor[0];
-        f2 = cor[1];
-        f3 = cor[2];
-        range[0] = f1;
-        range[1] = f2;
-        range[2] = f3;
-        range[3] = 1.0f;
-    }
-
-    void setColor(float r, float g, float b) {
-        f1 = r;
-        f2 = g;
-        f3 = b;
-        range[0] = f1;
-        range[1] = f2;
-        range[2] = f3;
-        range[3] = 1.0f;
-    }
+    void setColor(const color cor);
+    void setColor(float r, float g, float b);
 
     // Devuelve directamente el puntero interno al arreglo RGBA
     const float* getColor() const {
@@ -79,6 +30,7 @@ public:
     }
 };
 
+// Constantes de color globales (una copia por TU, como historico).
 static color rojo = { 2.0,0.0,0.0 };
 static color verde = { 0.0,1.0,0.0 };
 static color aguaMarina = { 0.0,1.0,1.0 };

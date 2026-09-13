@@ -23,6 +23,9 @@ private:
     Position<File*>* folderActual;
 
     void recorrerDir(const std::string& path, Position<File*>* parent);
+    // Borra los File* (elementos) de un arbol en pre-orden. El arbol de
+    // nodos (TNodo/ListaDE) no libera sus elementos al destruirse.
+    void liberarPreOrden(ArbolEnlazado<File*>* arbol, Position<File*>* p);
     bool compareTreesByPath(ArbolEnlazado<File*>* first,
                             ArbolEnlazado<File*>* second);
     bool preOrdenNoExaustivo(ArbolEnlazado<File*>* first,

@@ -15,6 +15,12 @@ GUIManager::GUIManager(GLFWwindow* window)
     const std::string path = std::string(homeDir ? homeDir : ".") + "/MotorGrafico";
     treeFilesGUI = std::make_unique<TreeFilesInterface>(true, path);
     contentOfThisFolder = std::make_unique<ContentFolderInterface>(false);
+    dockSpaceGUI = std::make_unique<DockSpaceInterface>(true);
+    iconosGUI = std::make_unique<IconosGUI>();
+    iconosGUI->init();
+    treeFilesGUI->setIconosGUI(iconosGUI.get());
+    contentOfThisFolder->setIconosGUI(iconosGUI.get());
+    selecteableGUI->setIconosGUI(iconosGUI.get());
 }
 
 GUIManager::~GUIManager() {
@@ -30,14 +36,17 @@ MenuInterface* GUIManager::getMenuGUI() { return menuGUI.get(); }
 TreeFilesInterface* GUIManager::getTreeFilesGUI() { return treeFilesGUI.get(); }
 
 SettingsObjectInterface* GUIManager::getSettingGUI(GameObject* gameObject) {
-    if (gameObject != nullptr && settingGUI->getObjectInInspector() == gameObject) {
-        settingGUI->setPhysics(phisics);
-        settingGUI->setStateGui(true);
-    } else if (gameObject != nullptr) {
-        settingGUI->setPhysics(phisics);
+    if (gameObject == nullptr) {
         settingGUI->setStateGui(false);
-        settingGUI = std::make_unique<SettingsObjectInterface>(gameObject, true);
+        return settingGUI.get();
     }
+    settingGUI->setPhysics(phisics);
+    // Solo se refresca el contenido al cambiar de objeto; no se recrea la
+    // ventana (mismo patron que ContentFolderInterface).
+    if (settingGUI->getObjectInInspector() != gameObject) {
+        settingGUI->setTargetObject(gameObject);
+    }
+    settingGUI->setStateGui(true);
     return settingGUI.get();
 }
 
@@ -60,3 +69,4 @@ void GUIManager::setContentFolderGUI() {
     }
 }
 ContentFolderInterface* GUIManager::getContentFolderGUI() { return contentOfThisFolder.get(); }
+DockSpaceInterface* GUIManager::getDockSpaceGUI() { return dockSpaceGUI.get(); }
