@@ -11,9 +11,11 @@
 #include "Model/SettingsModel.h"
 #include "Material/SettingsMaterial.h"
 #include "Light/SettingsLight.h"
+#include "Camera/SettingsCamera.h"
 #include "../../Objetos/GameObject.h"
 #include "../../Objetos/Componentes/Light.h"
 #include "../../Objetos/Componentes/Material.h"
+#include "../../Objetos/Componentes/CameraComponent.h"
 #include "../../Fisicas/PhysicsEngine.h"
 #include "../../Herramientas/TypeUtils.h"
 #include <imgui.h>
@@ -60,6 +62,10 @@ void SettingsObjectInterface::loadComponents() {
 	Light* lightComponent = object->getComponent<Light>();
 	if (lightComponent != nullptr) {
 		listaDESettingsComponent->addLast(new SettingsLight(object));
+	}
+	CameraComponent* cameraComponent = object->getComponent<CameraComponent>();
+	if (cameraComponent != nullptr) {
+		listaDESettingsComponent->addLast(new SettingsCamera(object));
 	}
 	// SOPORTE PARA AMBOS COLLIDER
 	Collider* collider = object->getComponent<EsfereCollider>();
@@ -141,6 +147,11 @@ void SettingsObjectInterface::contentGUI() {
 		    object->getComponent<Light>() == nullptr) {
 			object->addComponent(new Light());
 			listaDESettingsComponent->addLast(new SettingsLight(object));
+		}
+		if (ImGui::MenuItem("Agregar Camara") &&
+		    object->getComponent<CameraComponent>() == nullptr) {
+			object->addComponent(new CameraComponent());
+			listaDESettingsComponent->addLast(new SettingsCamera(object));
 		}
 		if (ImGui::TreeNodeEx("Agregar Collider",
 		                      ImGuiTreeNodeFlags_OpenOnArrow |

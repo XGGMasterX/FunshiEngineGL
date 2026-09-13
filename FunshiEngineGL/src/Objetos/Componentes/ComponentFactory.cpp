@@ -3,6 +3,7 @@
 #include "Colliders/CubeCollider.h"
 #include "Colliders/EsfereCollider.h"
 #include "Colliders/MallaCollider.h"
+#include "CameraComponent.h"
 #include "Color.h"
 #include "Light.h"
 #include "Material.h"
@@ -20,6 +21,10 @@ std::unique_ptr<Component> ComponentFactory::create(const std::string& typeName,
     if (typeName == "Color") return std::make_unique<Color>();
     if (typeName == "Material") return std::make_unique<Material>();
     if (typeName == "Light") return std::make_unique<Light>();
+    // El nombre con el que se serializa es el demangle RTTI de la clase
+    // ("CameraComponent"); "Camera" se conserva como alias hacia atras.
+    if (typeName == "CameraComponent" || typeName == "Camera")
+        return std::make_unique<CameraComponent>();
     if (typeName == "EsfereCollider" && transform)
         return std::make_unique<EsfereCollider>(5.0f, transform);
     if (typeName == "CubeCollider" && transform)

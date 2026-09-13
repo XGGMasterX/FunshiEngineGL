@@ -5,7 +5,8 @@
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
 #include "../src/Objetos/Modelos3D.h"
-#include "../src/Gizmo/Camera.h"
+#include "../src/Objetos/Componentes/CameraComponent.h"
+#include "../src/Ventana.h"
 #include "ImGuizmo.h"
 #if defined(_WIN32)
 #include <glfw3.h>
@@ -85,7 +86,6 @@ static float lastMousePosY = 0.0;
 static bool firstTimeMouseX = true;
 static bool firstTimeMouseY = true;
 static bool recFilesInit = true;
-static bool menuActivo = false;
 
 // Variables de estado
 static bool showMenu = true;
@@ -93,15 +93,13 @@ static bool sceneRunning = false;
 static float deltaTime = 0.0f;
 class MiAPP {
 private:
-    Camera* camera;
     GameScene* scene;
 
 public:
     static MiAPP* instancia;
     
 
-    MiAPP(Camera* camera, GameScene* scene) {
-        this->camera = camera;
+    MiAPP(GameScene* scene) {
         this->scene = scene;
         instancia = this;
     }
@@ -118,6 +116,7 @@ public:
     void onKey(GLFWwindow* window, int key, int scancode, int action, int mods)
     {
 
+        CameraComponent* camara = scene ? scene->getActiveCamera() : nullptr;
         if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
         {
             sceneRunning = false;
@@ -125,61 +124,61 @@ public:
         else if (key == GLFW_KEY_W && (action == GLFW_PRESS || action == GLFW_REPEAT))
         {
             
-            camera->forward(deltaTime);
+            if (camara) camara->forward(deltaTime);
             if (key == GLFW_KEY_W && key == GLFW_KEY_D && (action == GLFW_PRESS || action == GLFW_REPEAT))
             {
                 
-                camera->forwardRight(deltaTime);
+                if (camara) camara->forwardRight(deltaTime);
             }
 
             else if (key == GLFW_KEY_W && key == GLFW_KEY_A && (action == GLFW_PRESS || action == GLFW_REPEAT))
             {
                 
-                camera->forwardLeft(deltaTime);
+                if (camara) camara->forwardLeft(deltaTime);
 
             }
         }
         else if (key == GLFW_KEY_S && (action == GLFW_PRESS || action == GLFW_REPEAT))
         {
             
-            camera->back(deltaTime);
+            if (camara) camara->back(deltaTime);
             if (key == GLFW_KEY_S && key == GLFW_KEY_D && (action == GLFW_PRESS || action == GLFW_REPEAT))
             {
                 
-                camera->backRight(deltaTime);
+                if (camara) camara->backRight(deltaTime);
 
             }
 
             else if (key == GLFW_KEY_S && key == GLFW_KEY_A && (action == GLFW_PRESS || action == GLFW_REPEAT))
             {
                 
-                camera->backLeft(deltaTime);
+                if (camara) camara->backLeft(deltaTime);
             }
         }
         else if (key == GLFW_KEY_A && (action == GLFW_PRESS || action == GLFW_REPEAT))
         {
             
-            camera->left(deltaTime);
+            if (camara) camara->left(deltaTime);
 
         }
         else if (key == GLFW_KEY_D && (action == GLFW_PRESS || action == GLFW_REPEAT))
         {
             
-            camera->right(deltaTime);
+            if (camara) camara->right(deltaTime);
         }
         if (key == GLFW_KEY_SPACE && (action == GLFW_PRESS || action == GLFW_REPEAT))
         {
            
-            camera->up(deltaTime);
+            if (camara) camara->up(deltaTime);
         }
         else if (key == GLFW_KEY_LEFT_SHIFT && (action == GLFW_PRESS || action == GLFW_REPEAT))
         {
             
-            camera->down(deltaTime);
+            if (camara) camara->down(deltaTime);
         }
 
         if (key == GLFW_KEY_E && action == GLFW_PRESS) {
-            menuActivo = !menuActivo;
+            if (scene) scene->toggleEditorInterfaces();
         }
 
         if (action == GLFW_PRESS) {
@@ -221,9 +220,10 @@ public:
         
         ImGuiIO& io = ImGui::GetIO();
         bool gizmoCapturing = scene && scene->isGizmoCapturingInput();
-        if (!menuActivo && !io.WantCaptureMouse && !gizmoCapturing) {
-            camera->updateYaw(dx, dy);
-            camera->update();
+        bool editorActivo = scene && scene->isEditorActivo();
+        if (!editorActivo && !io.WantCaptureMouse && !gizmoCapturing) {
+            if (CameraComponent* camara = scene ? scene->getActiveCamera() : nullptr)
+                camara->updateYaw(dx, dy);
         }
 
     }
@@ -244,12 +244,11 @@ int main(void)
     auxVentana->initVentana();
     GLFWwindow* window = auxVentana->getWindow();
     GUIManager* managerOfGUI = new GUIManager(window);
-    Camera* camera = new Camera(vec3(1, 1, -50));
-    GameScene* scene = new GameScene(camera, managerOfGUI);
+    GameScene* scene = new GameScene(managerOfGUI);
     MenuInterface* mainMenu = managerOfGUI->getMenuGUI();
     TreeFilesInterface* treeFilesInterface = managerOfGUI->getTreeFilesGUI();
     ContentFolderInterface* contentFolderInterface = managerOfGUI->getContentFolderGUI();
-    MiAPP* app = new MiAPP(camera, scene);
+    MiAPP* app = new MiAPP(scene);
     Time::start();
     std::string homePath = std::getenv("HOME");
 
@@ -325,13 +324,14 @@ int main(void)
             }
 
             if (sceneRunning) {
-                managerOfGUI->getDockSpaceGUI()->printGUI();
+                if (scene->isEditorActivo())
+                    managerOfGUI->getDockSpaceGUI()->printGUI();
                 scene->gameScene();
             }
             showMenu = !sceneRunning;
             mainMenu->setStateGui(showMenu);
 
-            if (menuActivo) { //menuActivo = !menuActivo si E es presionada (CAMBIAR)
+            if (scene->isEditorActivo()) {
                 treeFilesInterface->printGUI();
                 if (treeFilesInterface->getFolderContent() != nullptr){
                     managerOfGUI->setContentFolderGUI();

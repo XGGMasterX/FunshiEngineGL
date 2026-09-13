@@ -21,6 +21,7 @@ Motor y editor 3D en tiempo real escrito en C++17, con interfaz ImGui y renderiz
 - Soporte para **scripts dinámicos** (`.so` / `.dll`) via `IScriptBehaviour`.
 - Iluminación básica OpenGL (`Ilumination`, `glLight*`).
 - Cámara FPS navegable desde el editor.
+- Cámaras como componente y **vistas previas en vivo** por cámara (render a FBO + ventanas ImGui) — ver [CAMARAS_VISTAS_PREVIAS.md](CAMARAS_VISTAS_PREVIAS.md).
 - Estructuras de datos propias: listas doblemente enlazadas, árboles enlazados binarios, listas con prioridad, métodos de ordenamiento (mergesort).
 - Jerarquía de excepciones propia (herencia de `Throwable`).
 - Build reproducible en **Linux** y **Windows** con **CMake**.
@@ -89,6 +90,7 @@ cmake .. -DCMAKE_BUILD_TYPE=Release -DENABLE_ASAN=OFF
 FunshiEngineGL/            ← raíz del repo
 ├── README.md
 ├── PROJECT_STRUCTURE.md   ← arquitectura detallada
+├── CAMARAS_VISTAS_PREVIAS.md ← Fase 2: cámaras componente + vistas previas (bugs y fixes)
 ├── FunshiEngineGL.sln     ← solución Visual Studio (Windows)
 ├── FunshiEngineGL/        ← proyecto principal
 │   ├── CMakeLists.txt

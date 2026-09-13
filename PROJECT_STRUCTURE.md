@@ -110,6 +110,8 @@ FunshiEngineGL/                          ← raíz del repo
         │   │       ├── SettingsColliderEsfera.h
         │   │       ├── SettingsColliderCubo.h
         │   │       └── SettingsColliderMalla.h
+        │   │   └── Camera/
+        │   │       └── SettingsCamera.h/.cpp ← inspector del componente de cámara (FOV, planos, velocidad, vista previa)
         │   └── SceneGUI/
         │       ├── SceneSelectedInterface.h/.cpp  ← panel de jerarquía, selección de objetos
         │       └── SceneMenuBarInterface.h/.cpp   ← barra de menú de escena (play/stop/save/load)
@@ -130,6 +132,8 @@ FunshiEngineGL/                          ← raíz del repo
         ├── Matematicas/
         │   ├── StructVec3.h             ← struct vec3 propio
         │   └── Vector.cpp
+        ├── Rendering/
+        │   └── RenderTarget.h/.cpp      ← render a textura (FBO) para vistas previas de cámara (Fase 2)
         ├── Objetos/
         │   ├── Malla.h                  ← placeholder de malla
         │   ├── GameObject.h/.cpp        ← extend Entity; id, nombre, color, serialización, update
@@ -140,6 +144,7 @@ FunshiEngineGL/                          ← raíz del repo
         │   │   └── materiales.h
         │   └── Componentes/
         │       ├── Component.h          ← interfaz base polimórfica de componentes
+        │       ├── CameraComponent.h/.cpp ← cámara como componente: vista desde el Transform del dueño, navegación FPS, flag de vista previa (Fase 2)
         │       ├── Phisics.h            ← typedef/struct auxiliar de física
         │       ├── ComponentFactory.h/.cpp ← factory de componentes (usado por GUI y deserialización)
         │       ├── Transform.h          ← posición, rotación, escala; matriz local/global; descomposición GLM

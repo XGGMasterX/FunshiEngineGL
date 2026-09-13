@@ -103,6 +103,12 @@
     <Filter Include="Archivos de origen\Iluminacion">
       <UniqueIdentifier>{6c1b2c8e-3f7a-4b5a-a1f9-2d4e0c6b9a71}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Archivos de encabezado\Rendering">
+      <UniqueIdentifier>{1d3e5c9a-6b2f-4c1a-8a4d-0f7e9d2b3c55}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Archivos de origen\Rendering">
+      <UniqueIdentifier>{c2d4f6e8-9a1b-4c3d-a5e7-b0d1f3e5c7a9}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Archivos de encabezado\Objetos\Texturas">
       <UniqueIdentifier>{428fa816-e617-424a-a030-2a7c66aeef99}</UniqueIdentifier>
     </Filter>
@@ -249,9 +255,6 @@
     <ClInclude Include="src\Ventana.h">
       <Filter>Archivos de encabezado</Filter>
     </ClInclude>
-    <ClInclude Include="src\Gizmo\Camera.h">
-      <Filter>Archivos de encabezado\Gizmo</Filter>
-    </ClInclude>
     <ClInclude Include="src\GUI\ObjetosGUI\SettingsComponent.h">
       <Filter>Archivos de encabezado\GUI\ObjetosGUI</Filter>
     </ClInclude>
@@ -348,6 +351,9 @@
     <ClInclude Include="src\Objetos\Componentes\Light.h">
       <Filter>Archivos de encabezado\Objetos\Componentes</Filter>
     </ClInclude>
+    <ClInclude Include="src\Objetos\Componentes\CameraComponent.h">
+      <Filter>Archivos de encabezado\Objetos\Componentes</Filter>
+    </ClInclude>
     <ClInclude Include="src\Objetos\Componentes\Component.h">
       <Filter>Archivos de encabezado\Objetos\Componentes</Filter>
     </ClInclude>
@@ -356,6 +362,9 @@
     </ClInclude>
     <ClInclude Include="src\Iluminacion\LightSystem.h">
       <Filter>Archivos de encabezado\Iluminacion</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Rendering\RenderTarget.h">
+      <Filter>Archivos de encabezado\Rendering</Filter>
     </ClInclude>
     <ClInclude Include="src\Matematicas\StructVec3.h">
       <Filter>Archivos de encabezado\Matematicas</Filter>
@@ -389,6 +398,9 @@
     </ClInclude>
     <ClInclude Include="src\GUI\ObjetosGUI\Light\SettingsLight.h">
       <Filter>Archivos de encabezado\GUI\ObjetosGUI\Light</Filter>
+    </ClInclude>
+    <ClInclude Include="src\GUI\ObjetosGUI\Camera\SettingsCamera.h">
+      <Filter>Archivos de encabezado\GUI\ObjetosGUI\Camera</Filter>
     </ClInclude>
     <ClInclude Include="src\Herramientas\MaterialPresets.h">
       <Filter>Archivos de encabezado</Filter>
@@ -452,10 +464,16 @@
     <ClCompile Include="src\Iluminacion\LightSystem.cpp">
       <Filter>Archivos de origen\Iluminacion</Filter>
     </ClCompile>
+    <ClCompile Include="src\Rendering\RenderTarget.cpp">
+      <Filter>Archivos de origen\Rendering</Filter>
+    </ClCompile>
     <ClCompile Include="src\Objetos\Componentes\Material.cpp">
       <Filter>Archivos de origen\Objetos</Filter>
     </ClCompile>
     <ClCompile Include="src\Objetos\Componentes\Light.cpp">
+      <Filter>Archivos de origen\Objetos</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Objetos\Componentes\CameraComponent.cpp">
       <Filter>Archivos de origen\Objetos</Filter>
     </ClCompile>
     <ClCompile Include="src\GUI\ObjetosGUI\Material\SettingsMaterial.cpp">
@@ -463,6 +481,9 @@
     </ClCompile>
     <ClCompile Include="src\GUI\ObjetosGUI\Light\SettingsLight.cpp">
       <Filter>Archivos de encabezado\GUI\ObjetosGUI\Light</Filter>
+    </ClCompile>
+    <ClCompile Include="src\GUI\ObjetosGUI\Camera\SettingsCamera.cpp">
+      <Filter>Archivos de encabezado\GUI\ObjetosGUI\Camera</Filter>
     </ClCompile>
     <ClCompile Include="src\Matematicas\Vector.cpp">
       <Filter>Archivos de origen\Matematicas</Filter>
