@@ -6,6 +6,7 @@
 #include <imgui_impl_opengl3.h>
 #include "../src/Objetos/Modelos3D.h"
 #include "../src/Objetos/Componentes/CameraComponent.h"
+#include "../src/States/ApplicationStateMachine.h"
 #include "../src/Ventana.h"
 #include "ImGuizmo.h"
 #if defined(_WIN32)
@@ -15,67 +16,6 @@
 #endif
 #include <iostream>
 #include <string>
-//testing
-/////////////////////////////////////////////////////////////////////////////////
-/*
-                           \\\\COSAS PARA AGREGAR///
-
-*revisar error en el root del treefile
-*arreglar lo del id que no deje meter si ya existen (que no haga nada)
-
-*Agregar animaciones
-*Agregar Materiales
-*Agregar texturas
-
-//OPTIMIZAR METODOS DE ESTRUCTURAS DE DATOS (NO DEPENDER TANTO DE METODOS DE LAS LISTAS , HACERLO MAS MANUAL TODO
-
-//DESPUES DIFERENCIAR (SI TIENE NAME PONER NAME SINO POR TIPO) AL LADO SIEMPRE EL ID
-//CARGAR EL ARBOL CON EL LOAD
-//EVITAR QUE CRASHE CUANDO ANIDO A UN HIJO MIO EL ARBOL (PONER UN IF O ALGO DE ESO O REVERTIR)
-
-//AL ELIMINAR UN OBJETO SE QUEDA EL BINARIO , ARMAR LISTA DE OBJETOS ELIMINADOS Y QUITAR Y LIMPIAR
-//Cuadro de log donde se indique lo que se esta haciendo mal
-//ERROR NO DEJA LEER ARCHIVOS RAROS , DEBO QUITAR FILTROS
-//ES ERROR QUE MANTEGA EL RADIO AL ELIMINAR COLLIDERS ? : SI
-//TERMINAR TODOS LOS POPUP
-//HACER METODO PARA LOS POPUP EN CADA GUI
-//UN SETTING SE ABRE AL ARRASTRAR EL OTRO
-//seria ideal crear un metodo que recorra todos los objetos
-//obtenga sus collider y verifique si se chocan con el mio
-//si es true entonces devolver quien es el objeto
-//SE DIBUJAN MAL LOS COLORES DEL COLLIDER
-//AL CREA APARECE UNA BARRA / CONTRARIA QUE ES \
-
-*sistema de seguimiento de scripts y asociaciones junto a git
-*arreglar la iluminacion y independizar mediantee clases y entidades , gizmos
-*Crear sistema de Entitys e incluir sitema de Arboles de dependencia , soy DependencyNode
-*Agregar imagenes en botones del contentFolder y para gizmos
-*Que no se mueva la camara si estoy en una GUI , ???quitar lo de E y escape , poner boton para salir al menu???
-*agregar interface imgui reactiva por clicking
-*agregar reaccion por clicking
-*Agregar funcion para deletear todos los gameObject y para los gamesObjects de selecteable
-
-*AGREGAR EL SISTEMA DE PROGRAMACION DINAMICA
-*Agregar metodo update
-*Agregar metodo Start
-*Agregar en settings zona de scripts
-*crear un typedef [SerializeField] es una extencion define para atributos privados mutables
-
-*Agregar contenedores
-*Corregir Archivos Header
-*Agregar Classe Input
-*/
-/////////////////////////////////////////////////////////////////////////////////
-
-/////////////////////////////////////////////////////////////////////////////////
-/*
-                           \\\\COSAS PARA HACER////
-*Comentar Codigo
-*Documentar Proyecto
-*Exception en carga de files del master
-*/
-/////////////////////////////////////////////////////////////////////////////////
-
 
 //VENTANA
 static int ventanaHeightEjeY, ventanaWidthEjeX;
@@ -88,8 +28,12 @@ static bool firstTimeMouseY = true;
 static bool recFilesInit = true;
 
 // Variables de estado
-static bool showMenu = true;
-static bool sceneRunning = false;
+// El estado abierto/cerrado del menu de inicio lo gobierna el modelo del
+// paquete MenuGUI (MenuModel), sincronizado por frame desde la maquina de
+// estados (fuente de verdad); no un bool suelto de main.
+// Fuente de verdad del estado de la aplicacion (MainMenu / Editing). El menu
+// de inicio (paquete MenuGUI) informa su decision y aqui se refleja.
+static ApplicationStateMachine appStateMachine;
 static float deltaTime = 0.0f;
 class MiAPP {
 private:
@@ -119,7 +63,18 @@ public:
         CameraComponent* camara = scene ? scene->getActiveCamera() : nullptr;
         if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
         {
-            sceneRunning = false;
+            // Volver al menu de inicio desde el editor: la maquina de estados
+            // es la fuente de verdad; el bucle principal refleja su decision
+            // en la fachada del paquete MenuGUI (MainMenu = menu visible).
+            if (ImGui::GetIO().WantCaptureKeyboard)
+            {
+                // Un InputText de ImGui esta activo: Escape revierte el texto
+                // en edicion y no corta la edicion de datos del editor.
+            }
+            else if (appStateMachine.is(ApplicationState::Editing))
+            {
+                appStateMachine.transitionTo(ApplicationState::MainMenu);
+            }
         }
         else if (key == GLFW_KEY_W && (action == GLFW_PRESS || action == GLFW_REPEAT))
         {
@@ -245,12 +200,16 @@ int main(void)
     GLFWwindow* window = auxVentana->getWindow();
     GUIManager* managerOfGUI = new GUIManager(window);
     GameScene* scene = new GameScene(managerOfGUI);
-    MenuInterface* mainMenu = managerOfGUI->getMenuGUI();
+    MenuGUI* mainMenu = managerOfGUI->getMenuGUI();
     TreeFilesInterface* treeFilesInterface = managerOfGUI->getTreeFilesGUI();
     ContentFolderInterface* contentFolderInterface = managerOfGUI->getContentFolderGUI();
     MiAPP* app = new MiAPP(scene);
     Time::start();
     std::string homePath = std::getenv("HOME");
+
+    // Ultimo estado de la maquina reflejado en la fachada del paquete MenuGUI
+    // (guardia de cambio; ver el bucle principal).
+    bool menuReflejadoEnFachada = appStateMachine.is(ApplicationState::MainMenu);
 
     
     glfwSetKeyCallback(window, MiAPP::teclado_callback);
@@ -315,21 +274,44 @@ int main(void)
             glfwGetFramebufferSize(window, &ventanaWidthEjeX, &ventanaHeightEjeY);     
 
             auxVentana->redimension(ventanaWidthEjeX, ventanaHeightEjeY);                
-            if (showMenu) {
-                mainMenu->printGUI();
-                mainMenu->getOpcionesGUI()->printGUI();
-                mainMenu->getConfigProyectGUI()->printGUI();
-                showMenu = mainMenu->getMenusState();
-                sceneRunning = !showMenu;
+            // Interfaz de inicio (paquete MenuGUI): main solo conversa con la
+            // fachada. ApplicationStateMachine es la fuente de verdad del
+            // estado (MainMenu = menu visible, Editing = editor) y los dos
+            // flujos que la cambian son: Escape (callback, Editing -> MainMenu)
+            // y el boton "Iniciar Estudio" (ConsultarCierre, MainMenu ->
+            // Editing). Por frame: se consulta el cierre (consumo unico), se
+            // transiciona y se refleja la decision de la maquina en la fachada.
+            if (mainMenu->ConsultarCierre()) {  // "Iniciar Estudio"
+                appStateMachine.transitionTo(ApplicationState::Editing);
             }
+
+            // Sincronizacion con guardia de cambio: SetMenuActivo(true) reinicia
+            // la vista del menu a Principal, asi que solo se aplica cuando la
+            // maquina efectivamente cambio de estado (evita sacar al usuario de
+            // las sub-vistas Opciones/ConfigProyecto en cada frame).
+            const bool menuDebeEstarAbierto =
+                appStateMachine.is(ApplicationState::MainMenu);
+            if (menuDebeEstarAbierto != menuReflejadoEnFachada) {
+                mainMenu->SetMenuActivo(menuDebeEstarAbierto);
+                menuReflejadoEnFachada = menuDebeEstarAbierto;
+            }
+
+            if (mainMenu->ConsultarMenu()) {
+                mainMenu->Renderizar();             // la vista dibuja la vista activa del modelo
+            }
+
+            // La escena corre en cualquier estado que no sea el menu (Editing,
+            // y futuramente Playing); el menu visible la detiene y dibuja solo.
+            const bool sceneRunning =
+                !appStateMachine.is(ApplicationState::MainMenu);
 
             if (sceneRunning) {
                 if (scene->isEditorActivo())
                     managerOfGUI->getDockSpaceGUI()->printGUI();
                 scene->gameScene();
             }
-            showMenu = !sceneRunning;
-            mainMenu->setStateGui(showMenu);
+            // El estado abierto/cerrado del menu de inicio lo gobierna el
+            // modelo del paquete MenuGUI (MenuModel), no un bool suelto de main.
 
             if (scene->isEditorActivo()) {
                 treeFilesInterface->printGUI();
