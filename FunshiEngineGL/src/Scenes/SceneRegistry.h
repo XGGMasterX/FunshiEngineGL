@@ -22,6 +22,9 @@ private:
     std::vector<std::unique_ptr<GameObject>> ownedGameObjects;
     ArbolEnlazado<GameObject*> entitys;
     ListaDE<GameObject*> gameObjects;
+    // La vista lineal solo se reconstruye tras una mutacion; GameScene la
+    // consulta 2 veces por frame y reconstruir siempre fugaba nodos.
+    bool viewDirty = true;
 
     void createDefaultRoot();
     void refreshTransformOrigins(Position<GameObject*>* parent);

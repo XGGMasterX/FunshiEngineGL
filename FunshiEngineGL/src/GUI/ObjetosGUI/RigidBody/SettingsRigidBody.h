@@ -1,26 +1,18 @@
 #ifndef SETTINGSRIGIDBODY_H
 #define SETTINGSRIGIDBODY_H
-#include "../Transform/SettingsTransform.h"
-#include "../../../Objetos/GameObject.h"
+#include "../SettingsComponent.h"
+class GameObject;
+class RigidBody;
 
 class SettingsRigidBody : public SettingsComponent {
 protected:
 	RigidBody* myCollider;
+	bool stateRigidBody = false;
 public:
-	SettingsRigidBody(GameObject* objeto) {
-		myCollider = objeto->getComponent<RigidBody>();
-	}
+	SettingsRigidBody(GameObject* objeto);
 
-	//CONFIGURAR EL SISTEMA PARA QUE AL ACTIVAR SEA UN GHOST BODY , FALSO UN COMUN BODY
-	virtual void showDataComponent() override {
-		static bool stateRigidBody = false;
-		if (ImGui::Checkbox("Activo", &stateRigidBody)) {
-			//codigo
-		}
-	}
-
-	virtual Component* getComponent() override {
-		return myCollider;
-	}
+	// CONFIGURAR EL SISTEMA PARA QUE AL ACTIVAR SEA UN GHOST BODY, FALSO UN COMUN BODY
+	void showDataComponent() override;
+	Component* getComponent() override;
 };
 #endif

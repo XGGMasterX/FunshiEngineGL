@@ -107,3 +107,4 @@ imgui.ini
 # ImGuizmo examples
 FunshiEngineGL/ImGuizmo/example/
 FunshiEngineGL/ImGuizmo/vcpkg-example/
+.aider*

@@ -1,0 +1,55 @@
+#include "Color.h"
+
+#include <iostream>
+
+Color::Color() {
+    range[0] = f1;
+    range[1] = f2;
+    range[2] = f3;
+    range[3] = 1.0f;
+}
+
+void Color::serializeComponent(std::ofstream* file) {
+    file->write(reinterpret_cast<const char*>(&f1), sizeof(float));
+    file->write(reinterpret_cast<const char*>(&f2), sizeof(float));
+    file->write(reinterpret_cast<const char*>(&f3), sizeof(float));
+}
+
+void Color::deserializeComponent(std::ifstream* file) {
+    if (!file || !file->is_open()) {
+        std::cerr << "Error: archivo invalido o no abierto para lectura.\n";
+        return;
+    }
+    file->read(reinterpret_cast<char*>(&f1), sizeof(float));
+    file->read(reinterpret_cast<char*>(&f2), sizeof(float));
+    file->read(reinterpret_cast<char*>(&f3), sizeof(float));
+
+    range[0] = f1;
+    range[1] = f2;
+    range[2] = f3;
+    range[3] = 1.0f;
+}
+
+void Color::saveComponent(std::ofstream* file) { serializeComponent(file); }
+
+void Color::loadComponent(std::ifstream* file) { deserializeComponent(file); }
+
+void Color::setColor(const color cor) {
+    f1 = cor[0];
+    f2 = cor[1];
+    f3 = cor[2];
+    range[0] = f1;
+    range[1] = f2;
+    range[2] = f3;
+    range[3] = 1.0f;
+}
+
+void Color::setColor(float r, float g, float b) {
+    f1 = r;
+    f2 = g;
+    f3 = b;
+    range[0] = f1;
+    range[1] = f2;
+    range[2] = f3;
+    range[3] = 1.0f;
+}

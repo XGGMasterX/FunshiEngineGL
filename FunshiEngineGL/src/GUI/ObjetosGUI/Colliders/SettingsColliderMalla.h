@@ -1,31 +1,20 @@
 #ifndef SETTINGSCOLLIDERMALLA_H
 #define SETTINGSCOLLIDERMALLA_H
-#include "../Transform/SettingsTransform.h"
-#include "../../../Objetos/GameObject.h"
+#include "../SettingsComponent.h"
+class GameObject;
+class SettingsTransform;
+class MallaCollider;
 
 class SettingsColliderMalla : public SettingsComponent {
 protected:
 	SettingsTransform* settingsTransform;
 	MallaCollider* myCollider;
+	float newRadio;
 public:
-	SettingsColliderMalla(GameObject* objeto) {
-		myCollider = objeto->getComponent<MallaCollider>();
-		this->settingsTransform = new SettingsTransform(myCollider->getTransform());
-	}
+	SettingsColliderMalla(GameObject* objeto);
+	~SettingsColliderMalla();
 
-	virtual void showDataComponent() override {
-
-		static float newRadio = myCollider->getRadio();
-		ImGui::InputFloat("Radio", &newRadio);
-		if (ImGui::Button("Confirmar")) {
-			myCollider->setRadio(newRadio);
-		}
-		settingsTransform->showDataComponent();
-		myCollider->dibujarCollider();
-	}
-
-	virtual Component* getComponent() override {
-		return myCollider;
-	}
+	void showDataComponent() override;
+	Component* getComponent() override;
 };
 #endif
