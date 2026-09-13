@@ -161,16 +161,17 @@ public:
    if(isInternal(root)){
    root->setElement(nullptr);
 			ListaDE<TNodo<E>*>* listChildsRoot = root->getChilds();
-			Position<TNodo<E>*>* firstChildPosition = listChildsRoot->first();
-			listChildsRoot->remove(firstChildPosition);
+			// remove() desvincula la posicion y LA DEJA VACIA: el nuevo root es
+			// el valor devuelto por remove, jamas el elemento de una posicion
+			// ya removida (era nullptr -> SEGV en root->getChilds()).
+			TNodo<E>* newRoot = listChildsRoot->remove(listChildsRoot->first());
    delete root;
-			root = firstChildPosition->getElement();
+			root = newRoot;
 			ListaDE<TNodo<E>*>* listChildNewRoot = root->getChilds();
-			Position<TNodo<E>*>* iterador = listChildsRoot->first();
-			while (iterador != nullptr) { //recorrido exaustivo
-				listChildNewRoot->addLast(iterador->getElement());
-				((TNodo<E>*)iterador->getElement())->setRootDad(root);
-				iterador = (iterador != listChildsRoot->last()) ? listChildsRoot->next(iterador) : nullptr;
+			while (!listChildsRoot->isEmpty()) { //recorrido exaustivo
+				TNodo<E>* iterador = listChildsRoot->remove(listChildsRoot->first());
+				iterador->setRootDad(root);
+				listChildNewRoot->addLast(iterador);
 			}
    }else{
     root->setElement(nullptr);
@@ -194,27 +195,24 @@ public:
 		E saveElement = theDeleteable->getElement();
 		theDeleteable->setElement(nullptr);
 
-		//Tomo el nodo a eliminar , agarro su lista de hijos , saco a su primer hijo de ahi
-		ListaDE<TNodo<E>*>* listChildsTheDeleteable = theDeleteable->getChilds();
-		Position<TNodo<E>*>* firstChildTheDeleteablePosition = listChildsTheDeleteable->first();
-		listChildsTheDeleteable->remove(firstChildTheDeleteablePosition);
+//Tomo el nodo a eliminar , agarro su lista de hijos , saco a su primer hijo de ahi
+			//remove() desvincula la posicion y LA DEJA VACIA: se usa el valor devuelto.
+			ListaDE<TNodo<E>*>* listChildsTheDeleteable = theDeleteable->getChilds();
+			TNodo<E>* firstChildTheDeleteable = listChildsTheDeleteable->remove(listChildsTheDeleteable->first());
 
-		//Tomo el nodo a eliminar , agarro su padre , salvo la posicion de Position y hago el intercambio
-		TNodo<E>* theDeleteableDad = theDeleteable->getRootDad();
-		ListaDE<TNodo<E>*>* listBrosTheDeleteable = theDeleteableDad->getChilds();
-		Position<TNodo<E>*>* theDeleteablePosition = listBrosTheDeleteable->whatElementPosition(theDeleteable);
-	 delete theDeleteable;
-  listBrosTheDeleteable->remplace(theDeleteablePosition, firstChildTheDeleteablePosition->getElement());
-		TNodo<E>* firstChildTheDeleteable = firstChildTheDeleteablePosition->getElement();
-		firstChildTheDeleteable->setRootDad(theDeleteableDad);
-		
+			//Tomo el nodo a eliminar , agarro su padre , salvo la posicion de Position y hago el intercambio
+			TNodo<E>* theDeleteableDad = theDeleteable->getRootDad();
+			ListaDE<TNodo<E>*>* listBrosTheDeleteable = theDeleteableDad->getChilds();
+			Position<TNodo<E>*>* theDeleteablePosition = listBrosTheDeleteable->whatElementPosition(theDeleteable);
+			delete theDeleteable;
+			listBrosTheDeleteable->remplace(theDeleteablePosition, firstChildTheDeleteable);
+			firstChildTheDeleteable->setRootDad(theDeleteableDad);
 
-		Position<TNodo<E>*>* iterador = listChildsTheDeleteable->first();
-		while (iterador != nullptr) { //recorrido exaustivo
-			firstChildTheDeleteable->getChilds()->addLast(iterador->getElement());
-			((TNodo<E>*)iterador->getElement())->setRootDad(firstChildTheDeleteable);
-			iterador = (iterador != listChildsTheDeleteable->last()) ? listChildsTheDeleteable->next(iterador) : nullptr;
-		}
+			while (!listChildsTheDeleteable->isEmpty()) { //recorrido exaustivo
+				TNodo<E>* iterador = listChildsTheDeleteable->remove(listChildsTheDeleteable->first());
+				iterador->setRootDad(firstChildTheDeleteable);
+				firstChildTheDeleteable->getChilds()->addLast(iterador);
+			}
 		size--;
 		return saveElement;
 	}
