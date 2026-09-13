@@ -268,12 +268,8 @@ int main(void)
     glDepthFunc(GL_LESS);
     glEnable(GL_NORMALIZE);  // Normaliza automáticamente las normales
 
-    // Configuración de iluminación
-    glEnable(GL_LIGHTING);
-    glEnable(GL_LIGHT0);
- 
-
-
+    // El estado de luz (GL_LIGHTING y GL_LIGHT0..7) lo gestiona LightSystem
+    // cada frame; no se enciende nada a mano acá.
 
     // Configuración de materiales
     glColorMaterial(GL_FRONT, GL_AMBIENT_AND_DIFFUSE);

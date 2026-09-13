@@ -4,6 +4,8 @@
 #include "Colliders/EsfereCollider.h"
 #include "Colliders/MallaCollider.h"
 #include "Color.h"
+#include "Light.h"
+#include "Material.h"
 #include "Model.h"
 #include "RigidBody/RigidBody.h"
 #include "Script.h"
@@ -16,6 +18,8 @@ std::unique_ptr<Component> ComponentFactory::create(const std::string& typeName,
 
     if (typeName == "Transform") return std::make_unique<Transform>();
     if (typeName == "Color") return std::make_unique<Color>();
+    if (typeName == "Material") return std::make_unique<Material>();
+    if (typeName == "Light") return std::make_unique<Light>();
     if (typeName == "EsfereCollider" && transform)
         return std::make_unique<EsfereCollider>(5.0f, transform);
     if (typeName == "CubeCollider" && transform)
