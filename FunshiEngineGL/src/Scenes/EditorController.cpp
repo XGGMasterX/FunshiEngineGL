@@ -34,6 +34,12 @@ bool EditorController::deleteGameObject(GameObject* object) {
     }
     if (events)
         events->publish({SceneEventType::ObjectDeleted, object, nullptr});
+    // La seleccion no debe apuntar a un objeto que se va a liberar.
+    if (selected == object) {
+        selected = nullptr;
+        if (events)
+            events->publish({SceneEventType::ObjectSelected, nullptr, nullptr});
+    }
     const bool deleted = scene->deleteObject(object);
     return deleted;
 }
@@ -88,8 +94,22 @@ void EditorController::clearScene() {
             physics->removeRigidBody(body);
     }
     scene->clear();
-    if (events) events->publish({SceneEventType::SceneCleared, nullptr, nullptr});
+    selected = nullptr;
+    if (events) {
+        events->publish({SceneEventType::SceneCleared, nullptr, nullptr});
+        events->publish({SceneEventType::ObjectSelected, nullptr, nullptr});
+    }
 }
+
+void EditorController::selectObject(GameObject* object) {
+    // Nunca seleccionar un puntero que ya no pertenece a la escena.
+    if (object && scene && !scene->contains(object)) return;
+    selected = object;
+    if (events)
+        events->publish({SceneEventType::ObjectSelected, selected, nullptr});
+}
+
+void EditorController::clearSelection() { selectObject(nullptr); }
 
 bool EditorController::addComponent(GameObject* object,
                                     std::unique_ptr<Component> component) {

@@ -7,7 +7,11 @@
 #include "../GUI/MenusGUI/MenuInterface.h"
 #include "../GUI/SceneGUI/SceneSelectedInterface.h"
 #include "../GUI/FileManagerGUI/TreeFilesInterface.h"
+#include "../GUI/FileManagerGUI/ContentFolderInterface.h"
+#include "../GUI/ObjetosGUI/SettingsObjectInterface.h"
 #include "../GUI/SceneGUI/SceneMenuBarInterface.h"
+#include "../GUI/DockSpaceGUI/DockSpaceInterface.h"
+#include "../Herramientas/IconosGUI/IconosGUI.h"
 #include "../Estructuras/ListasEnlazadas/ListasConPrioridad/PriorityListaDE.h"
 
 // Forward declarations
@@ -26,6 +30,8 @@ private:
 	std::unique_ptr<SceneSelectedInterface> selecteableGUI;
 	std::unique_ptr<SceneMenuBarInterface> menuBarGUI;
 	std::unique_ptr<TreeFilesInterface> treeFilesGUI;
+	std::unique_ptr<DockSpaceInterface> dockSpaceGUI;
+	std::unique_ptr<IconosGUI> iconosGUI;
 	PhysicsEngine* phisics = nullptr;
 	EditorController* editor = nullptr;
 	std::unique_ptr<ContentFolderInterface> contentOfThisFolder;
@@ -46,5 +52,6 @@ public:
 	SceneSelectedInterface* getSelecteableGUI();
 	void setContentFolderGUI();
 	ContentFolderInterface* getContentFolderGUI();
+	DockSpaceInterface* getDockSpaceGUI();
 };
 #endif

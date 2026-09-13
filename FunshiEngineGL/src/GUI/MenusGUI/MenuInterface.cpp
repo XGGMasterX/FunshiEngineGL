@@ -2,7 +2,7 @@
 
 MenuInterface::MenuInterface(GLFWwindow* window, bool state)
     : GeneralUserInterface("Menu", state, ImGuiWindowFlags_NoTitleBar|ImGuiWindowFlags_NoResize|
-                           ImGuiWindowFlags_NoMove|ImGuiWindowFlags_NoCollapse),
+                           ImGuiWindowFlags_NoMove|ImGuiWindowFlags_NoCollapse|ImGuiWindowFlags_NoDocking),
       m_window(window), opcionesGUI(new MenuOpcionesInterface(window,!state)),
       configProyectGUI(new MenuProyectoInterface(window,!state)), menuState(state) {}
 bool MenuInterface::getMenusState() {

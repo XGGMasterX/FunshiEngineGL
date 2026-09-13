@@ -9,6 +9,7 @@ class Component;
 class SettingsComponent {
 public:
 	SettingsComponent(){}
+	virtual ~SettingsComponent() = default;
 	virtual void showDataComponent() = 0;
 	virtual Component* getComponent() = 0;
 };

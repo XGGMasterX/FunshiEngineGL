@@ -21,6 +21,10 @@
 #include <iostream>
 #include <algorithm>
 #include <cmath>
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtx/matrix_decompose.hpp>
+#include <glm/gtc/type_ptr.hpp>
 
 GameScene::GameScene(Camera* value, GUIManager* manager)
     : camera(value), managerGUI(manager),
@@ -262,9 +266,9 @@ void GameScene::gameScene() {
             if (clicked) {
                 if (selecteableGUI) selecteableGUI->setReturnableEntity(clicked);
                 if (gizmoOperation == 0) gizmoOperation = ImGuizmo::TRANSLATE;
-            } else {
-                if (selecteableGUI) selecteableGUI->setReturnableEntity(nullptr);
             }
+            // Clic en zona vacia sin deseleccionar: se conserva la interface
+            // y el objeto seleccionado (como el explorador de archivos).
         }
     }
 

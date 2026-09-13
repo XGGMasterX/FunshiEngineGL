@@ -1,0 +1,106 @@
+#include "IconosGUI.h"
+#include <fstream>
+#include <iostream>
+#include <cctype>
+
+#if defined(_WIN32)
+#include <glfw3.h>
+#include <gl/glu.h>
+#elif defined(__linux__)
+#include <GLFW/glfw3.h>
+#include <GL/glu.h>
+#endif
+
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+
+IconosGUI::IconosGUI() {}
+
+IconosGUI::~IconosGUI() {
+    if (iconoCarpeta != ImTextureID_Invalid) {
+        GLuint id = (GLuint)(intptr_t)iconoCarpeta;
+        glDeleteTextures(1, &id);
+    }
+    if (iconoArchivo != ImTextureID_Invalid) {
+        GLuint id = (GLuint)(intptr_t)iconoArchivo;
+        glDeleteTextures(1, &id);
+    }
+    if (iconoCpp != ImTextureID_Invalid) {
+        GLuint id = (GLuint)(intptr_t)iconoCpp;
+        glDeleteTextures(1, &id);
+    }
+    if (iconoHpp != ImTextureID_Invalid) {
+        GLuint id = (GLuint)(intptr_t)iconoHpp;
+        glDeleteTextures(1, &id);
+    }
+    if (iconoGameObject != ImTextureID_Invalid) {
+        GLuint id = (GLuint)(intptr_t)iconoGameObject;
+        glDeleteTextures(1, &id);
+    }
+}
+
+void IconosGUI::init() {
+    if (inicializado) return;
+    iconoCarpeta = cargarPNG("folder.png");
+    iconoArchivo = cargarPNG("file.png");
+    iconoCpp = cargarPNG("cpp.png");
+    iconoHpp = cargarPNG("hpp.png");
+    iconoGameObject = cargarPNG("cubo.png");
+    inicializado = true;
+}
+
+ImTextureID IconosGUI::cargarPNG(const char* nombrePNG) {
+    // El exe puede correrse desde build/, la raiz del proyecto, etc., asi que
+    // probamos varias rutas relativas al directorio de trabajo actual.
+    const char* carpetasProbables[] = {
+        "Imagenes/", "../Imagenes/", "../../Imagenes/", "../../../Imagenes/"
+    };
+
+    std::string rutaEncontrada;
+    for (const char* carpeta : carpetasProbables) {
+        std::string ruta = std::string(carpeta) + nombrePNG;
+        std::ifstream archivo(ruta.c_str(), std::ios::binary);
+        if (archivo.good()) { rutaEncontrada = ruta; break; }
+    }
+    if (rutaEncontrada.empty()) {
+        std::cerr << "[IconosGUI] No se encontro la imagen '" << nombrePNG
+                  << "' (se probaron varias rutas relativas al cwd).\n";
+        return ImTextureID_Invalid;
+    }
+
+    int ancho = 0, alto = 0, canales = 0;
+    unsigned char* pixeles = stbi_load(rutaEncontrada.c_str(), &ancho, &alto, &canales, 4);
+    if (!pixeles) {
+        std::cerr << "[IconosGUI] stbi_load fallo en: " << rutaEncontrada << "\n";
+        return ImTextureID_Invalid;
+    }
+
+    GLuint textura = 0;
+    glGenTextures(1, &textura);
+    glBindTexture(GL_TEXTURE_2D, textura);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    // Mipmaps (trilineales) para que la minificacion a tamanos chicos no
+    // produzca "dientes"/alias (lo que pasaba con el muestreo lineal a secas).
+    // gluBuild2DMipmaps genera la cadena completa en contextos compatibility
+    // (glGenerateMipmap es de GL 3.0 y no esta en los headers legacy).
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    gluBuild2DMipmaps(GL_TEXTURE_2D, GL_RGBA, ancho, alto, GL_RGBA, GL_UNSIGNED_BYTE, pixeles);
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    stbi_image_free(pixeles);
+    std::cout << "[IconosGUI] Textura cargada: " << rutaEncontrada
+              << " (" << ancho << "x" << alto << ")\n";
+    return (ImTextureID)(intptr_t)textura;
+}
+
+ImTextureID IconosGUI::getIconoPorExtension(const std::string& extension) const {
+    std::string ext = extension;
+    for (auto& c : ext) c = (char)tolower((unsigned char)c);
+
+    if (ext == ".cpp" || ext == ".cc" || ext == ".cxx" || ext == ".c") return iconoCpp;
+    if (ext == ".h" || ext == ".hpp" || ext == ".hh" || ext == ".hxx") return iconoHpp;
+    return iconoArchivo;
+}

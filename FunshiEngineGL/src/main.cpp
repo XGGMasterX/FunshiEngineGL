@@ -282,6 +282,7 @@ int main(void)
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO(); (void)io;
+    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
     ImGui::StyleColorsDark();
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init("#version 440"); //460 PARA PC , 440 PARA NOTEBOOK
@@ -328,6 +329,7 @@ int main(void)
             }
 
             if (sceneRunning) {
+                managerOfGUI->getDockSpaceGUI()->printGUI();
                 scene->gameScene();
             }
             showMenu = !sceneRunning;

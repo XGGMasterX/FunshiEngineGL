@@ -16,6 +16,7 @@ SceneRegistry::~SceneRegistry() {
 }
 
 void SceneRegistry::createDefaultRoot() {
+    viewDirty = true;
     auto root = std::make_unique<Modelos3D>();
     root->setId(0);
     root->setParentEntity(nullptr);
@@ -52,6 +53,10 @@ void SceneRegistry::refreshTransformOrigins(Position<GameObject*>* parent) {
 }
 
 void SceneRegistry::refreshGameObjectView() {
+    // La vista solo se reconstruye cuando hubo alguna mutacion.
+    if (!viewDirty) return;
+    viewDirty = false;
+
     gameObjects.clear();
     if (entitys.isEmpty()) return;
 
@@ -76,6 +81,7 @@ GameObject* SceneRegistry::createObject(std::unique_ptr<GameObject> object,
                                         GameObject* parent) {
     if (!object) return nullptr;
     if (entitys.isEmpty()) {
+        viewDirty = true;
         object->setOriginTransform(nullptr);
         GameObject* raw = object.get();
         ownedGameObjects.emplace_back(std::move(object));
@@ -97,6 +103,7 @@ GameObject* SceneRegistry::createObject(std::unique_ptr<GameObject> object,
     }
 
     GameObject* raw = object.get();
+    viewDirty = true;
     ownedGameObjects.emplace_back(std::move(object));
     entitys.addNodeChildOf(parentPosition, raw);
     raw->setParentEntity(parent);
@@ -106,6 +113,7 @@ GameObject* SceneRegistry::createObject(std::unique_ptr<GameObject> object,
 
 bool SceneRegistry::replaceRoot(std::unique_ptr<GameObject> root) {
     if (!root) return false;
+    viewDirty = true;
     clear();
     entitys.deleteRoot();
     ownedGameObjects.clear();
@@ -128,6 +136,7 @@ bool SceneRegistry::deleteObject(GameObject* object) {
     }
 
     entitys.deleteNode(position);
+    viewDirty = true;
     ownedGameObjects.erase(
         std::remove_if(ownedGameObjects.begin(), ownedGameObjects.end(),
                        [object](const std::unique_ptr<GameObject>& candidate) {
@@ -154,6 +163,7 @@ bool SceneRegistry::reparent(GameObject* object, GameObject* parent) {
     if (!objectPosition || !parentPosition) return false;
 
     try {
+        viewDirty = true;
         Position<GameObject*>* current = parentPosition;
         while (current != entitys.rootOfTree()) {
             if (current == objectPosition) return false;
@@ -169,6 +179,7 @@ bool SceneRegistry::reparent(GameObject* object, GameObject* parent) {
 }
 
 void SceneRegistry::clear() {
+    viewDirty = true;
     gameObjects.clear();
     while (!entitys.isEmpty()) entitys.deleteRoot();
     ownedGameObjects.clear();

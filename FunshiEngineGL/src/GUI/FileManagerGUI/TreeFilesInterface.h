@@ -1,175 +1,52 @@
 #ifndef TREEFILESINTERFACE_H
 #define TREEFILESINTERFACE_H
-#include <iostream>
+#include <string>
 #include "../GeneralUserInterface.h"
-#include "../../Estructuras/Trees/ArbolesEnlazados/ArbolEnlazado.h"
+#include "../../Herramientas/TreeGUI/TreeGUI.h"
 #include "../../GestorDeArchivos/GestorDeArchivos.h"
-#include "../../GUI/FileManagerGUI/ContentFolderInterface.h"
-#include "../../GestorDeArchivos/Carpeta.h"
 
-using namespace std;
+class File;
+class Carpeta;
+class GestorDeArchivos;
+class IconosGUI;
 
-// Definir separador de rutas según plataforma
-#ifdef _WIN32
-    const std::string PATH_SEP = "\\";
-#else
-    const std::string PATH_SEP = "/";
-#endif
-
+// Explorador de archivos ("BrowseFile"). El recorrido del arbol usa el widget
+// generico TreeIG::drawTree (compartido con la jerarquia de la escena); aqui
+// solo vive la logica de dominio: seleccion de carpeta y su menu contextual.
 class TreeFilesInterface : public GeneralUserInterface {
 protected:
-    bool actualizar;
-    Carpeta* thisFolderContent;
-    string pathProyect;
-    ArbolEnlazado<File*>* arbolDeArchivos;
-    GestorDeArchivos* gestorDeArchivos;
-    ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_SpanAvailWidth;
-    Carpeta* lastSelectedFolder;
+    bool actualizar = false;
+    Carpeta* thisFolderContent = nullptr;
+    std::string pathProyect;
+    GestorDeArchivos* gestorDeArchivos = nullptr;
+    ArbolEnlazado<File*>* arbolDeArchivos = nullptr;
+    Carpeta* lastSelectedFolder = nullptr;
+    IconosGUI* iconosGUI = nullptr;
+    TreeIG::OpenState openNodes;
+    // Borrado diferido: se aplica tras el recorrido para no invalidar
+    // iteradores (mismo patron que en la jerarquia de escena).
+    Carpeta* carpetaAEliminar = nullptr;
 
 public:
-    TreeFilesInterface(bool stateGUI, string pathProyect) :
-        GeneralUserInterface("BrowseFile", stateGUI, ImGuiWindowFlags_MenuBar),
-        actualizar(false),
-        thisFolderContent(nullptr),
-        pathProyect(pathProyect),
-        arbolDeArchivos(nullptr),
-        gestorDeArchivos(nullptr),
-        lastSelectedFolder(nullptr)
-    {
-        gestorDeArchivos = new GestorDeArchivos(pathProyect);
-        arbolDeArchivos = gestorDeArchivos->getTreeFilePath();
-    }
+    TreeFilesInterface(bool stateGUI, const std::string& pathProyect);
+    ~TreeFilesInterface();
 
-    virtual void preOrdenOfTreeFile(Position<File*>* root) {
-        if (!root) return;
+    TreeFilesInterface(const TreeFilesInterface&) = delete;
+    TreeFilesInterface& operator=(const TreeFilesInterface&) = delete;
 
-        Carpeta* folderRoot = dynamic_cast<Carpeta*>(root->getElement());
-        if (!folderRoot) return;
+    void setIconosGUI(IconosGUI* iconosG);
 
-        std::string idStr = folderRoot->getPathRoot() + PATH_SEP + folderRoot->getPathName();
-        ImGui::PushID(idStr.c_str());
+    virtual void initGUI() override;
+    virtual void contentGUI() override;
+    virtual void endGUI() override;
+    virtual void printGUI() override;
 
-        bool isSelected = (lastSelectedFolder == folderRoot);
-        ImGuiTreeNodeFlags nodeFlags = isSelected ? (flags | ImGuiTreeNodeFlags_Selected) : flags;
+    Carpeta* getFolderContent();
+    void setFolderContent(Carpeta* folder);
 
-        bool nodeOpen = ImGui::TreeNodeEx(folderRoot->getPathName().c_str(), nodeFlags, "%s", folderRoot->getPathName().c_str());
-
-        // Manejo de clics
-        if (ImGui::IsItemClicked()) {
-            lastSelectedFolder = folderRoot;
-            thisFolderContent = folderRoot;
-        }
-
-        // Menú contextual
-        if (ImGui::BeginPopupContextItem("MenuContextualCarpeta")) {
-            ImGui::Text("Carpeta: %s", folderRoot->getPathName().c_str());
-            ImGui::Separator();
-
-            if (ImGui::MenuItem("Nueva Carpeta")) {
-                string nombreNuevaCarpeta = "Nueva Carpeta";
-                string rutaNuevaCarpeta = folderRoot->getPathRoot() + PATH_SEP +
-                                          folderRoot->getPathName() + PATH_SEP + nombreNuevaCarpeta;
-
-                if (gestorDeArchivos->crearCarpeta(rutaNuevaCarpeta)) {
-                    Carpeta* nuevaCarpeta = new Carpeta(nombreNuevaCarpeta);
-                    nuevaCarpeta->setPathRoot(rutaNuevaCarpeta);
-                    Position<File*>* posicionPadre = arbolDeArchivos->whatIsPositionOf(folderRoot);
-                    if (posicionPadre) {
-                        arbolDeArchivos->addNodeChildOf(posicionPadre, nuevaCarpeta);
-                        actualizar = true;
-                    }
-                }
-            }
-
-            if (ImGui::MenuItem("Eliminar Carpeta")) {
-                string rutaCarpeta = folderRoot->getPathRoot() + PATH_SEP + folderRoot->getPathName();
-                Position<File*>* posicionAEliminar = arbolDeArchivos->whatIsPositionOf(folderRoot);
-
-                if (posicionAEliminar && gestorDeArchivos->eliminarCarpeta(rutaCarpeta)) {
-                    // Limpiar estados antes de eliminar
-                    if (lastSelectedFolder == folderRoot) {
-                        lastSelectedFolder = nullptr;
-                        thisFolderContent = nullptr;
-                    }
-
-                    // Eliminar el nodo
-                    File* deletedNode = arbolDeArchivos->deleteNode(posicionAEliminar);
-
-                    // No usar folderRoot después de deleteNode!
-                    actualizar = true;
-
-                    // Cerrar el nodo si estaba abierto
-                    if (nodeOpen) {
-                        ImGui::TreePop();
-                        nodeOpen = false;
-                    }
-
-                    // Salir temprano ya que el nodo fue eliminado
-                    ImGui::EndPopup();
-                    ImGui::PopID();
-                    return;
-                }
-            }
-
-            ImGui::EndPopup();
-        }
-
-        // Mostrar hijos si el nodo está abierto
-        if (nodeOpen) {
-            if (arbolDeArchivos->isInternal(root)) {
-                ListaDE<Position<File*>*>* childsOfFolder = arbolDeArchivos->childsOf(root);
-                Position<Position<File*>*>* position = childsOfFolder->first();
-                while (position != nullptr) {
-                    preOrdenOfTreeFile(position->getElement());
-                    position = (position != childsOfFolder->last()) ? childsOfFolder->next(position) : nullptr;
-                }
-            }
-            ImGui::TreePop();
-        }
-
-        ImGui::PopID();
-    }
-
-    virtual void initGUI() override {
-        ImGui::Begin(getNameGui().c_str(), &stateGUI, getFlagGui());
-    }
-
-    virtual void contentGUI() override {
-        actualizar = gestorDeArchivos->setTreeFilePath(pathProyect,"MotorGrafico"); // Carga un árbol por cambios
-        if (actualizar) {
-            arbolDeArchivos = gestorDeArchivos->getTreeFilePath(); // Obtiene el árbol
-        }
-        if(!arbolDeArchivos->isEmpty()){
-            Position<File*>* root = arbolDeArchivos->rootOfTree();
-            if(arbolDeArchivos->isInternal(root)){
-                ListaDE<Position<File*>*>* childsOfRoot = arbolDeArchivos->childsOf(root);
-                Position<Position<File*>*>* position = childsOfRoot->first();
-                while(position != nullptr){
-                    preOrdenOfTreeFile(position->getElement());
-                    position = (position != childsOfRoot->last()) ? childsOfRoot->next(position) : nullptr;
-                }
-            }
-        }
-    }
-
-    virtual void endGUI() override {
-        ImGui::End();
-    }
-
-    virtual void printGUI() override {
-        if (stateGUI) {
-            initGUI();
-            contentGUI();
-            endGUI();
-        }
-    }
-
-    Carpeta* getFolderContent() {
-        return lastSelectedFolder;
-    }
-
-    void setFolderContent(Carpeta* thisFolderContent) {
-        this->thisFolderContent = thisFolderContent;
-    }
+private:
+    // Reconstruye el arbol desde disco y descarta seleccion/colapso previos.
+    void refrescarArbol();
+    TreeIG::RowResult drawFolderRow(File* element, bool wasOpen);
 };
 #endif
