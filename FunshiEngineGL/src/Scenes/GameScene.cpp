@@ -3,7 +3,7 @@
 #include "../GUIManager/GUIManager.h"
 #include "../GUI/SceneGUI/SceneMenuBarInterface.h"
 #include "../GUI/SceneGUI/SceneSelectedInterface.h"
-#include "../Gizmo/Camera.h"
+#include "../Objetos/Componentes/CameraComponent.h"
 #include "../Fisicas/PhysicsEngine.h"
 #include "../Iluminacion/LightSystem.h"
 #include "../Objetos/Componentes/Color.h"
@@ -16,19 +16,21 @@
 #include "EditorController.h"
 #include "SceneRegistry.h"
 #include "SceneSerializer.h"
+#include "../Rendering/RenderTarget.h"
 #include "ImGuizmo.h"
 #include <GL/gl.h>
 #include <imgui.h>
 #include <iostream>
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/matrix_decompose.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
-GameScene::GameScene(Camera* value, GUIManager* manager)
-    : camera(value), managerGUI(manager),
+GameScene::GameScene(GUIManager* manager)
+    : managerGUI(manager),
       sceneRegistry(std::make_unique<SceneRegistry>()),
       phisics(std::make_unique<PhysicsEngine>()),
       editorController(
@@ -69,21 +71,156 @@ void GameScene::loadScene(const std::string& pathTxt, const std::string& semiPat
     }
 }
 
+CameraComponent* GameScene::getActiveCamera() {
+    auto* gameObjects = getGameObjectsScene();
+
+    // Camara elegida con "Usar": se valida que siga viva en la escena y que
+    // conserve su CameraComponent (si fue eliminada se vuelve al scan normal).
+    if (requestedActiveCamera) {
+        if (sceneRegistry->contains(requestedActiveCamera) &&
+            requestedActiveCamera->getComponent<CameraComponent>()) {
+            CameraComponent* camara =
+                requestedActiveCamera->getComponent<CameraComponent>();
+            camara->setUp(requestedActiveCamera);
+            activeCamera = camara;
+            activeCameraObject = requestedActiveCamera;
+            return camara;
+        }
+        requestedActiveCamera = nullptr;
+    }
+
+    if (gameObjects && !gameObjects->isEmpty()) {
+        Position<GameObject*>* pos = gameObjects->first();
+        while (pos && pos->getElement()) {
+            GameObject* objeto = pos->getElement();
+            if (CameraComponent* camara =
+                    objeto->getComponent<CameraComponent>()) {
+                camara->setUp(objeto);
+                activeCamera = camara;
+                activeCameraObject = objeto;
+                return camara;
+            }
+            pos = (pos != gameObjects->last()) ? gameObjects->next(pos)
+                                               : nullptr;
+        }
+    }
+
+    // Si la escena no tiene camara, se siembra "CamaraPrincipal": un objeto
+    // vacio con Transform + CameraComponent (misma posicion que la vieja).
+    if (editorController) {
+        GameObject* creada = editorController->createGameObject(
+            std::make_unique<Modelos3D>(nullptr), nullptr);
+        if (creada) {
+            std::snprintf(creada->inputName, sizeof(creada->inputName),
+                          "CamaraPrincipal");
+            creada->addComponent(std::make_unique<Transform>());
+            Transform* transform = creada->getComponent<Transform>();
+            if (transform) transform->setTranslatef(1.f, 1.f, -50.f);
+            creada->addComponent(std::make_unique<CameraComponent>());
+            return getActiveCamera();
+        }
+    }
+
+    activeCamera = nullptr;
+    activeCameraObject = nullptr;
+    return nullptr;
+}
+
+void GameScene::setActiveCamera(GameObject* object) {
+    if (!object || !sceneRegistry || !sceneRegistry->contains(object) ||
+        !object->getComponent<CameraComponent>()) {
+        requestedActiveCamera = nullptr;
+        return;
+    }
+    requestedActiveCamera = object;
+}
+
+GameObject* GameScene::agregarCamaraEnVistaActiva() {
+    if (!editorController) return nullptr;
+
+    getActiveCamera();
+    Transform* transformOrigen =
+        activeCameraObject ? activeCameraObject->getGlobalTransform()
+                           : nullptr;
+
+    GameObject* creada = editorController->createGameObject(
+        std::make_unique<Modelos3D>(nullptr), nullptr);
+    if (!creada) return nullptr;
+
+    creada->addComponent(std::make_unique<Transform>());
+    Transform* transform = creada->getComponent<Transform>();
+    if (transform) {
+        if (transformOrigen) {
+            transform->setTranslatef(transformOrigen->getTranslatef()[0],
+                                     transformOrigen->getTranslatef()[1],
+                                     transformOrigen->getTranslatef()[2]);
+            const float* rot = transformOrigen->getRotatef();
+            transform->setRotatef(rot[0], rot[1], rot[2], rot[3]);
+        } else {
+            transform->setTranslatef(0.f, 0.f, 0.f);
+        }
+    }
+
+    // Nombre unico tipo "Camara N" para que las ventanas de vista previa no
+    // colisionen (ImGui identifica ventanas por titulo).
+    int sufijo = ++contadorCamaras;
+    std::string nombre;
+    for (;;) {
+        nombre = "Camara " + std::to_string(sufijo);
+        bool usado = false;
+        auto* lista = getGameObjectsScene();
+        if (lista && !lista->isEmpty()) {
+            Position<GameObject*>* pos = lista->first();
+            while (pos && pos->getElement()) {
+                if (std::string(pos->getElement()->inputName) == nombre) {
+                    usado = true;
+                    break;
+                }
+                pos = (pos != lista->last()) ? lista->next(pos) : nullptr;
+            }
+        }
+        if (!usado) break;
+        ++sufijo;
+    }
+    contadorCamaras = sufijo;
+    std::snprintf(creada->inputName, sizeof(creada->inputName), "%s",
+                  nombre.c_str());
+
+    auto componente = std::make_unique<CameraComponent>();
+    componente->setPintar(true); // preview automatica de la cámara nueva
+    creada->addComponent(std::move(componente));
+
+    // Queda activa y seleccionada para ubicarla con el gizmo.
+    setActiveCamera(creada);
+    editorController->selectObject(creada);
+    return creada;
+}
+
 void GameScene::dibujarGameObjects() {
+    dibujarGameObjectsConOjo(activeCameraObject);
+}
+
+void GameScene::dibujarGameObjectsConOjo(GameObject* camaraOjo) {
     auto* gameObjects = getGameObjectsScene();
     if (gameObjects->isEmpty()) return;
     Position<GameObject*>* pos = gameObjects->first();
     while (pos && pos->getElement()) {
-        dibujarObject(pos->getElement());
+        dibujarObjectConOjo(pos->getElement(), camaraOjo);
         pos = (pos != gameObjects->last()) ? gameObjects->next(pos) : nullptr;
     }
 }
 
 void GameScene::dibujarObject(GameObject* object) {
+    dibujarObjectConOjo(object, activeCameraObject);
+}
+
+void GameScene::dibujarObjectConOjo(GameObject* object, GameObject* camaraOjo) {
     object->setTam(10);
     object->setColor(object->auxColor);
     if (object->getComponent<Transform>()) object->dibujar(deltaTime);
     if (object->getComponent<Light>()) dibujarMarcadorLuz(object);
+    if (object->getComponent<CameraComponent>() && object != camaraOjo)
+        dibujarMarcadorCamara(object);
 }
 
 // Gizmo visual de una luz: un octaedro alambre amarillo en la posicion del
@@ -121,6 +258,63 @@ void GameScene::dibujarMarcadorLuz(GameObject* object) {
     glPopMatrix();
 }
 
+// Gizmo visual de una camara secundaria: frustum de vision alambre cian. La
+// camara activa no dibuja el suyo (seria visera en la propia vista).
+void GameScene::dibujarMarcadorCamara(GameObject* object) {
+    CameraComponent* camara = object->getComponent<CameraComponent>();
+    Transform* transform = object->getGlobalTransform();
+    if (!camara || !transform) return;
+
+    float modelArr[16];
+    buildMatrixFromTransform(transform, modelArr);
+
+    ImGuiIO& io = ImGui::GetIO();
+    const float aspect = (io.DisplaySize.x > 0.f && io.DisplaySize.y > 0.f)
+                             ? io.DisplaySize.x / io.DisplaySize.y
+                             : 1.77f;
+
+    const float tanHalf =
+        std::tan(camara->getFov() * 0.5f * 3.14159265358979f / 180.f);
+    const float nearDist = camara->getNearPlane();
+    const float farDist = camara->getFarPlane();
+    const float halfHNear = tanHalf * nearDist;
+    const float halfWNear = halfHNear * aspect;
+    const float halfHFar = tanHalf * farDist;
+    const float halfWFar = halfHFar * aspect;
+
+    // Frustum: 4 esquinas del plano near (0..3) + 4 del far (4..7). Los 12
+    // bordes de "edges" indexan los 8 puntitos, por eso todo vive en un solo
+    // array (antes far y near estaban separados y se leia fuera de rango).
+    const float vFrustum[8][3] = {
+        {-halfWNear, -halfHNear, -nearDist},
+        { halfWNear, -halfHNear, -nearDist},
+        {-halfWNear,  halfHNear, -nearDist},
+        { halfWNear,  halfHNear, -nearDist},
+        {-halfWFar,  -halfHFar,  -farDist},
+        { halfWFar,  -halfHFar,  -farDist},
+        {-halfWFar,   halfHFar,  -farDist},
+        { halfWFar,   halfHFar,  -farDist}};
+    const int edges[12][2] = {
+        {0,1},{0,2},{3,1},{3,2},
+        {4,5},{4,6},{7,5},{7,6},
+        {0,4},{1,5},{2,6},{3,7}};
+
+    glPushMatrix();
+    glMultMatrixf(modelArr);
+    glDisable(GL_LIGHTING);
+    glColor3f(0.3f, 0.8f, 0.9f);
+    glBegin(GL_LINES);
+    for (int i = 0; i < 12; ++i) {
+        glVertex3f(vFrustum[edges[i][0]][0], vFrustum[edges[i][0]][1],
+                   vFrustum[edges[i][0]][2]);
+        glVertex3f(vFrustum[edges[i][1]][0], vFrustum[edges[i][1]][1],
+                   vFrustum[edges[i][1]][2]);
+    }
+    glEnd();
+    glEnable(GL_LIGHTING);
+    glPopMatrix();
+}
+
 void GameScene::mallaScene(float tam) {
     const float y = -0.5f;
     glColor3fv(branco_gelo);
@@ -143,10 +337,171 @@ void GameScene::GUI() {
         managerGUI->setPhysics(phisics.get());
         managerGUI->getSettingGUI(selecteableGUI->getReturnableEntity())->printGUI();
     }
+    pintarViewportsGUI();
     menuBarGUI->printGUI();
+    pintarVentanaCamaras();
     if (menuBarGUI->getCargarScripts()) {
         menuBarGUI->setCargarScripts(false);
     }
+}
+
+// Dibuja la escena 3D completa (grilla + objetos + marcadores) desde una
+// vista/proyeccion dadas. La "camaraOjo" es el objeto con CameraComponent que
+// esta viendo (no dibuja su propio marcador).
+void GameScene::dibujarEscena(const float view[16], const float projection[16],
+                              GameObject* camaraOjo) {
+    glMatrixMode(GL_PROJECTION);
+    glLoadMatrixf(projection);
+    glMatrixMode(GL_MODELVIEW);
+    glLoadMatrixf(view);
+
+    lightSystem.beginFrame(getGameObjectsScene());
+    mallaScene(70.0f);
+    dibujarGameObjectsConOjo(camaraOjo);
+}
+
+// Pasada de vista previa (Fase 2): por cada camara con "Vista previa" activo
+// se pinta la escena a una textura FBO que luego muestra una ventana ImGui.
+void GameScene::dibujarViewportsPrevios() {
+    auto* gameObjects = getGameObjectsScene();
+    std::vector<std::unique_ptr<RenderTarget>> nuevos;
+    std::vector<GameObject*> nuevosObjetos;
+    if (gameObjects && !gameObjects->isEmpty()) {
+        Position<GameObject*>* pos = gameObjects->first();
+        while (pos && pos->getElement()) {
+            GameObject* objeto = pos->getElement();
+            CameraComponent* camara = objeto->getComponent<CameraComponent>();
+            if (camara && camara->getPintar()) {
+                camara->setUp(objeto);
+
+                // Reutilizar el FBO del frame anterior del mismo objeto en
+                // lugar de recrearlo (evita churn de texturas en el GPU).
+                std::unique_ptr<RenderTarget> target;
+                for (size_t i = 0; i < viewportsCamaras.size(); ++i) {
+                    if (viewportsObjetos[i] == objeto) {
+                        target.reset(viewportsCamaras[i].release());
+                        break;
+                    }
+                }
+                if (!target) target = std::make_unique<RenderTarget>();
+
+                target->resize(kPreviewW, kPreviewH);
+                target->bind();
+                glViewport(0, 0, kPreviewW, kPreviewH);
+                glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+                float view[16], projection[16];
+                camara->getViewMatrix(view);
+                camara->getProjectionMatrix(
+                    projection,
+                    static_cast<float>(kPreviewW) /
+                        static_cast<float>(kPreviewH));
+                dibujarEscena(view, projection, objeto);
+
+                RenderTarget::unbind();
+
+                nuevos.push_back(std::move(target));
+                nuevosObjetos.push_back(objeto);
+            }
+            pos = (pos != gameObjects->last()) ? gameObjects->next(pos)
+                                               : nullptr;
+        }
+    }
+    viewportsCamaras = std::move(nuevos);
+    viewportsObjetos = std::move(nuevosObjetos);
+}
+
+void GameScene::pintarViewportsGUI() {
+    for (size_t index = 0; index < viewportsCamaras.size(); ++index) {
+        RenderTarget* target = viewportsCamaras[index].get();
+        GameObject* objeto = viewportsObjetos[index];
+        if (!target || !objeto) continue;
+
+        char title[64];
+        std::snprintf(title, sizeof(title), "Vista previa: %s",
+                      objeto->inputName[0] != '\0' ? objeto->inputName
+                                                   : "Camara");
+
+        ImGui::SetNextWindowSize(
+            ImVec2(static_cast<float>(target->getWidth()) + 16.f,
+                   static_cast<float>(target->getHeight()) + 38.f),
+            ImGuiCond_Once);
+        ImGui::Begin(title);
+        // La textura del FBO tiene origen abajo-izquierda; se voltea el UV
+        // vertical ("v" invertida) para que la vista previa no quede dada
+        // vuelta.
+        ImGui::Image(
+            (ImTextureID)(intptr_t)target->getColorTexture(),
+            ImVec2(static_cast<float>(target->getWidth()),
+                   static_cast<float>(target->getHeight())),
+            ImVec2(0.f, 1.f), ImVec2(1.f, 0.f));
+        ImGui::End();
+    }
+}
+
+// Ventana unica para colocar camaras: crear una nueva (en la vista activa),
+// elegir cual se usa para navegar/ver, prender o apagar su vista previa y
+// eliminar. Ventana de inicio de la Fase 2: con "Agregar camara" aparece
+// automaticamente la vista previa de cada camara.
+void GameScene::pintarVentanaCamaras() {
+    if (!ImGui::Begin("Camaras", &ventanaCamarasAbierta)) {
+        ImGui::End();
+        return;
+    }
+
+    if (ImGui::Button("Agregar camara")) {
+        agregarCamaraEnVistaActiva();
+    }
+    ImGui::SameLine();
+    ImGui::TextUnformatted(
+        "Crea una camara en la vista activa y abre su vista previa.");
+
+    ImGui::Separator();
+
+    auto* gameObjects = getGameObjectsScene();
+    if (gameObjects && !gameObjects->isEmpty()) {
+        Position<GameObject*>* pos = gameObjects->first();
+        while (pos && pos->getElement()) {
+            GameObject* objeto = pos->getElement();
+            if (CameraComponent* camara =
+                    objeto->getComponent<CameraComponent>()) {
+                const std::string nombre =
+                    objeto->inputName[0] ? objeto->inputName : "Camara";
+                const bool esActiva =
+                    objeto == requestedActiveCamera ||
+                    (requestedActiveCamera == nullptr &&
+                     objeto == activeCameraObject);
+
+                ImGui::PushID(static_cast<int>(objeto->getId()));
+                if (ImGui::Selectable(nombre.c_str(), esActiva)) {
+                    setActiveCamera(objeto);
+                    if (editorController) editorController->selectObject(objeto);
+                }
+                if (ImGui::IsItemHovered()) {
+                    ImGui::SetTooltip("Usar esta camara (navegacion + vista)");
+                }
+
+                bool pintar = camara->getPintar();
+                if (ImGui::Checkbox("Vista previa", &pintar)) {
+                    camara->setPintar(pintar);
+                }
+                ImGui::SameLine();
+                if (ImGui::SmallButton("Eliminar")) {
+                    GameObject* objetivo = objeto;
+                    if (objetivo == requestedActiveCamera)
+                        requestedActiveCamera = nullptr;
+                    if (editorController) editorController->deleteGameObject(objetivo);
+                    ImGui::PopID();
+                    break; // la lista se muto; se cierra el paso por el frame
+                }
+                ImGui::PopID();
+            }
+            pos = (pos != gameObjects->last()) ? gameObjects->next(pos)
+                                               : nullptr;
+        }
+    }
+
+    ImGui::End();
 }
 
 void GameScene::update(float value) {
@@ -181,7 +536,8 @@ static bool intersectRayAABB(const glm::vec3& rayOrigin, const glm::vec3& rayDir
 
 GameObject* GameScene::pickObject(float mouseX, float mouseY) {
     auto* gameObjects = getGameObjectsScene();
-    if (!gameObjects || gameObjects->isEmpty() || !camera) return nullptr;
+    CameraComponent* camara = getActiveCamera();
+    if (!gameObjects || gameObjects->isEmpty() || !camara) return nullptr;
 
     ImGuiIO& io = ImGui::GetIO();
     float screenW = io.DisplaySize.x;
@@ -192,8 +548,8 @@ GameObject* GameScene::pickObject(float mouseX, float mouseY) {
     float y = 1.0f - (2.0f * mouseY) / screenH;
 
     float view[16], projection[16];
-    camera->getViewMatrix(view);
-    camera->getProjectionMatrix(projection, 45.0f, screenW / screenH);
+    camara->getViewMatrix(view);
+    camara->getProjectionMatrix(projection, screenW / screenH);
 
     glm::mat4 viewMat = glm::make_mat4(view);
     glm::mat4 projMat = glm::make_mat4(projection);
@@ -272,40 +628,60 @@ GameObject* GameScene::pickObject(float mouseX, float mouseY) {
 }
 
 void GameScene::gameScene() {
-    glMatrixMode(GL_MODELVIEW);
-    glLoadIdentity();
-    camera->activate();
-
-    float view[16], projection[16];
-    glGetFloatv(GL_MODELVIEW_MATRIX, view);
-    glGetFloatv(GL_PROJECTION_MATRIX, projection);
-
-    lightSystem.beginFrame(getGameObjectsScene());
-    glPushMatrix();
-    mallaScene(70.0f);
-    glPopMatrix();
-    dibujarGameObjects();
-    GUI();
+    CameraComponent* camara = getActiveCamera();
+    if (!camara) return;
 
     ImGuiIO& io = ImGui::GetIO();
+    const int fbW = static_cast<int>(io.DisplaySize.x);
+    const int fbH = static_cast<int>(io.DisplaySize.y);
+    if (fbW <= 0 || fbH <= 0) return;
+
+    // Pasada de vistas previas (Fase 2): cada camara con "Vista previa" activo
+    // pinta la escena a su textura FBO antes de la pasada principal.
+    dibujarViewportsPrevios();
+
+    // Pass principal: vuelve al framebuffer de la ventana con su viewport.
+    RenderTarget::unbind();
+    glViewport(0, 0, fbW, fbH);
+
+    float view[16], projection[16];
+    camara->getViewMatrix(view);
+    camara->getProjectionMatrix(projection,
+                                static_cast<float>(fbW) /
+                                    static_cast<float>(fbH));
+    dibujarEscena(view, projection, activeCameraObject);
 
     ImGuizmo::SetOrthographic(false);
     ImGuizmo::SetDrawlist(ImGui::GetForegroundDrawList());
     ImGuizmo::SetRect(0.0f, 0.0f, io.DisplaySize.x, io.DisplaySize.y);
     ImGuizmo::BeginFrame();
 
-    // Selección de objetos con clic en la escena 3D
+    // Selección de objetos con clic en la escena 3D: siempre activa, es el
+    // disparador que enciende las interfaces de edición (el mismo sistema que
+    // activa el gizmo). Clic en zona vacía deselecciona y vuelve a la
+    // navegación libre (gizmo e interfaces se ocultan).
     if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
         if (!io.WantCaptureMouse && !isGizmoCapturingInput()) {
             GameObject* clicked = pickObject(io.MousePos.x, io.MousePos.y);
             if (clicked) {
                 if (selecteableGUI) selecteableGUI->setReturnableEntity(clicked);
                 if (gizmoOperation == 0) gizmoOperation = ImGuizmo::TRANSLATE;
+            } else {
+                clearSelection();
             }
-            // Clic en zona vacia sin deseleccionar: se conserva la interface
-            // y el objeto seleccionado (como el explorador de archivos).
         }
     }
+
+    /*
+     * Navegación libre (sin E y sin objeto seleccionado): el sistema de
+     * ventanas y el gizmo no se dibujan, solo la escena 3D.
+     */
+    if (!isEditorActivo()) {
+        gizmoReady = false;
+        return;
+    }
+
+    GUI();
 
     gizmoReady = false;
     GameObject* selected = selecteableGUI ? selecteableGUI->getReturnableEntity() : nullptr;
@@ -384,5 +760,18 @@ int GameScene::getGizmoOperation() const {
 
 bool GameScene::isGizmoCapturingInput() const {
     return gizmoReady && (ImGuizmo::IsOver() || ImGuizmo::IsUsing());
+}
+
+void GameScene::toggleEditorInterfaces() {
+    menuActivo = !menuActivo;
+}
+
+bool GameScene::isEditorActivo() const {
+    return menuActivo ||
+           (selecteableGUI && selecteableGUI->getReturnableEntity() != nullptr);
+}
+
+void GameScene::clearSelection() {
+    if (selecteableGUI) selecteableGUI->setReturnableEntity(nullptr);
 }
 

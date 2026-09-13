@@ -52,7 +52,6 @@
     <ClInclude Include="src\GestorDeArchivos\File.h" />
     <ClInclude Include="src\GestorDeArchivos\Carpeta.h" />
     <ClInclude Include="src\GestorDeArchivos\GestorDeArchivos.h" />
-    <ClInclude Include="src\Gizmo\Camera.h" />
     <ClInclude Include="src\Gizmo\Gizmo.h" />
     <ClInclude Include="src\GUIManager\GUIManager.h" />
     <ClInclude Include="src\GUI\FileManagerGUI\ContentFolderInterface.h" />
@@ -67,6 +66,7 @@
     <ClInclude Include="src\GUI\ObjetosGUI\Color\SettingsColor.h" />
     <ClInclude Include="src\GUI\ObjetosGUI\Light\SettingsLight.h" />
     <ClInclude Include="src\GUI\ObjetosGUI\Material\SettingsMaterial.h" />
+    <ClInclude Include="src\GUI\ObjetosGUI\Camera\SettingsCamera.h" />
     <ClInclude Include="src\GUI\ObjetosGUI\RigidBody\SettingsRigidBody.h" />
     <ClInclude Include="src\GUI\ObjetosGUI\Script\SettingsScript.h" />
     <ClInclude Include="src\GUI\ObjetosGUI\SettingsComponent.h" />
@@ -75,6 +75,7 @@
     <ClInclude Include="src\GUI\SceneGUI\SceneMenuBarInterface.h" />
     <ClInclude Include="src\GUI\SceneGUI\SceneSelectedInterface.h" />
     <ClInclude Include="src\Iluminacion\LightSystem.h" />
+    <ClInclude Include="src\Rendering\RenderTarget.h" />
     <ClInclude Include="src\ImGui\imconfig.h" />
     <ClInclude Include="src\ImGui\imgui.h" />
     <ClInclude Include="src\ImGui\imgui_impl_glfw.h" />
@@ -92,6 +93,7 @@
     <ClInclude Include="src\Objetos\Componentes\Color.h" />
     <ClInclude Include="src\Objetos\Componentes\Light.h" />
     <ClInclude Include="src\Objetos\Componentes\Material.h" />
+    <ClInclude Include="src\Objetos\Componentes\CameraComponent.h" />
     <ClInclude Include="src\Objetos\Componentes\Component.h" />
     <ClInclude Include="src\Objetos\Componentes\Phisics.h" />
     <ClInclude Include="src\Objetos\Componentes\RigidBody\RigidBody.h" />
@@ -111,9 +113,12 @@
     <ClCompile Include="src\Fisicas\PhysicsEngine.cpp" />
     <ClCompile Include="src\GUI\ObjetosGUI\Material\SettingsMaterial.cpp" />
     <ClCompile Include="src\GUI\ObjetosGUI\Light\SettingsLight.cpp" />
+    <ClCompile Include="src\GUI\ObjetosGUI\Camera\SettingsCamera.cpp" />
     <ClCompile Include="src\Iluminacion\LightSystem.cpp" />
+    <ClCompile Include="src\Rendering\RenderTarget.cpp" />
     <ClCompile Include="src\Objetos\Componentes\Material.cpp" />
     <ClCompile Include="src\Objetos\Componentes\Light.cpp" />
+    <ClCompile Include="src\Objetos\Componentes\CameraComponent.cpp" />
     <ClCompile Include="src\ImGui\imgui.cpp" />
     <ClCompile Include="src\ImGui\imgui_demo.cpp" />
     <ClCompile Include="src\ImGui\imgui_draw.cpp" />
