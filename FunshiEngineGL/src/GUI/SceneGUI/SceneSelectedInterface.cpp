@@ -1,40 +1,24 @@
 #include "SceneSelectedInterface.h"
 
 #include "../../Objetos/GameObject.h"
-#include "../../Objetos/Modelos3D.h"
 #include "../../Objetos/GameObjectFactory.h"
 #include "../../Scenes/EditorController.h"
 #include "../../Scenes/SceneRegistry.h"
 #include "../../Fisicas/PhysicsEngine.h"
 #include "../../Events/EventBus.h"
-#include <cstring>
 #include <memory>
-#include <imgui.h>
 
 SceneSelectedInterface::SceneSelectedInterface(bool state)
     : GeneralUserInterface("SelectedObjects", state, ImGuiWindowFlags_MenuBar) {}
 
-SceneSelectedInterface::~SceneSelectedInterface() {
-    if (events && eventSubscription) events->unsubscribe(eventSubscription);
-}
-
 void SceneSelectedInterface::bindScene(SceneRegistry* value,
                                        EditorController* controller,
                                        EventBus* bus) {
-    if (events && eventSubscription) events->unsubscribe(eventSubscription);
     scene = value;
     editor = controller;
-    events = bus;
-    eventSubscription = 0;
-    returneableObject = nullptr;
-    if (events) {
-        eventSubscription = events->subscribe([this](const SceneEvent& event) {
-            if (event.type == SceneEventType::ObjectDeleted ||
-                event.type == SceneEventType::SceneCleared) {
-                returneableObject = nullptr;
-            }
-        });
-    }
+    sceneTree.bindScene(value, controller, bus);
+    // Al cambiar de escena la seleccion anterior queda fuera de contexto.
+    if (editor) editor->clearSelection();
 }
 
 ArbolEnlazado<GameObject*>* SceneSelectedInterface::getEntitysTree() {
@@ -45,12 +29,12 @@ void SceneSelectedInterface::setEntitys(ListaDE<GameObject*>* value) {
     // scene state from an external list.
     (void)value;
 }
-GameObject* SceneSelectedInterface::getReturnableEntity() { return returneableObject; }
+GameObject* SceneSelectedInterface::getReturnableEntity() {
+    // La seleccion vive en el EditorController: unica fuente de verdad.
+    return editor ? editor->getSelectedObject() : nullptr;
+}
 void SceneSelectedInterface::setReturnableEntity(GameObject* object) {
-    returneableObject = object;
-    if (events) {
-        events->publish({SceneEventType::ObjectSelected, returneableObject, nullptr});
-    }
+    if (editor) editor->selectObject(object);
 }
 void SceneSelectedInterface::setPhysics(PhysicsEngine* physics) {
     if (editor) editor->setPhysics(physics);
@@ -61,70 +45,24 @@ void SceneSelectedInterface::initGUI() {
     ImGui::PushID(this);
 }
 
-void SceneSelectedInterface::drawPreOrder(Position<GameObject*>* pos) {
-    auto* entitys = getEntitysTree();
-    if (!entitys || !pos) return;
-    if (pos != entitys->rootOfTree()) {
-        const std::string label = "Object:" + std::to_string(pos->getElement()->getId());
-        if (ImGui::Selectable(label.c_str(), returneableObject == pos->getElement())) {
-            returneableObject = pos->getElement();
-            if (events)
-                events->publish({SceneEventType::ObjectSelected,
-                                 returneableObject, nullptr});
-        }
-        if (ImGui::BeginDragDropSource()) {
-            Position<GameObject*>* dragged = pos;
-            ImGui::SetDragDropPayload("ENTITY_NODE", &dragged, sizeof(dragged));
-            ImGui::Text("Moviendo %s", label.c_str());
-            ImGui::EndDragDropSource();
-        }
-        if (ImGui::BeginDragDropTarget()) {
-            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("ENTITY_NODE")) {
-                Position<GameObject*>* dragged = nullptr;
-                std::memcpy(&dragged, payload->Data, sizeof(dragged));
-                if (dragged != pos) {
-                    if (editor)
-                        editor->reparentGameObject(dragged->getElement(),
-                                                    pos->getElement());
-                }
-            }
-            ImGui::EndDragDropTarget();
-        }
-    }
-    if (entitys->isInternal(pos)) {
-        ImGui::Indent();
-        auto* children = entitys->childsOf(pos);
-        auto* child = children->first();
-        while (child) {
-            drawPreOrder(child->getElement());
-            child = (child != children->last()) ? children->next(child) : nullptr;
-        }
-        ImGui::Unindent();
-    }
-}
-
 void SceneSelectedInterface::contentGUI() {
     auto* entitys = getEntitysTree();
     if (!entitys) return;
-    if (!entitys->isEmpty()) {
-        if (deleteObject) {
-            ImGui::InputInt("Id", &inputImGuiID);
-            if (ImGui::Button("Delete")) {
-                deleteObjectByID(inputImGuiID);
-                deleteObject = false;
-            }
-        }
-        drawPreOrder(entitys->rootOfTree());
-    }
+
+    // Sin deseleccion por clic en area vacia: la interface se conserva al
+    // navegar con clics (mismo comportamiento que el explorador de archivos).
+    if (!entitys->isEmpty()) sceneTree.draw();
+
     if (ImGui::BeginPopupContextWindow("SelectedEntitysPopup", ImGuiPopupFlags_MouseButtonRight)) {
         if (ImGui::MenuItem("New Object")) {}
         if (ImGui::MenuItem("New RenderObject")) {
-            auto object = GameObjectFactory::createModelObject();
-            ImGui::InputText("Path", inputImGuiString, IM_ARRAYSIZE(inputImGuiString),
-                             ImGuiInputTextFlags_EnterReturnsTrue);
-            createGameObject(std::move(object));
+            if (editor) {
+                GameObject* created = editor->createGameObject(
+                    GameObjectFactory::createModelObject(),
+                    scene ? scene->getRoot() : nullptr);
+                if (created) setReturnableEntity(created);
+            }
         }
-        if (ImGui::MenuItem("Delete By ID")) deleteObject = true;
         ImGui::EndPopup();
     }
 }
@@ -156,11 +94,9 @@ void SceneSelectedInterface::replaceRootGameObject(GameObject* newRoot) {
     if (!scene) return;
     if (editor) editor->clearScene();
     scene->replaceRoot(std::move(owned));
-    returneableObject = nullptr;
 }
 
 void SceneSelectedInterface::clearGameObjects() {
-    returneableObject = nullptr;
     if (editor) editor->clearScene();
     else if (scene) scene->clear();
 }
@@ -171,7 +107,6 @@ void SceneSelectedInterface::refreshGameObjectView() {
 
 bool SceneSelectedInterface::deleteObjectByID(int id) {
     const bool deleted = editor && editor->deleteObjectByID(id);
-    if (deleted) returneableObject = nullptr;
     return deleted;
 }
 

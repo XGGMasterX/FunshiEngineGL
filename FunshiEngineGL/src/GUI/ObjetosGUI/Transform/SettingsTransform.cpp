@@ -3,6 +3,10 @@
 #include <imgui.h>
 #include <vector>
 #include <utility>
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtx/matrix_decompose.hpp>
+#include <glm/gtc/type_ptr.hpp>
 
 SettingsTransform::SettingsTransform(Transform* componentTransform, GameObject* ownerObject) {
 	this->componentTransform = componentTransform;

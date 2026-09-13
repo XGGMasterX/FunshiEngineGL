@@ -1,31 +1,20 @@
 #ifndef SETTINGSCOLLIDERCUBO_H
 #define SETTINGSCOLLIDERCUBO_H
-#include "../Transform/SettingsTransform.h"
-#include "../../../Objetos/GameObject.h"
+#include "../SettingsComponent.h"
+class GameObject;
+class SettingsTransform;
+class CubeCollider;
 
 class SettingsColliderCubo : public SettingsComponent {
 protected:
 	SettingsTransform* settingsTransform;
 	CubeCollider* myCollider;
+	float newRadio;
 public:
-	SettingsColliderCubo(GameObject* objeto) {
-		myCollider = objeto->getComponent<CubeCollider>();
-		this->settingsTransform = new SettingsTransform(myCollider->getTransform());
-	}
+	SettingsColliderCubo(GameObject* objeto);
+	~SettingsColliderCubo();
 
-	virtual void showDataComponent() override {
-
-		static float newRadio = myCollider->getRadio();
-		ImGui::InputFloat("Radio", &newRadio);
-		if (ImGui::Button("Confirmar")) {
-			myCollider->setRadio(newRadio);
-		}
-		settingsTransform->showDataComponent();
-		myCollider->dibujarCollider();
-	}
-
-	virtual Component* getComponent() override {
-		return myCollider;
-	}
+	void showDataComponent() override;
+	Component* getComponent() override;
 };
 #endif

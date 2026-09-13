@@ -1,31 +1,20 @@
 #ifndef SETTINGSCOLLIDERESFERA_H
 #define SETTINGSCOLLIDERESFERA_H
-#include "../Transform/SettingsTransform.h"
-#include "../../../Objetos/GameObject.h"
+#include "../SettingsComponent.h"
+class GameObject;
+class SettingsTransform;
+class EsfereCollider;
 
 class SettingsColliderEsfera : public SettingsComponent {
 protected:
 	SettingsTransform* settingsTransform;
 	EsfereCollider* myCollider;
+	float newRadio;
 public:
-	SettingsColliderEsfera(GameObject* objeto) {
-		myCollider = objeto->getComponent<EsfereCollider>();
-		this->settingsTransform = new SettingsTransform(myCollider->getTransform());
-	}
+	SettingsColliderEsfera(GameObject* objeto);
+	~SettingsColliderEsfera();
 
-    virtual void showDataComponent() override {
-
-		static float newRadio = myCollider->getRadio();
-		ImGui::InputFloat("Radio", &newRadio);
-		if (ImGui::Button("Confirmar")) {
-			myCollider->setRadio(newRadio);
-		}
-		settingsTransform->showDataComponent();
-		myCollider->dibujarCollider();
-	}
-
-    virtual Component* getComponent() override {
-		return myCollider;
-	}
+	void showDataComponent() override;
+	Component* getComponent() override;
 };
 #endif

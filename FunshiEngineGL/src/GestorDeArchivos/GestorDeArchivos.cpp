@@ -19,6 +19,8 @@ GestorDeArchivos::GestorDeArchivos(std::string pathProyect)
 }
 
 GestorDeArchivos::~GestorDeArchivos() {
+    if (treeFilePath && !treeFilePath->isEmpty())
+        liberarPreOrden(treeFilePath, treeFilePath->rootOfTree());
     delete treeFilePath;
     treeFilePath = nullptr;
     folderActual = nullptr;
@@ -54,6 +56,12 @@ void GestorDeArchivos::recorrerDir(const std::string& path, Position<File*>* par
         const std::string fullPath = path + "/" + entry->d_name;
         struct stat info;
         if (stat(fullPath.c_str(), &info) != 0) continue;
+        // No seguir enlaces simbolicos: pueden apuntar a carpetas del sistema
+        // o a si mismos (recursion infinita -> arbol gigante / stack overflow).
+        struct stat linkInfo;
+        if (lstat(fullPath.c_str(), &linkInfo) == 0 &&
+            S_ISLNK(linkInfo.st_mode))
+            continue;
         File* item = S_ISDIR(info.st_mode)
             ? static_cast<File*>(new Carpeta(entry->d_name)) : new File(entry->d_name);
         item->setPathRoot(path);
@@ -74,12 +82,33 @@ bool GestorDeArchivos::setTreeFilePath(const std::string& path, std::string name
     recorrerDir(path, rootPosition);
     if (!compareTreesByPath(original, newTree)) {
         folderActual = rootPosition;
+        // Liberar el arbol reemplazado junto a sus File*.
+        if (original && !original->isEmpty())
+            liberarPreOrden(original, original->rootOfTree());
         delete original;
         return true;
     }
     treeFilePath = original;
+    // Liberar el arbol descartado en la comparacion junto a sus File*.
+    if (newTree && !newTree->isEmpty())
+        liberarPreOrden(newTree, newTree->rootOfTree());
     delete newTree;
     return false;
+}
+
+void GestorDeArchivos::liberarPreOrden(ArbolEnlazado<File*>* arbol,
+                                       Position<File*>* p) {
+    if (!arbol || !p) return;
+    delete p->getElement();
+    if (arbol->isInternal(p)) {
+        auto* hijos = arbol->childsOf(p);
+        auto* h = hijos->first();
+        while (h) {
+            liberarPreOrden(arbol, h->getElement());
+            h = (h != hijos->last()) ? hijos->next(h) : nullptr;
+        }
+        delete hijos; // childsOf() asigna una lista nueva en cada llamada
+    }
 }
 
 bool GestorDeArchivos::compareTreesByPath(ArbolEnlazado<File*>* first,
@@ -101,14 +130,24 @@ bool GestorDeArchivos::preOrdenNoExaustivo(ArbolEnlazado<File*>* first,
     if (externalA != externalB) return false;
     auto* childrenA = first->childsOf(left);
     auto* childrenB = second->childsOf(right);
-    if (childrenA->tam() != childrenB->tam()) return false;
+    if (childrenA->tam() != childrenB->tam()) {
+        delete childrenA; // childsOf() asigna una lista nueva en cada llamada
+        delete childrenB;
+        return false;
+    }
     auto* pA = childrenA->first();
     auto* pB = childrenB->first();
     while (pA && pB) {
-        if (!preOrdenNoExaustivo(first, second, pA->getElement(), pB->getElement())) return false;
+        if (!preOrdenNoExaustivo(first, second, pA->getElement(), pB->getElement())) {
+            delete childrenA;
+            delete childrenB;
+            return false;
+        }
         pA = (pA != childrenA->last()) ? childrenA->next(pA) : nullptr;
         pB = (pB != childrenB->last()) ? childrenB->next(pB) : nullptr;
     }
+    delete childrenA;
+    delete childrenB;
     return true;
 }
 

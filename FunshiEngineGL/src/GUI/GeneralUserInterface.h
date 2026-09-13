@@ -17,6 +17,7 @@ protected:
 
 public:
 	GeneralUserInterface(string nameGUI, bool stateGUI, ImGuiWindowFlags flagGUI);
+	virtual ~GeneralUserInterface() = default;
 
 	void setNameGui(string nameGUI);
 	void setStateGui(bool stateGUI);
