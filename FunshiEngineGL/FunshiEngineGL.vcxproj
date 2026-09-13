@@ -65,6 +65,8 @@
     <ClInclude Include="src\GUI\ObjetosGUI\Colliders\SettingsColliderEsfera.h" />
     <ClInclude Include="src\GUI\ObjetosGUI\Colliders\SettingsColliderMalla.h" />
     <ClInclude Include="src\GUI\ObjetosGUI\Color\SettingsColor.h" />
+    <ClInclude Include="src\GUI\ObjetosGUI\Light\SettingsLight.h" />
+    <ClInclude Include="src\GUI\ObjetosGUI\Material\SettingsMaterial.h" />
     <ClInclude Include="src\GUI\ObjetosGUI\RigidBody\SettingsRigidBody.h" />
     <ClInclude Include="src\GUI\ObjetosGUI\Script\SettingsScript.h" />
     <ClInclude Include="src\GUI\ObjetosGUI\SettingsComponent.h" />
@@ -72,6 +74,7 @@
     <ClInclude Include="src\GUI\ObjetosGUI\Transform\SettingsTransform.h" />
     <ClInclude Include="src\GUI\SceneGUI\SceneMenuBarInterface.h" />
     <ClInclude Include="src\GUI\SceneGUI\SceneSelectedInterface.h" />
+    <ClInclude Include="src\Iluminacion\LightSystem.h" />
     <ClInclude Include="src\ImGui\imconfig.h" />
     <ClInclude Include="src\ImGui\imgui.h" />
     <ClInclude Include="src\ImGui\imgui_impl_glfw.h" />
@@ -87,6 +90,8 @@
     <ClInclude Include="src\Objetos\Componentes\Colliders\EsfereCollider.h" />
     <ClInclude Include="src\Objetos\Componentes\Colliders\MallaCollider.h" />
     <ClInclude Include="src\Objetos\Componentes\Color.h" />
+    <ClInclude Include="src\Objetos\Componentes\Light.h" />
+    <ClInclude Include="src\Objetos\Componentes\Material.h" />
     <ClInclude Include="src\Objetos\Componentes\Component.h" />
     <ClInclude Include="src\Objetos\Componentes\Phisics.h" />
     <ClInclude Include="src\Objetos\Componentes\RigidBody\RigidBody.h" />
@@ -94,18 +99,21 @@
     <ClInclude Include="src\Objetos\Componentes\Transform.h" />
     <ClInclude Include="src\Objetos\GameObject.h" />
     <ClInclude Include="src\Objetos\Malla.h" />
-    <ClInclude Include="src\Objetos\Materiales\Material.h" />
-    <ClInclude Include="src\Objetos\Materiales\materiales.h" />
     <ClInclude Include="src\Objetos\Modelos3D.h" />
     <ClInclude Include="src\Scenes\GameScene.h" />
-    <ClInclude Include="src\Scenes\Ilumination.h" />
     <ClInclude Include="src\Time.h" />
+    <ClInclude Include="src\Herramientas\MaterialPresets.h" />
     <ClInclude Include="src\Ventana.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\..\..\OneDrive\Desktop\DescargasParaMotorGrafico\GLAD\src\glad.c" />
     <ClCompile Include="src\ExcepcionesCPP\RuntimeException.cpp" />
     <ClCompile Include="src\Fisicas\PhysicsEngine.cpp" />
+    <ClCompile Include="src\GUI\ObjetosGUI\Material\SettingsMaterial.cpp" />
+    <ClCompile Include="src\GUI\ObjetosGUI\Light\SettingsLight.cpp" />
+    <ClCompile Include="src\Iluminacion\LightSystem.cpp" />
+    <ClCompile Include="src\Objetos\Componentes\Material.cpp" />
+    <ClCompile Include="src\Objetos\Componentes\Light.cpp" />
     <ClCompile Include="src\ImGui\imgui.cpp" />
     <ClCompile Include="src\ImGui\imgui_demo.cpp" />
     <ClCompile Include="src\ImGui\imgui_draw.cpp" />
@@ -115,7 +123,6 @@
     <ClCompile Include="src\ImGui\imgui_widgets.cpp" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\Matematicas\Vector.cpp" />
-    <ClCompile Include="src\Objetos\Materiales\Material.cpp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>

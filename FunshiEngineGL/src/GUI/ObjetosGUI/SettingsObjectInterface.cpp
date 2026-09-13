@@ -9,7 +9,11 @@
 #include "RigidBody/SettingsRigidBody.h"
 #include "Script/SettingsScript.h"
 #include "Model/SettingsModel.h"
+#include "Material/SettingsMaterial.h"
+#include "Light/SettingsLight.h"
 #include "../../Objetos/GameObject.h"
+#include "../../Objetos/Componentes/Light.h"
+#include "../../Objetos/Componentes/Material.h"
 #include "../../Fisicas/PhysicsEngine.h"
 #include "../../Herramientas/TypeUtils.h"
 #include <imgui.h>
@@ -48,6 +52,14 @@ void SettingsObjectInterface::loadComponents() {
 	Color* colorComponent = object->getComponent<Color>();
 	if (colorComponent != nullptr) {
 		listaDESettingsComponent->addLast(new SettingsColor(object));
+	}
+	Material* materialComponent = object->getComponent<Material>();
+	if (materialComponent != nullptr) {
+		listaDESettingsComponent->addLast(new SettingsMaterial(object));
+	}
+	Light* lightComponent = object->getComponent<Light>();
+	if (lightComponent != nullptr) {
+		listaDESettingsComponent->addLast(new SettingsLight(object));
 	}
 	// SOPORTE PARA AMBOS COLLIDER
 	Collider* collider = object->getComponent<EsfereCollider>();
@@ -119,6 +131,16 @@ void SettingsObjectInterface::contentGUI() {
 		    object->getComponent<Color>() == nullptr) {
 			object->addComponent(new Color());
 			listaDESettingsComponent->addLast(new SettingsColor(object));
+		}
+		if (ImGui::MenuItem("Agregar Material") &&
+		    object->getComponent<Material>() == nullptr) {
+			object->addComponent(new Material());
+			listaDESettingsComponent->addLast(new SettingsMaterial(object));
+		}
+		if (ImGui::MenuItem("Agregar Luz") &&
+		    object->getComponent<Light>() == nullptr) {
+			object->addComponent(new Light());
+			listaDESettingsComponent->addLast(new SettingsLight(object));
 		}
 		if (ImGui::TreeNodeEx("Agregar Collider",
 		                      ImGuiTreeNodeFlags_OpenOnArrow |
