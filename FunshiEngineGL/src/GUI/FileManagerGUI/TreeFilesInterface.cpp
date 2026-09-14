@@ -1,6 +1,7 @@
 #include "TreeFilesInterface.h"
 
 #include <cstring>
+#include <filesystem>
 #include <vector>
 
 #include "../../Herramientas/PathUtils.h"
@@ -150,6 +151,17 @@ TreeIG::RowResult TreeFilesInterface::drawFolderRow(File* element, bool wasOpen)
             sel->navegacionPendiente.clear();
         }
 
+        // Destino de drag&drop: soltar un "ARCHIVO_PATH" (grid u otro origen)
+        // sobre la fila copia el elemento a esta carpeta.
+        if (ImGui::BeginDragDropTarget()) {
+            if (const ImGuiPayload* aceptado =
+                    ImGui::AcceptDragDropPayload("ARCHIVO_PATH")) {
+                const char* origen = static_cast<const char*>(aceptado->Data);
+                if (origen) copiarElementoSuelto(origen, rutaDe(folderRoot));
+            }
+            ImGui::EndDragDropTarget();
+        }
+
         if (ImGui::BeginPopupContextItem("MenuContextualCarpeta")) {
             ImGui::Text("Carpeta: %s", folderRoot->getPathName().c_str());
             ImGui::Separator();
@@ -216,6 +228,25 @@ void TreeFilesInterface::refrescarArbol() {
     // navegacionPendiente NO se limpia: es una ruta y debe aplicarse (FASE 2)
     // contra el arbol recien reconstruido; limpiarla aqui perderia el doble
     // clic que coincidio con un rescaneo (B6).
+}
+
+// Copia un elemento soltado sobre una carpeta del arbol (payload
+// "ARCHIVO_PATH"). Carpetas -> copiarCarpeta + rescaneo; archivos ->
+// copiarArchivo. No copiar sobre la propia carpeta (finalDest == origen).
+void TreeFilesInterface::copiarElementoSuelto(const std::string& origen,
+                                              const std::string& folderDest) {
+    if (origen.empty() || folderDest.empty()) return;
+    FileSelection* sel = fileManager->getSelection();
+    std::error_code ec;
+    const std::string nombre =
+        std::filesystem::path(origen).filename().string();
+    const std::string finalDest = folderDest + PATH_SEP + nombre;
+    if (finalDest == origen) return;
+    if (std::filesystem::is_directory(origen, ec)) {
+        if (fileManager->copiarCarpeta(origen, finalDest)) sel->contadorCambios++;
+    } else {
+        fileManager->copiarArchivo(origen, finalDest);
+    }
 }
 
 void TreeFilesInterface::aplicarNavegacionPendiente() {

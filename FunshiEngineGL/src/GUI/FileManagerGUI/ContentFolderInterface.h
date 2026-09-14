@@ -50,6 +50,7 @@ private:
     std::string seleccionarCarpetaSistema();
     std::string seleccionarArchivoSistema();
     void crearNuevoElemento();
+    void copiarElementoSuelto(const std::string& origen, const std::string& destFolder);
     void recorrer(const std::string& path);
 
 public:

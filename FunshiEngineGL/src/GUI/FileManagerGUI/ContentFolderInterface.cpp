@@ -16,6 +16,7 @@
 #include <shlobj.h>
 #elif defined(__linux__)
 #include <cstdio>
+#include <unistd.h>
 #endif
 
 ContentFolderInterface::ContentFolderInterface(bool stateGUI, FileManager* fileManager)
@@ -123,6 +124,26 @@ void ContentFolderInterface::crearNuevoElemento() {
     creandoCarpeta = false;
     creandoScript = false;
     memset(nombreNuevo, 0, sizeof(nombreNuevo));
+}
+
+// Copia un elemento soltado via drag&drop (payload "ARCHIVO_PATH") a
+// destFolder. Carpetas -> copiarCarpeta + rescaneo del arbol; archivos ->
+// copiarArchivo (el arbol no los lista). Ignora soltar una carpeta sobre si
+// misma (finalDest == origen) y deja que copiarCarpeta falle si el origen es
+// su propio ancestro (recursion sobre si misma, el error_code lo corta).
+void ContentFolderInterface::copiarElementoSuelto(const std::string& origen,
+                                                  const std::string& destFolder) {
+    if (origen.empty() || destFolder.empty()) return;
+    FileSelection* sel = fileManager->getSelection();
+    std::error_code ec;
+    const std::string nombre = std::filesystem::path(origen).filename().string();
+    const std::string finalDest = destFolder + PATH_SEP + nombre;
+    if (finalDest == origen) return;
+    if (std::filesystem::is_directory(origen, ec)) {
+        if (fileManager->copiarCarpeta(origen, finalDest)) sel->contadorCambios++;
+    } else {
+        fileManager->copiarArchivo(origen, finalDest);
+    }
 }
 
 void ContentFolderInterface::recorrer(const std::string& path) {
@@ -246,7 +267,15 @@ void ContentFolderInterface::recorrer(const std::string& path) {
 #if defined(_WIN32)
                 ShellExecuteA(NULL, "open", fullPath.c_str(), NULL, NULL, SW_SHOW);
 #elif defined(__linux__)
-                system(("xdg-open \"" + fullPath + "\" &").c_str());
+                // fork+exec (sin shell): los nombres de archivo pueden contener
+                // comillas o metacaracteres y system() no debe tener los dedos
+                // en la command line. xdg-open se desprende solo.
+                pid_t pid = fork();
+                if (pid == 0) {
+                    execl("/usr/bin/xdg-open", "xdg-open", fullPath.c_str(),
+                          static_cast<char*>(nullptr));
+                    _exit(127);
+                }
 #endif
             }
         }
@@ -398,7 +427,34 @@ void ContentFolderInterface::contentGUI() {
     const std::string destFolder =
         sel->carpetaActual->getPathRoot() + PATH_SEP +
         sel->carpetaActual->getPathName();
+
     recorrer(destFolder);
+
+    // Zona de drop del grid: mientras se arrastra un "ARCHIVO_PATH" (desde este
+    // mismo grid o de otro origen del editor, p.ej. el inspector), el espacio
+    // vacio bajo las celdas es destino: soltar copia el elemento a la carpeta
+    // visible (como en cualquier explorador, soltar en el vacio = soltar en la
+    // carpeta). Solo se dibuja durante el arrastre, asi no roba clicks ni
+    // crece el area desplazable: la zona cubre lo que sobra hasta abajo.
+    if (const ImGuiPayload* dragPayload = ImGui::GetDragDropPayload()) {
+        if (strcmp(dragPayload->DataType, "ARCHIVO_PATH") == 0) {
+            const float alturaZona = ImGui::GetContentRegionAvail().y;
+            if (alturaZona >= 24.0f) {
+                ImGui::InvisibleButton(
+                    "zonaDropArchivos",
+                    ImVec2(ImGui::GetContentRegionAvail().x, alturaZona));
+                if (ImGui::BeginDragDropTarget()) {
+                    if (const ImGuiPayload* aceptado =
+                            ImGui::AcceptDragDropPayload("ARCHIVO_PATH")) {
+                        const char* origen =
+                            static_cast<const char*>(aceptado->Data);
+                        if (origen) copiarElementoSuelto(origen, destFolder);
+                    }
+                    ImGui::EndDragDropTarget();
+                }
+            }
+        }
+    }
 }
 
 void ContentFolderInterface::endGUI() { ImGui::End(); }
