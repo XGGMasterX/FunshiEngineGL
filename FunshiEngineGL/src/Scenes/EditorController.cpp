@@ -172,17 +172,19 @@ bool EditorController::addComponent(GameObject* object,
 
 bool EditorController::removeComponent(GameObject* object, Component* component) {
     if (!scene || !scene->contains(object) || !component) return false;
+    // El gizmo puede estar editando el transform local (myTransform) del
+    // collider que se va a borrar: desarmarlo ANTES de liberar el componente.
+    // Hacer dynamic_cast despues de deleteComponent() es use-after-free (el
+    // puntero queda colgante y __dynamic_cast muere al leer el RTTI).
+    if (Collider* collider = dynamic_cast<Collider*>(component)) {
+        if (collider->getTransform() == gizmoTarget.local)
+            clearGizmoTarget();
+    }
     if (physics) {
         if (auto* body = dynamic_cast<RigidBody*>(component))
             physics->removeRigidBody(body);
     }
     object->deleteComponent(component);
-    // El gizmo puede estar editando el transform local (myTransform) del
-    // collider recien borrado: desarmarlo evita un puntero colgante.
-    if (Collider* collider = dynamic_cast<Collider*>(component)) {
-        if (collider->getTransform() == gizmoTarget.local)
-            clearGizmoTarget();
-    }
     if (events)
         events->publish({SceneEventType::ComponentChanged, object, nullptr});
     return true;
