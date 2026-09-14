@@ -525,7 +525,10 @@ void GameScene::update(float value) {
     // Mientras se manipula el gizmo NO se avanza la simulacion: de lo
     // contrario la gravedad/contactos eyectan el cuerpo y la sync de vuelta
     // arrastra al objeto (efecto 'sale disparado'). Al soltar, la sim sigue.
-    if (phisics && !gizmoInUse()) phisics->stepSimulation(value);
+    // La fisica SOLO corre en modo play (start==true); en editor (start==false)
+    // stepSimulation no tiene consumidor (syncPhysicsToGameObject no escribe),
+    // y solo causa explosiones por penetracion con el suelo (plano y=-1).
+    if (phisics && start && !gizmoInUse()) phisics->stepSimulation(value);
 
     // Sincronizar la fisica de vuelta a los GameObjects del mundo
     // (GameObject::update escribe en los Transforms via RigidBody).
