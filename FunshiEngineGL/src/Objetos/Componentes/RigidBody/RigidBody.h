@@ -29,6 +29,13 @@ public:
 
     void createRigidBody();
 
+    // Deja al cuerpo inerte sin su collider: null al puntero (todas las
+    // sync/creacion ya lo tienen guardado) y destruye el btRigidBody y su
+    // motion state (reentrante). Llamar SIEMPRE con el cuerpo ya fuera del
+    // mundo de fisica (removeRigidBody): resetear un btRigidBody registrado
+    // dejaria un puntero colgante en la broadphase.
+    void detachCollider();
+
     // ALTERAR EL DAD TRANSFORM
     void syncPhysicsToGameObject();
 

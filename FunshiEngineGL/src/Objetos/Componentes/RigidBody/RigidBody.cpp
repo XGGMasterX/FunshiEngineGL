@@ -72,6 +72,11 @@ void RigidBody::createRigidBody() {
     rigidBody = std::make_unique<btRigidBody>(rbInfo);
 }
 
+void RigidBody::detachCollider() {
+    collider = nullptr;
+    createRigidBody();
+}
+
 void RigidBody::syncPhysicsToGameObject() {
     if (!rigidBody || !collider) return;
 
