@@ -57,6 +57,7 @@ public:
 private:
     void refrescarArbol();
     void aplicarNavegacionPendiente();
+    void copiarElementoSuelto(const std::string& origen, const std::string& folderDest);
     TreeIG::RowResult drawFolderRow(File* element, bool wasOpen);
 };
 
