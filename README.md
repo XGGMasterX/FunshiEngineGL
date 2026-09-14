@@ -1,6 +1,6 @@
 # FunshiEngineGL
 
-Motor y editor 3D en tiempo real escrito en C++17, con interfaz ImGui y renderizado OpenGL (pipeline de compatibilidad). Proyecto educativo: un editor tipo Unity/Godot construido desde cero.
+Motor y editor 3D en tiempo real escrito en C++17, con interfaz ImGui y renderizado OpenGL (pipeline de compatibilidad) construido desde cero.
 
 ---
 
