@@ -4,7 +4,6 @@
 #include "../../Objetos/GameObjectFactory.h"
 #include "../../Scenes/EditorController.h"
 #include "../../Scenes/SceneRegistry.h"
-#include "../../Fisicas/PhysicsEngine.h"
 #include "../../Events/EventBus.h"
 #include <memory>
 
@@ -35,9 +34,6 @@ GameObject* SceneSelectedInterface::getReturnableEntity() {
 }
 void SceneSelectedInterface::setReturnableEntity(GameObject* object) {
     if (editor) editor->selectObject(object);
-}
-void SceneSelectedInterface::setPhysics(PhysicsEngine* physics) {
-    if (editor) editor->setPhysics(physics);
 }
 
 void SceneSelectedInterface::initGUI() {
