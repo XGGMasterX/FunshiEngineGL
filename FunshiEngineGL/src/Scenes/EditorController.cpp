@@ -109,28 +109,35 @@ void EditorController::registerSceneRigidBodies() {
     if (!scene || !physics) return;
     scene->refreshGameObjectView();
     auto* objects = scene->getGameObjects();
-    auto reRegistrar = [this](GameObject* object) {
-        if (!object) return;
-        RigidBody* body = object->getComponent<RigidBody>();
-        if (!body) return;
-        // La malla recien deserializada: descartar la shape provisional
-        // (esfera de respaldo) y recrear el cuerpo con la shape real.
-        if (Collider* collider = object->getComponent<Collider>())
-            collider->invalidateCollisionShape();
-        physics->removeRigidBody(body);
-        body->createRigidBody();
-        physics->addRigidBody(body);
-    };
     if (objects && !objects->isEmpty()) {
         auto* position = objects->first();
         while (position) {
-            reRegistrar(position->getElement());
+            refreshRigidBody(position->getElement());
             position = (position != objects->last())
                            ? objects->next(position)
                            : nullptr;
         }
     }
-    reRegistrar(scene->getRoot());
+    refreshRigidBody(scene->getRoot());
+}
+
+void EditorController::refreshRigidBody(GameObject* object) {
+    if (!scene || !object || !scene->contains(object)) return;
+    RigidBody* body = object->getComponent<RigidBody>();
+    if (!body) return;
+    // La shape de Bullet se cachea con el radio/escala/malla con que se creo:
+    // al cambialo desde la GUI (p. ej. el radio de la esfera/cubo) la shape
+    // queda desactualizada y la fisica choca con la forma vieja. Invalidarla
+    // hace que getCollisionShape() la reconstruya con el valor actual.
+    if (Collider* collider = object->getComponent<Collider>())
+        collider->invalidateCollisionShape();
+    // createRigidBody() construye un btRigidBody NUEVO: si el anterior queda
+    // registrado en el mundo tendriamos DOS cuerpos en la misma posicion
+    // (autocolision real del objeto contra su gemelo invisible).
+    physics->removeRigidBody(body);
+    body->createRigidBody();
+    if (!body->getRigidBody()) return;
+    physics->addRigidBody(body);
 }
 
 void EditorController::selectObject(GameObject* object) {
