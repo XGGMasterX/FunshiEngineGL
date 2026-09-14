@@ -1,62 +1,27 @@
 #include "ContentFolderInterface.h"
-#include "TreeFilesInterface.h" // Incluir para usar el puntero
+
+#include "../../Herramientas/PathUtils.h"
+#include "../../FileManager/FileManager.h"
+#include "../../FileManager/FileSelection.h"
+#include "../WindowNames.h"
 #include "../../Herramientas/IconosGUI/IconosGUI.h"
 #include <imgui.h>
-#include <fstream>
-#include <iostream>
 #include <cstring>
 #include <algorithm>
+#include <filesystem>
 
 #if defined(_WIN32)
 #include <windows.h>
 #include <shlobj.h>
 #elif defined(__linux__)
 #include <cstdio>
-#include <sys/stat.h>
-#include <dirent.h>
-#include <cerrno>
 #endif
 
-#ifdef _WIN32
-const std::string PATH_SEP = "\\";
-#else
-const std::string PATH_SEP = "/";
-#endif
+ContentFolderInterface::ContentFolderInterface(bool stateGUI, FileManager* fileManager)
+    : GeneralUserInterface(WindowNames::ShowFolder, stateGUI, ImGuiWindowFlags_MenuBar),
+      fileManager(fileManager) {}
 
-ContentFolderInterface::ContentFolderInterface(bool stateGUI)
-    : GeneralUserInterface("Show Folder ", stateGUI, ImGuiWindowFlags_MenuBar) {
-    this->stateGUI = stateGUI;
-}
-
-void ContentFolderInterface::setFolderRoot(Carpeta* folder) {
-    thisFolderContent = folder;
-}
-
-void ContentFolderInterface::setIconosGUI(IconosGUI* iconosG) {
-    iconosGUI = iconosG;
-}
-
-void ContentFolderInterface::setTreeFilesInterface(TreeFilesInterface* tree) {
-    treeFilesInterface = tree;
-}
-
-bool ContentFolderInterface::getModificado() { return modificado; }
-void ContentFolderInterface::setModificado(bool mod) { modificado = mod; }
-
-bool ContentFolderInterface::copiarArchivo(const std::string& origen, const std::string& destino) {
-    if (origen.empty() || destino.empty()) return false;
-#if defined(_WIN32)
-    return CopyFileA(origen.c_str(), destino.c_str(), FALSE) == TRUE;
-#elif defined(__linux__)
-    std::ifstream src(origen, std::ios::binary);
-    std::ofstream dst(destino, std::ios::binary);
-    if (!src || !dst) return false;
-    dst << src.rdbuf();
-    return src && dst;
-#else
-    return false;
-#endif
-}
+void ContentFolderInterface::setIconosGUI(IconosGUI* iconosG) { iconosGUI = iconosG; }
 
 std::string ContentFolderInterface::seleccionarCarpetaSistema() {
 #if defined(_WIN32)
@@ -113,42 +78,20 @@ std::string ContentFolderInterface::seleccionarArchivoSistema() {
 #endif
 }
 
-bool ContentFolderInterface::crearCarpetaEnSistema(const std::string& path) {
-    if (path.empty()) return false;
-#if defined(_WIN32)
-    if (CreateDirectoryA(path.c_str(), nullptr)) return true;
-    return GetLastError() == ERROR_ALREADY_EXISTS;
-#elif defined(__linux__)
-    if (mkdir(path.c_str(), 0777) == 0) return true;
-    return errno == EEXIST;
-#else
-    return false;
-#endif
-}
-
-bool ContentFolderInterface::crearArchivoEnSistema(const std::string& path,
-                                                   const std::string& contenido) {
-    if (path.empty()) return false;
-    std::ofstream archivo(path, std::ios::out | std::ios::binary | std::ios::trunc);
-    if (!archivo) return false;
-    if (!contenido.empty()) archivo << contenido;
-    archivo.close();
-    return !archivo.fail();
-}
-
 void ContentFolderInterface::crearNuevoElemento() {
-    if (!thisFolderContent || nombreNuevo[0] == '\0') return;
+    FileSelection* sel = fileManager->getSelection();
+    if (!sel->carpetaActual || nombreNuevo[0] == '\0') return;
 
     const std::string destFolder =
-        thisFolderContent->getPathRoot() + PATH_SEP +
-        thisFolderContent->getPathName();
+        sel->carpetaActual->getPathRoot() + PATH_SEP +
+        sel->carpetaActual->getPathName();
 
     if (creandoCarpeta) {
         const std::string ruta = destFolder + PATH_SEP + nombreNuevo;
-        if (crearCarpetaEnSistema(ruta)) {
-            setModificado(true);
-            // El arbol se rescancea para reflejar la nueva carpeta (B2/B4).
-            if (treeFilesInterface) treeFilesInterface->solicitarActualizacion();
+        if (fileManager->crearCarpeta(ruta)) {
+            // El arbol de carpetas cambia: se rescanceara al detectar el
+            // contador (R3). La carpeta visible se conserva por rutaVisible.
+            sel->contadorCambios++;
         }
     } else {
         std::string nombre = nombreNuevo;
@@ -171,7 +114,9 @@ void ContentFolderInterface::crearNuevoElemento() {
                 "};\n";
         }
         const std::string ruta = destFolder + PATH_SEP + nombre;
-        if (crearArchivoEnSistema(ruta, contenido)) setModificado(true);
+        // No sube el contador: los archivos no aparecen en el arbol de
+        // carpetas y no merece colapsar la navegacion por un rescaneo.
+        fileManager->crearArchivo(ruta, contenido);
     }
 
     creandoCarpeta = false;
@@ -180,14 +125,12 @@ void ContentFolderInterface::crearNuevoElemento() {
 }
 
 void ContentFolderInterface::recorrer(const std::string& path) {
-#if defined(_WIN32)
-    WIN32_FIND_DATAA findFileData;
-    HANDLE hFind = FindFirstFileA((path + "\\*").c_str(), &findFileData);
-    if (hFind == INVALID_HANDLE_VALUE) return;
-#elif defined(__linux__)
-    DIR* dir = opendir(path.c_str());
-    if (!dir) return;
-#endif
+    FileSelection* sel = fileManager->getSelection();
+
+    std::error_code ec;
+    std::filesystem::directory_iterator dirIt(path, ec);
+    if (ec) return;
+    const std::filesystem::directory_iterator fin;
 
     const float iconSize = 87.0f;
     const float spacing = 16.0f;
@@ -201,25 +144,17 @@ void ContentFolderInterface::recorrer(const std::string& path) {
     float yInicio = ImGui::GetCursorPosY();
     int indice = 0;
 
-#if defined(_WIN32)
-    do {
-        std::string nombre = findFileData.cFileName;
-        if (nombre == "." || nombre == "..") continue;
-        std::string fullPath = path + "\\" + nombre;
-        bool esCarpeta = (findFileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY);
-#elif defined(__linux__)
-    struct dirent* entry;
-    while ((entry = readdir(dir)) != NULL) {
-        std::string nombre = entry->d_name;
-        if (nombre == "." || nombre == "..") continue;
-        std::string fullPath = path;
-        if (!fullPath.empty() && fullPath.back() != '/') fullPath += "/";
-        fullPath += nombre;
+    for (; dirIt != fin;) {
+        const std::filesystem::directory_entry entrada = *dirIt;
+        dirIt.increment(ec);
+        if (ec) { ec.clear(); continue; } // entrada con errores: la saltamos
 
-        struct stat info;
-        if (stat(fullPath.c_str(), &info) != 0) continue;
-        bool esCarpeta = S_ISDIR(info.st_mode);
-#endif
+        const std::string nombre = entrada.path().filename().string();
+        if (nombre == "." || nombre == "..") continue;
+        const std::string fullPath = entrada.path().string();
+        // No seguir symlinks: pueden apuntar a carpetas del sistema.
+        if (std::filesystem::is_symlink(entrada.symlink_status())) continue;
+        const bool esCarpeta = entrada.is_directory();
 
         size_t dot = nombre.find_last_of('.');
         std::string extension = "";
@@ -256,23 +191,23 @@ void ContentFolderInterface::recorrer(const std::string& path) {
             ImGui::Button(icon, ImVec2(iconSize, iconSize));
         }
 
-        // --- DETECCIÓN DE DOBLE CLIC (solo sobre el item bajo el cursor) ---
+        // --- DETECCION DE DOBLE CLIC (solo sobre el item bajo el cursor) ---
         // IsMouseDoubleClicked es un estado global por-frame: sin el check de
         // IsItemHovered, en el frame del doble clic reaccionaban TODAS las
         // celdas dibujadas (abriendo apps de varios archivos o navegando al
-        // último folder procesado, no al que estaba bajo el cursor).
+        // ultimo folder procesado, no al que estaba bajo el cursor).
         const bool isDoubleClicked =
             ImGui::IsItemHovered() &&
             ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left);
 
         if (isDoubleClicked) {
-            if (esCarpeta) {
-                // FASE 1: solo se registra la carpeta a abrir; el arbol la
-                // aplica al inicio de su propio contentGUI.
-                if (treeFilesInterface && thisFolderContent) {
-                    treeFilesInterface->requestOpenFolder(thisFolderContent, nombre);
-                }
-            } else {
+            if (esCarpeta && sel->carpetaActual) {
+                // FASE 1: solo se registra la ruta a abrir; el arbol la
+                // aplica al inicio de su contentGUI contra el arbol vigente.
+                sel->navegacionPendiente =
+                    sel->carpetaActual->getPathRoot() + PATH_SEP +
+                    sel->carpetaActual->getPathName() + PATH_SEP + nombre;
+            } else if (!esCarpeta) {
 #if defined(_WIN32)
                 ShellExecuteA(NULL, "open", fullPath.c_str(), NULL, NULL, SW_SHOW);
 #elif defined(__linux__)
@@ -310,25 +245,11 @@ void ContentFolderInterface::recorrer(const std::string& path) {
         ImGui::PopID();
         ImGui::EndGroup();
         indice++;
-
-#if defined(_WIN32)
-    } while (FindNextFileA(hFind, &findFileData) != 0);
-    FindClose(hFind);
-#elif defined(__linux__)
     }
-    closedir(dir);
-#endif
-}
-
-void ContentFolderInterface::setTreeFilePath(const std::string& path) {
-    recorrer(path);
-}
-
-Carpeta* ContentFolderInterface::getFolderContent() {
-    return thisFolderContent;
 }
 
 void ContentFolderInterface::initGUI() {
+    FileSelection* sel = fileManager->getSelection();
     ImGui::Begin(getNameGui().c_str(), &stateGUI, getFlagGui());
 
     if (ImGui::BeginPopupContextWindow("AddFilesPopup", ImGuiPopupFlags_MouseButtonRight)) {
@@ -350,36 +271,32 @@ void ContentFolderInterface::initGUI() {
             abrirPopupNombre = true;
             ImGui::CloseCurrentPopup();
         }
-        if (ImGui::MenuItem("Copy Exist Folder") && thisFolderContent) {
+        if (ImGui::MenuItem("Copy Exist Folder") && sel->carpetaActual) {
             std::string sourceFolder = seleccionarCarpetaSistema();
             if (!sourceFolder.empty()) {
-                std::string destFolder = thisFolderContent->getPathRoot() + "/" + thisFolderContent->getPathName();
+                const std::string destFolder =
+                    sel->carpetaActual->getPathRoot() + PATH_SEP +
+                    sel->carpetaActual->getPathName();
                 size_t pos = sourceFolder.find_last_of("/\\");
                 std::string folderName = (pos != std::string::npos) ? sourceFolder.substr(pos + 1) : sourceFolder;
-                std::string finalDest = destFolder + "/" + folderName;
-#if defined(_WIN32)
-                CreateDirectoryA(finalDest.c_str(), NULL);
-                std::string command = "xcopy \"" + sourceFolder + "\" \"" + finalDest + "\\\" /E /I /Y";
-                system(command.c_str());
-#elif defined(__linux__)
-                std::string commandCreate = "mkdir -p \"" + finalDest + "\"";
-                system(commandCreate.c_str());
-                std::string commandCopy = "cp -r \"" + sourceFolder + "\"/* \"" + finalDest + "\"";
-                system(commandCopy.c_str());
-#endif
-                setModificado(true);
+                const std::string finalDest = destFolder + PATH_SEP + folderName;
+                if (fileManager->copiarCarpeta(sourceFolder, finalDest)) {
+                    // El arbol se rescancea porque aparecen carpetas nuevas.
+                    sel->contadorCambios++;
+                }
             }
         }
-        if (ImGui::MenuItem("Copy Exist File") && thisFolderContent) {
+        if (ImGui::MenuItem("Copy Exist File") && sel->carpetaActual) {
             std::string sourceFile = seleccionarArchivoSistema();
             if (!sourceFile.empty()) {
-                std::string destFolder = thisFolderContent->getPathRoot() + "/" + thisFolderContent->getPathName();
+                const std::string destFolder =
+                    sel->carpetaActual->getPathRoot() + PATH_SEP +
+                    sel->carpetaActual->getPathName();
                 size_t pos = sourceFile.find_last_of("/\\");
                 std::string fileName = (pos != std::string::npos) ? sourceFile.substr(pos + 1) : sourceFile;
-                std::string finalDest = destFolder + "/" + fileName;
-                if (copiarArchivo(sourceFile, finalDest)) {
-                    setModificado(true);
-                }
+                const std::string finalDest = destFolder + PATH_SEP + fileName;
+                // Sin contador: copiar un archivo no modifica el arbol.
+                fileManager->copiarArchivo(sourceFile, finalDest);
             }
         }
         ImGui::EndPopup();
@@ -410,15 +327,24 @@ void ContentFolderInterface::initGUI() {
 }
 
 void ContentFolderInterface::contentGUI() {
-    if (!thisFolderContent) return;
-    std::string destFolder = thisFolderContent->getPathRoot() + "/" + thisFolderContent->getPathName();
+    FileSelection* sel = fileManager->getSelection();
+    if (!sel->carpetaActual) return;
+    const std::string destFolder =
+        sel->carpetaActual->getPathRoot() + PATH_SEP +
+        sel->carpetaActual->getPathName();
     recorrer(destFolder);
 }
 
 void ContentFolderInterface::endGUI() { ImGui::End(); }
 
 void ContentFolderInterface::printGUI() {
-    if (stateGUI) {
+    FileSelection* sel = fileManager->getSelection();
+    const bool hayCarpeta = sel && sel->carpetaActual != nullptr;
+    // R3: el panel se gobierna a si mismo. Se dibuja si esta abierto o si hay
+    // seleccion; se oculta automaticamente cuando no hay carpeta (aunque
+    // stateGUI quede en true, sin Begin() la ventana no se muestra).
+    if (stateGUI || hayCarpeta) {
+        stateGUI = true;
         initGUI();
         contentGUI();
         endGUI();

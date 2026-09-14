@@ -13,8 +13,11 @@ GUIManager::GUIManager(GLFWwindow* window)
       treeFilesGUI(nullptr), phisics(nullptr), contentOfThisFolder(nullptr) {
     const char* homeDir = std::getenv("HOME");
     const std::string path = std::string(homeDir ? homeDir : ".") + "/MotorGrafico";
-    treeFilesGUI = std::make_unique<TreeFilesInterface>(true, path);
-    contentOfThisFolder = std::make_unique<ContentFolderInterface>(false);
+    // El FileManager (fachada + modelo + seleccion) viva tanto como los
+    // paneles que lo consumen.
+    fileManager = std::make_unique<FileManager>(path);
+    treeFilesGUI = std::make_unique<TreeFilesInterface>(true, fileManager.get());
+    contentOfThisFolder = std::make_unique<ContentFolderInterface>(false, fileManager.get());
     dockSpaceGUI = std::make_unique<DockSpaceInterface>(true);
     iconosGUI = std::make_unique<IconosGUI>();
     iconosGUI->init();
@@ -60,13 +63,5 @@ SceneMenuBarInterface* GUIManager::getMenuBarGUI(bool* targetBool) {
     return menuBarGUI.get();
 }
 SceneSelectedInterface* GUIManager::getSelecteableGUI() { return selecteableGUI.get(); }
-void GUIManager::setContentFolderGUI() {
-    if (treeFilesGUI->getFolderContent() == nullptr) {
-        contentOfThisFolder->setStateGui(false);
-    } else {
-        contentOfThisFolder->setFolderRoot(treeFilesGUI->getFolderContent());
-        contentOfThisFolder->setStateGui(true);
-    }
-}
 ContentFolderInterface* GUIManager::getContentFolderGUI() { return contentOfThisFolder.get(); }
 DockSpaceInterface* GUIManager::getDockSpaceGUI() { return dockSpaceGUI.get(); }
