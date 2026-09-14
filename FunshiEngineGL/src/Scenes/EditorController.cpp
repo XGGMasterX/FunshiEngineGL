@@ -40,6 +40,9 @@ bool EditorController::deleteGameObject(GameObject* object) {
         if (events)
             events->publish({SceneEventType::ObjectSelected, nullptr, nullptr});
     }
+    // Un objeto borrado puede ser el owner de un gizmo en curso: desarmarlo
+    // evita punteros colgantes en el gizmo del collider.
+    if (gizmoTarget.owner == object) clearGizmoTarget();
     const bool deleted = scene->deleteObject(object);
     return deleted;
 }
@@ -95,21 +98,66 @@ void EditorController::clearScene() {
     }
     scene->clear();
     selected = nullptr;
+    clearGizmoTarget();
     if (events) {
         events->publish({SceneEventType::SceneCleared, nullptr, nullptr});
         events->publish({SceneEventType::ObjectSelected, nullptr, nullptr});
     }
 }
 
+void EditorController::registerSceneRigidBodies() {
+    if (!scene || !physics) return;
+    scene->refreshGameObjectView();
+    auto* objects = scene->getGameObjects();
+    if (objects && !objects->isEmpty()) {
+        auto* position = objects->first();
+        while (position) {
+            refreshRigidBody(position->getElement());
+            position = (position != objects->last())
+                           ? objects->next(position)
+                           : nullptr;
+        }
+    }
+    refreshRigidBody(scene->getRoot());
+}
+
+void EditorController::refreshRigidBody(GameObject* object) {
+    if (!scene || !object || !scene->contains(object)) return;
+    RigidBody* body = object->getComponent<RigidBody>();
+    if (!body) return;
+    // La shape de Bullet se cachea con el radio/escala/malla con que se creo:
+    // al cambialo desde la GUI (p. ej. el radio de la esfera/cubo) la shape
+    // queda desactualizada y la fisica choca con la forma vieja. Invalidarla
+    // hace que getCollisionShape() la reconstruya con el valor actual.
+    if (Collider* collider = object->getComponent<Collider>())
+        collider->invalidateCollisionShape();
+    // createRigidBody() construye un btRigidBody NUEVO: si el anterior queda
+    // registrado en el mundo tendriamos DOS cuerpos en la misma posicion
+    // (autocolision real del objeto contra su gemelo invisible).
+    physics->removeRigidBody(body);
+    body->createRigidBody();
+    if (!body->getRigidBody()) return;
+    physics->addRigidBody(body);
+}
+
 void EditorController::selectObject(GameObject* object) {
     // Nunca seleccionar un puntero que ya no pertenece a la escena.
     if (object && scene && !scene->contains(object)) return;
+    // Un cambio de seleccion desarma el gizmo de componentes: el gizmo vuelve
+    // a editar el transform del objeto recien seleccionado.
+    if (selected != object) clearGizmoTarget();
     selected = object;
     if (events)
         events->publish({SceneEventType::ObjectSelected, selected, nullptr});
 }
 
 void EditorController::clearSelection() { selectObject(nullptr); }
+
+void EditorController::setGizmoTarget(const GizmoTarget& target) {
+    gizmoTarget = target;
+}
+
+void EditorController::clearGizmoTarget() { gizmoTarget = GizmoTarget{}; }
 
 bool EditorController::addComponent(GameObject* object,
                                     std::unique_ptr<Component> component) {
@@ -124,6 +172,23 @@ bool EditorController::addComponent(GameObject* object,
 
 bool EditorController::removeComponent(GameObject* object, Component* component) {
     if (!scene || !scene->contains(object) || !component) return false;
+    // El gizmo puede estar editando el transform local (myTransform) del
+    // collider que se va a borrar: desarmarlo ANTES de liberar el componente.
+    // Hacer dynamic_cast despues de deleteComponent() es use-after-free (el
+    // puntero queda colgante y __dynamic_cast muere al leer el RTTI).
+    if (Collider* collider = dynamic_cast<Collider*>(component)) {
+        if (collider->getTransform() == gizmoTarget.local)
+            clearGizmoTarget();
+        // El RigidBody guarda su collider por puntero y lo usa en cada
+        // update/sync (syncPhysicsToGameObject): si se libera el collider sin
+        // desacoplarlo, queda un puntero colgante (heap-use-after-free).
+        // Des-registrar el cuerpo del mundo y dejarlo inerte (collider=null)
+        // ANTES de deleteComponent.
+        if (RigidBody* body = object->getComponent<RigidBody>()) {
+            if (physics) physics->removeRigidBody(body);
+            body->detachCollider();
+        }
+    }
     if (physics) {
         if (auto* body = dynamic_cast<RigidBody*>(component))
             physics->removeRigidBody(body);

@@ -11,7 +11,7 @@ GUIManager::GUIManager(GLFWwindow* window)
       settingGUI(new SettingsObjectInterface(new Modelos3D(), false)),
       selecteableGUI(new SceneSelectedInterface(true)),
       menuBarGUI(std::make_unique<SceneMenuBarInterface>(true)),
-      treeFilesGUI(nullptr), phisics(nullptr), contentOfThisFolder(nullptr) {
+      treeFilesGUI(nullptr), contentOfThisFolder(nullptr) {
     const char* homeDir = std::getenv("HOME");
     const std::string path = std::string(homeDir ? homeDir : ".") + "/MotorGrafico";
     // El FileManager (fachada + modelo + seleccion) viva tanto como los
@@ -30,11 +30,11 @@ GUIManager::GUIManager(GLFWwindow* window)
 GUIManager::~GUIManager() {
 }
 
-void GUIManager::setPhysics(PhysicsEngine* value) { phisics = value; }
 void GUIManager::bindScene(SceneRegistry* scene, EditorController* editor,
                            EventBus* events) {
     this->editor = editor;
     selecteableGUI->bindScene(scene, editor, events);
+    settingGUI->setEditor(editor);
 }
 MenuGUI* GUIManager::getMenuGUI() { return menuGUI.get(); }
 TreeFilesInterface* GUIManager::getTreeFilesGUI() { return treeFilesGUI.get(); }
@@ -44,7 +44,7 @@ SettingsObjectInterface* GUIManager::getSettingGUI(GameObject* gameObject) {
         settingGUI->setStateGui(false);
         return settingGUI.get();
     }
-    settingGUI->setPhysics(phisics);
+    settingGUI->setEditor(editor);
     // Solo se refresca el contenido al cambiar de objeto; no se recrea la
     // ventana (mismo patron que ContentFolderInterface).
     if (settingGUI->getObjectInInspector() != gameObject) {

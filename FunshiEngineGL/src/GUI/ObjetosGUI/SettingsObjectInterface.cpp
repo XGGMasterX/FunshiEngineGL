@@ -16,7 +16,7 @@
 #include "../../Objetos/Componentes/Light.h"
 #include "../../Objetos/Componentes/Material.h"
 #include "../../Objetos/Componentes/CameraComponent.h"
-#include "../../Fisicas/PhysicsEngine.h"
+#include "../../Scenes/EditorController.h"
 #include "../../Herramientas/TypeUtils.h"
 #include <imgui.h>
 #include <typeinfo>
@@ -41,8 +41,8 @@ SettingsObjectInterface::~SettingsObjectInterface() {
 	delete listaDESettingsComponent;
 }
 
-void SettingsObjectInterface::setPhysics(PhysicsEngine* phisics) {
-	this->phisics = phisics;
+void SettingsObjectInterface::setEditor(EditorController* editor) {
+	this->editor = editor;
 }
 
 void SettingsObjectInterface::loadComponents() {
@@ -70,15 +70,21 @@ void SettingsObjectInterface::loadComponents() {
 	// SOPORTE PARA AMBOS COLLIDER
 	Collider* collider = object->getComponent<EsfereCollider>();
 	if (collider != nullptr) {
-		listaDESettingsComponent->addLast(new SettingsColliderEsfera(object));
+		SettingsColliderEsfera* s = new SettingsColliderEsfera(object);
+		s->setEditor(editor);
+		listaDESettingsComponent->addLast(s);
 	}
 	collider = object->getComponent<CubeCollider>();
 	if (collider != nullptr) {
-		listaDESettingsComponent->addLast(new SettingsColliderCubo(object));
+		SettingsColliderCubo* s = new SettingsColliderCubo(object);
+		s->setEditor(editor);
+		listaDESettingsComponent->addLast(s);
 	}
 	collider = object->getComponent<MallaCollider>();
 	if (collider != nullptr) {
-		listaDESettingsComponent->addLast(new SettingsColliderMalla(object));
+		SettingsColliderMalla* s = new SettingsColliderMalla(object);
+		s->setEditor(editor);
+		listaDESettingsComponent->addLast(s);
 	}
 	RigidBody* rigidBody = object->getComponent<RigidBody>();
 	if (rigidBody != nullptr) {
@@ -161,7 +167,8 @@ void SettingsObjectInterface::contentGUI() {
 				    object->getComponent<Transform>() != nullptr) {
 					object->addComponent(
 					    new EsfereCollider(5.0f,
-					                       object->getComponent<Transform>()));
+					                       object->getComponent<Transform>(),
+					                       object));
 					listaDESettingsComponent->addLast(
 					    new SettingsColliderEsfera(object));
 				}
@@ -171,7 +178,8 @@ void SettingsObjectInterface::contentGUI() {
 				    object->getComponent<Transform>() != nullptr) {
 					object->addComponent(
 					    new CubeCollider(5.0f,
-					                     object->getComponent<Transform>()));
+					                     object->getComponent<Transform>(),
+					                     object));
 					listaDESettingsComponent->addLast(
 					    new SettingsColliderCubo(object));
 				}
@@ -180,8 +188,8 @@ void SettingsObjectInterface::contentGUI() {
 				if (object->getComponent<Collider>() == nullptr &&
 				    object->getComponent<Transform>() != nullptr) {
 					object->addComponent(
-					    new MallaCollider(5.0f,
-					                      object->getComponent<Transform>()));
+					    new MallaCollider(
+					        5.0f, object->getComponent<Transform>(), object));
 					listaDESettingsComponent->addLast(
 					    new SettingsColliderMalla(object));
 				}
@@ -193,8 +201,14 @@ void SettingsObjectInterface::contentGUI() {
 			    object->getComponent<Collider>() != nullptr) {
 				RigidBody* rb =
 				    new RigidBody(object->getComponent<Collider>(), 1.0f);
-				object->addComponent(rb);
-				phisics->getWorld()->addRigidBody(rb->getRigidBody());
+				if (editor) {
+					// El controller agrega el componente y lo registra en la
+					// fisica de forma centralizada.
+					editor->addComponent(object,
+					                     std::unique_ptr<RigidBody>(rb));
+				} else {
+					object->addComponent(rb);
+				}
 				listaDESettingsComponent->addLast(new SettingsRigidBody(object));
 			}
 		}
@@ -256,14 +270,15 @@ void SettingsObjectInterface::contentGUI() {
 			if (ImGui::BeginPopupContextItem("DeleteComponent",
 			                                 ImGuiPopupFlags_MouseButtonRight)) {
 				if (ImGui::MenuItem("Eliminar Componente")) {
-					object->deleteComponent(comp->getComponent());
-					listaDESettingsComponent->remove(position);
-					RigidBody* rb = object->getComponent<RigidBody>();
-					// SI ESTA RELACIONADO QUITAR SINO SEGUIR
-					if ((rb != nullptr && rb == comp->getComponent())) {
-						phisics->getWorld()->removeRigidBody(
-						    rb->getRigidBody());
+					Component* target = comp->getComponent();
+					if (editor) {
+						// Centralizado: des-registra de la fisica ANTES de
+						// liberar el componente (evita punteros colgantes).
+						editor->removeComponent(object, target);
+					} else {
+						object->deleteComponent(target);
 					}
+					listaDESettingsComponent->remove(position);
 					delete comp;
 					ImGui::EndPopup();
 					ImGui::PopID();
@@ -290,7 +305,7 @@ void SettingsObjectInterface::endGUI() {
 }
 
 void SettingsObjectInterface::printGUI() {
-	if (stateGUI && phisics != nullptr) {
+	if (stateGUI) {
 		initGUI();
 		contentGUI();
 		endGUI();

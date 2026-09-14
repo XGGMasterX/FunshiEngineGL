@@ -2,11 +2,14 @@
 #define MALLACOLLIDER_H
 #include "Collider.h"
 
+class GameObject;
+
 class MallaCollider : public Collider {
 public:
-    MallaCollider(float radio, Transform* transformOfDadObject);
+	MallaCollider(float radio, Transform* transformOfDadObject,
+	              GameObject* owner = nullptr);
 
-    btCollisionShape* createCollisionShape() override;
-    void dibujarCollider() override;
+	std::unique_ptr<btCollisionShape> createCollisionShape() override;
+	void dibujarCollider() override;
 };
 #endif

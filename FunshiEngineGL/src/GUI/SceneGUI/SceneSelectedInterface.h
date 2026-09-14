@@ -13,7 +13,6 @@ using namespace std;
 // Forward declarations
 class SceneRegistry;
 class EditorController;
-class PhysicsEngine;
 class EventBus;
 class IconosGUI;
 
@@ -35,7 +34,6 @@ public:
 	SceneSelectedInterface(bool stateGUI);
 
 	void bindScene(SceneRegistry* value, EditorController* controller, EventBus* bus);
-	void setPhysics(PhysicsEngine* physics);
 	void setIconosGUI(IconosGUI* iconosG) { sceneTree.setIconosGUI(iconosG); }
 
 	virtual ArbolEnlazado<GameObject*>* getEntitysTree();

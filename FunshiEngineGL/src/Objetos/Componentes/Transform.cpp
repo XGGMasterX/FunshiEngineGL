@@ -120,6 +120,17 @@ void buildMatrixFromTransform(Transform* t, float outMatrix[16]) {
 
 void decomposeMatrixToTransform(float inMatrix[16], Transform* t) {
     glm::mat4 mat = glm::make_mat4(inMatrix);
+
+    // Defensa contra NaN/Inf: si la matriz de entrada tiene valores no
+    // finitos (p.ej. por glm::inverse de un padre singular, o un drag del
+    // gizmo sobre datos corruptos), glm::decompose los propaga y el objeto
+    // queda en -nan -> desaparece de la escena. Ante eso se ABORTA sin tocar
+    // el transform (se conserva el valor anterior en vez de corromperlo).
+    const float* M = inMatrix;
+    for (int i = 0; i < 16; ++i) {
+        if (!std::isfinite(M[i])) return;
+    }
+
     glm::vec3 scale;
     glm::quat rotation;
     glm::vec3 translation;
@@ -128,16 +139,28 @@ void decomposeMatrixToTransform(float inMatrix[16], Transform* t) {
 
     glm::decompose(mat, scale, rotation, translation, skew, perspective);
 
+    // Cualquier componente no finito en el resultado: abortar sin tocar.
+    if (!std::isfinite(translation.x) || !std::isfinite(translation.y) ||
+        !std::isfinite(translation.z) || !std::isfinite(scale.x) ||
+        !std::isfinite(scale.y) || !std::isfinite(scale.z))
+        return;
+
     t->setTranslatef(translation.x, translation.y, translation.z);
 
     rotation = glm::normalize(rotation);
     float angle = glm::degrees(glm::angle(rotation));
     glm::vec3 axis = glm::axis(rotation);
-    if (std::isnan(angle) || glm::length(axis) < 0.0001f) {
+    if (std::isnan(angle) || !std::isfinite(angle) ||
+        glm::length(axis) < 0.0001f || !std::isfinite(axis.x) ||
+        !std::isfinite(axis.y) || !std::isfinite(axis.z)) {
         angle = 0.0f;
         axis = glm::vec3(0, 1, 0);
     }
     t->setRotatef(angle, axis.x, axis.y, axis.z);
 
-    t->setScalef(scale.x, scale.y, scale.z);
+    // No se admite escala no finita: 0 (ejes aplanados) y NaN/Inf corrompen
+    // toda la cadena de matrices posterior.
+    if (std::isfinite(scale.x) && std::isfinite(scale.y) &&
+        std::isfinite(scale.z))
+        t->setScalef(scale.x, scale.y, scale.z);
 }

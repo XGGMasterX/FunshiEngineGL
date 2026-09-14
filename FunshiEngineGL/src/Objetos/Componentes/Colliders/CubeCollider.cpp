@@ -1,22 +1,26 @@
 #include "CubeCollider.h"
 
 #include <GL/gl.h>
+#include <memory>
 #include <btBulletDynamicsCommon.h>
 
-CubeCollider::CubeCollider(float radio, Transform* transformOfDadObject)
-    : Collider(radio, transformOfDadObject) {}
+CubeCollider::CubeCollider(float radio, Transform* transformOfDadObject,
+                           GameObject* owner)
+    : Collider(radio, transformOfDadObject, owner) {}
 
-btCollisionShape* CubeCollider::createCollisionShape() {
+std::unique_ptr<btCollisionShape> CubeCollider::createCollisionShape() {
     // Usar el radio como la mitad de tamano (box usa half extents)
-    return new btBoxShape(btVector3(radio, radio, radio));
+    return std::make_unique<btBoxShape>(btVector3(radio, radio, radio));
 }
 
 void CubeCollider::dibujarCollider() {
-    Transform* globalT = getGlobalTransform();
-    float* pos = globalT->getTranslatef();
+    Transform globalT = getGlobalTransform();
 
     glPushMatrix();
-    glTranslatef(pos[0], pos[1], pos[2]);
+    float modelArr[16];
+    buildMatrixFromTransform(&globalT, modelArr);
+    glMultMatrixf(modelArr);
+    glDisable(GL_LIGHTING);
 
     // Dibujo del cubo en origen local
     GLfloat vertices[8][3] = {
@@ -45,7 +49,6 @@ void CubeCollider::dibujarCollider() {
     }
     glEnd();
 
+    glEnable(GL_LIGHTING);
     glPopMatrix();
-
-    delete globalT;
 }

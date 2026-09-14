@@ -1,6 +1,11 @@
 #include "RigidBody.h"
 
 #include <btBulletDynamicsCommon.h>
+#include <glm/glm.hpp>
+#include <glm/gtc/type_ptr.hpp>
+#include <glm/gtc/quaternion.hpp>
+#include <glm/gtx/quaternion.hpp>
+#include <cmath>
 
 RigidBody::RigidBody(Collider* collider, float mass)
     : collider(collider), mass(mass) {
@@ -12,34 +17,34 @@ RigidBody::RigidBody(Collider* collider, float mass)
     createRigidBody();
 }
 
-RigidBody::~RigidBody() {
-    if (rigidBody) {
-        delete rigidBody->getMotionState();
-        delete rigidBody;
-    }
-}
+RigidBody::~RigidBody() = default;
 
 void RigidBody::createRigidBody() {
+    // Reentrante: descarta el cuerpo/anterior antes de recrear
+    rigidBody.reset();
+    motionState.reset();
+
+    if (!collider) return;
+
     // 1. Obtener la posicion GLOBAL del collider (no la local)
-    Transform* globalTransform = collider->getGlobalTransform();
-    float* tr = globalTransform->getTranslatef();
+    Transform globalTransform = collider->getGlobalTransform();
+    float* tr = globalTransform.getTranslatef();
     pos[0] = tr[0];
     pos[1] = tr[1];
     pos[2] = tr[2];
 
-    // 2. Obtener la rotacion (ya en angulo+eje)
-    float* rotAxisAngle = globalTransform->getRotatef(); // [angulo, ejeX, ejeY, ejeZ]
-    delete globalTransform;
-
-// Convertir de angulo+eje a cuaternion (copiar antes de liberar el
-    // transform global, que es quien posee los arrays de rotacion).
+    // 2. Copiar la rotacion: getRotatef devuelve punteros a arrays internos
+    //    del objeto: [angulo, ejeX, ejeY, ejeZ].
+    float* rotAxisAngle = globalTransform.getRotatef();
+    const float anguloGrados = rotAxisAngle[0];
     btVector3 axis(rotAxisAngle[1], rotAxisAngle[2], rotAxisAngle[3]);
-    delete globalTransform;
+
+    // Convertir de angulo+eje a cuaternion
     if (axis.length2() == 0) {
         axis = btVector3(0, 1, 0); // eje por defecto si no hay rotacion
     }
     btQuaternion q;
-    q.setRotation(axis.normalized(), rotAxisAngle[0] * SIMD_RADS_PER_DEG);
+    q.setRotation(axis.normalized(), anguloGrados * SIMD_RADS_PER_DEG);
 
     // Guardar cuaternion en rot[]
     rot[0] = q.x();
@@ -47,8 +52,13 @@ void RigidBody::createRigidBody() {
     rot[2] = q.z();
     rot[3] = q.w();
 
-    // Crear shape desde el collider
-    btCollisionShape* shape = collider->createCollisionShape();
+    // Shape prestada del collider (el collider es duenio y la mantiene viva)
+    btCollisionShape* shape = collider->getCollisionShape();
+    if (!shape) return;
+
+    // Escalar la shape segun la escala global del collider (heredada del padre)
+    float* scales = globalTransform.getScalef();
+    shape->setLocalScaling(btVector3(scales[0], scales[1], scales[2]));
 
     // Configurar transform inicial del rigid body
     btTransform startTransform;
@@ -61,51 +71,136 @@ void RigidBody::createRigidBody() {
     if (mass != 0.f) shape->calculateLocalInertia(mass, localInertia);
 
     // Crear motion state y rigid body
-    btDefaultMotionState* motionState =
-        new btDefaultMotionState(startTransform);
-    btRigidBody::btRigidBodyConstructionInfo rbInfo(mass, motionState, shape,
-                                                    localInertia);
-    rigidBody = new btRigidBody(rbInfo);
+    motionState = std::make_unique<btDefaultMotionState>(startTransform);
+    btRigidBody::btRigidBodyConstructionInfo rbInfo(mass, motionState.get(),
+                                                    shape, localInertia);
+    rigidBody = std::make_unique<btRigidBody>(rbInfo);
+}
+
+void RigidBody::detachCollider() {
+    collider = nullptr;
+    createRigidBody();
+}
+
+// Posicion y rotacion GLOBAL del cuerpo. El cuerpo vive en el GLOBAL del
+// collider (getGlobalTransform = ownerGlobal x myTransform), NO en el del
+// objeto: cualquier offset del collider se incluye en la pose del body.
+static void bulletWorldToMatrices(const btTransform& t, glm::vec3& pos,
+                                  glm::quat& rot) {
+    const btVector3 origin = t.getOrigin();
+    const btQuaternion q = t.getRotation();
+    pos = glm::vec3(origin.x(), origin.y(), origin.z());
+    rot = glm::quat(q.w(), q.x(), q.y(), q.z());
 }
 
 void RigidBody::syncPhysicsToGameObject() {
-    btTransform trans;
-    rigidBody->getMotionState()->getWorldTransform(trans);
-    btVector3 origin = trans.getOrigin(); // Posicion global deseada (fisica)
-    btQuaternion quat = trans.getRotation();
+    if (!rigidBody || !collider) return;
 
-    // 1. Obtener los transforms
     Transform* dadTransform = collider->getDadTransform();
     Transform* colliderTransform = collider->getTransform();
-
-    if (dadTransform != nullptr) {
-        // 2. Guardar el offset local actual del collider (antes de mover al padre)
-        float offsetX = colliderTransform->getTranslatef()[0];
-        float offsetY = colliderTransform->getTranslatef()[1];
-        float offsetZ = colliderTransform->getTranslatef()[2];
-
-        // 3. Mover al padre a la posicion global deseada MENOS el offset local
-        dadTransform->setTranslatef(origin.x() - offsetX, origin.y() - offsetY,
-                                    origin.z() - offsetZ);
-    } else {
-        // Si no hay padre, actualizar directamente el collider
+    if (!dadTransform) {
+        // Sin objeto padre: escribir directo en el collider.
+        btTransform trans;
+        rigidBody->getMotionState()->getWorldTransform(trans);
+        const btVector3 origin = trans.getOrigin();
         colliderTransform->setTranslatef(origin.x(), origin.y(), origin.z());
+        return;
     }
 
-    // Rotacion (opcional, misma logica que antes)
-    btScalar angle = quat.getAngle();
-    btVector3 axis = quat.getAxis();
-    colliderTransform->setRotatef(btDegrees(angle), axis.x(), axis.y(),
-                                  axis.z());
+    // 1. Pose del cuerpo (posicion + rotacion del GLOBAL del collider).
+    btTransform trans;
+    rigidBody->getMotionState()->getWorldTransform(trans);
+    glm::vec3 bodyPos;
+    glm::quat bodyRot;
+    bulletWorldToMatrices(trans, bodyPos, bodyRot);
 
-    // Guardar datos en los arrays
-    pos[0] = origin.x();
-    pos[1] = origin.y();
-    pos[2] = origin.z();
-    rot[0] = quat.x();
-    rot[1] = quat.y();
-    rot[2] = quat.z();
-    rot[3] = quat.w();
+    // 2. Reconstruir el objeto dueño:
+    //      ownerGlobal = bodyWorld x inv(colliderLocal)
+    //    La version anterior restaba a ciegas origin - offset en espacio
+    //    mundo: solo es valida sin rotacion/escala en la jerarquia. Con un
+    //    offset rotado o un ancestro escalado/rotado, la posicion del padre
+    //    "se escapa" (es lo que deja al cuerpo 'frenando encima del suelo').
+    glm::mat4 bodyWorld(1.0f);
+    glm::mat3 rotMat = glm::mat3_cast(bodyRot);
+    bodyWorld[0] = glm::vec4(rotMat[0], 0.0f);
+    bodyWorld[1] = glm::vec4(rotMat[1], 0.0f);
+    bodyWorld[2] = glm::vec4(rotMat[2], 0.0f);
+    bodyWorld[3] = glm::vec4(bodyPos, 1.0f);
+
+    float localArr[16];
+    buildMatrixFromTransform(colliderTransform, localArr);
+    glm::mat4 ownerGlobal = bodyWorld * glm::inverse(glm::make_mat4(localArr));
+
+    // 3. Extrapolar la pose del padre, pero cuidando que jamás se corrompa
+    //    con no-finito (un glm::inverse de matriz singular da Inf/NaN).
+    const float* ptr = glm::value_ptr(ownerGlobal);
+    for (int i = 0; i < 16; ++i) {
+        if (!std::isfinite(ptr[i])) return; // conserva el transform anterior
+    }
+
+    // 4. Escribir SOLO posicion+rotacion al padre: la escala del objeto la
+    //    controla el editor y la fisica no debe tocarla. La rotacion del
+    //    collider (offset local) no se toca: quedo absorbida en los pasos 2-3.
+    float ownerArr[16];
+    for (int i = 0; i < 16; ++i) ownerArr[i] = ptr[i];
+    Transform resultado;
+    decomposeMatrixToTransform(ownerArr, &resultado);
+    float* t = resultado.getTranslatef();
+    dadTransform->setTranslatef(t[0], t[1], t[2]);
+    float* r = resultado.getRotatef();
+    dadTransform->setRotatef(r[0], r[1], r[2], r[3]);
+
+    // Guardar datos en los arrays (pose global del body, como en createRigidBody)
+    pos[0] = bodyPos.x;
+    pos[1] = bodyPos.y;
+    pos[2] = bodyPos.z;
+    rot[0] = bodyRot.x;
+    rot[1] = bodyRot.y;
+    rot[2] = bodyRot.z;
+    rot[3] = bodyRot.w;
+}
+
+void RigidBody::syncGameObjectToPhysics() {
+    if (!rigidBody || !collider) return;
+
+    // 1. Transform global actual del collider (padre + local)
+    Transform globalTransform = collider->getGlobalTransform();
+    float* tr = globalTransform.getTranslatef();
+    pos[0] = tr[0];
+    pos[1] = tr[1];
+    pos[2] = tr[2];
+
+    // 2. Rotacion: angulo+eje -> cuaternion
+    float* rotAxisAngle = globalTransform.getRotatef();
+    const float anguloGrados = rotAxisAngle[0];
+    btVector3 axis(rotAxisAngle[1], rotAxisAngle[2], rotAxisAngle[3]);
+    if (axis.length2() == 0) {
+        axis = btVector3(0, 1, 0);
+    }
+    btQuaternion q;
+    q.setRotation(axis.normalized(), anguloGrados * SIMD_RADS_PER_DEG);
+    rot[0] = q.x();
+    rot[1] = q.y();
+    rot[2] = q.z();
+    rot[3] = q.w();
+
+    // 3. Aplicar escala global a la shape
+    float* scales = globalTransform.getScalef();
+    rigidBody->getCollisionShape()->setLocalScaling(
+        btVector3(scales[0], scales[1], scales[2]));
+
+    // 4. Mover el cuerpo y su motion state al transform visual del editor
+    btTransform startTransform;
+    startTransform.setIdentity();
+    startTransform.setOrigin(btVector3(pos[0], pos[1], pos[2]));
+    startTransform.setRotation(q);
+    rigidBody->setWorldTransform(startTransform);
+    rigidBody->getMotionState()->setWorldTransform(startTransform);
+
+    // 5. Cero de velocidades: el cuerpo comienza quieto en la posicion editada
+    rigidBody->setLinearVelocity(btVector3(0, 0, 0));
+    rigidBody->setAngularVelocity(btVector3(0, 0, 0));
+    rigidBody->activate();
 }
 
 void RigidBody::saveComponent(std::ofstream* fileNamePathContentObject) {
@@ -115,7 +210,7 @@ void RigidBody::saveComponent(std::ofstream* fileNamePathContentObject) {
 void RigidBody::loadComponent(std::ifstream* fileNamePathContentObject) {
     deserializeComponent(fileNamePathContentObject);
 
-    // Luego crea el rigidBody con estos datos
+    // Luego crea el rigidBody con estos datos (reentrante)
     createRigidBody();
 }
 

@@ -1,5 +1,6 @@
 #include "SettingsTransform.h"
 #include "../../../Objetos/GameObject.h"
+#include "../../../Objetos/Componentes/RigidBody/RigidBody.h"
 #include <imgui.h>
 #include <vector>
 #include <utility>
@@ -49,6 +50,16 @@ void SettingsTransform::showDataComponent() {
 		}
 	};
 
+	// Sincronizar el resultado al RigidBody: si no, la fisica queda con la
+	// pose vieja y (con la simulacion corriendo) re-escribe el transform del
+	// objeto cada frame, haciendo que los sliders 'no hagan caso'.
+	auto syncFisica = [&]() {
+		if (ownerObject) {
+			if (RigidBody* body = ownerObject->getComponent<RigidBody>())
+				body->syncGameObjectToPhysics();
+		}
+	};
+
 	ImGui::Text("Translate");
 	if (ImGui::DragFloat("Xt", &trans[0], 0.05f, 0.0f, 0.0f, "%.2f") |
 	    ImGui::DragFloat("Yt", &trans[1], 0.05f, 0.0f, 0.0f, "%.2f") |
@@ -56,6 +67,7 @@ void SettingsTransform::showDataComponent() {
 		snapshotChildren();
 		componentTransform->setTranslatef(trans[0], trans[1], trans[2]);
 		applyFreeze();
+		syncFisica();
 	}
 
 	ImGui::Text("Scale");
@@ -65,6 +77,7 @@ void SettingsTransform::showDataComponent() {
 		snapshotChildren();
 		componentTransform->setScalef(scale[0], scale[1], scale[2]);
 		applyFreeze();
+		syncFisica();
 	}
 
 	ImGui::Text("Rotate");
@@ -75,10 +88,15 @@ void SettingsTransform::showDataComponent() {
 		snapshotChildren();
 		componentTransform->setRotatef(rot[0], rot[1], rot[2], rot[3]);
 		applyFreeze();
+		syncFisica();
 	}
 
 	ImGui::Separator();
 	ImGui::Checkbox("Childs Freeze", &componentTransform->childsFreeze);
+	// Gizmo activo/dormido de ESTE transform: desmarcarlo apaga el gizmo del
+	// objeto (o del offset del collider cuando es el transform del collider)
+	// sin tener que deseleccionar.
+	ImGui::Checkbox("Gizmo activo", &componentTransform->gizmoHabilitado);
 }
 
 Component* SettingsTransform::getComponent() {

@@ -21,7 +21,6 @@
 class SceneRegistry;
 class EditorController;
 class EventBus;
-class PhysicsEngine;
 
 using namespace std;
 
@@ -40,7 +39,6 @@ private:
 	std::unique_ptr<TreeFilesInterface> treeFilesGUI;
 	std::unique_ptr<DockSpaceInterface> dockSpaceGUI;
 	std::unique_ptr<IconosGUI> iconosGUI;
-	PhysicsEngine* phisics = nullptr;
 	EditorController* editor = nullptr;
 	std::unique_ptr<ContentFolderInterface> contentOfThisFolder;
 
@@ -48,7 +46,6 @@ public:
 	GUIManager(GLFWwindow* window);
 	~GUIManager();
 
-	void setPhysics(PhysicsEngine* phisics);
 	void bindScene(SceneRegistry* scene, EditorController* editor, EventBus* events);
 
 	MenuGUI* getMenuGUI();

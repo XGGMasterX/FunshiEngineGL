@@ -1,26 +1,43 @@
 #ifndef COLLIDER_H
 #define COLLIDER_H
+#include <memory>
 #include "../Component.h"
 #include "../Transform.h"
 
 class btCollisionShape;
+class GameObject;
 
+// Collider: componente geometrico de colision.
+//
+// RAII: es duenio de su shape de Bullet (createCollisionShape la construye
+// una sola vez, lazy) y de su transform local (myTransform). getGlobalTransform
+// devuelve el Transform global POR VALOR: sin new/delete manuales.
+//
+// El collider pertenece a un GameObject (owner): getGlobalTransform compone
+// owner->getGlobalTransform() (jerarquia completa con matrices) x myTransform.
+// Sin owner se conserva el comportamiento antiguo (suma de posiciones, sin
+// rotacion del padre) como respaldo.
 class Collider : public Component {
 protected:
 	float radio;
 	Transform* transformOfDadObject;
-	Transform* myTransform;
+	std::unique_ptr<Transform> myTransform;
+	std::unique_ptr<btCollisionShape> collisionShape;
+	GameObject* owner = nullptr;
 
 	void serializeComponent(std::ofstream* fileNamePathContentObject) override;
 	void deserializeComponent(std::ifstream* fileNamePathContentObject) override;
 
+	// Construye la shape concreta del collider (se llama una sola vez).
+	virtual std::unique_ptr<btCollisionShape> createCollisionShape() = 0;
+
 public:
-	Collider(float radio, Transform* transformOfDadObject);
+	Collider(float radio, Transform* transformOfDadObject,
+	         GameObject* owner = nullptr);
+	~Collider() override;
 
 	void saveComponent(std::ofstream* fileNamePathContentObject) override;
 	void loadComponent(std::ifstream* fileNamePathContentObject) override;
-
-	virtual btCollisionShape* createCollisionShape() = 0;
 
 	// radio debe ser positivo
 	virtual void setRadio(float radio);
@@ -28,9 +45,23 @@ public:
 
 	Transform* getDadTransform() { return transformOfDadObject; }
 
-	Transform* getTransform() { return myTransform; }
+	Transform* getTransform() { return myTransform.get(); }
 
-	Transform* getGlobalTransform();
+	// GameObject dueño (escena). No duenio: vive en la lista de GameObject.
+	GameObject* getOwner() const { return owner; }
+
+	// Transform global POR VALOR. Composicion real con matrices si owner:
+	// global = owner->getGlobalTransform() x myTransform. Sin owner = fallback
+	// legacy (suma de posiciones, sin rotacion del padre).
+	Transform getGlobalTransform() const;
+
+	// Acceso no-duenio a la shape: la construye lazy y queda viva
+	// mientras exista el collider.
+	btCollisionShape* getCollisionShape();
+
+	// Descarta la shape cacheada: se reconstruye lazy en el proximo
+	// getCollisionShape() (se usa cuando cambia la malla del modelo).
+	void invalidateCollisionShape();
 
 	virtual void dibujarCollider() = 0;
 
