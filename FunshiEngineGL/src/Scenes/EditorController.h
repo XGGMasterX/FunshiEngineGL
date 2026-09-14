@@ -8,6 +8,20 @@ class GameObject;
 class PhysicsEngine;
 class SceneRegistry;
 class EventBus;
+class Transform;
+
+// Objetivo generico del gizmo: el Transform LOCAL a editar mas el Transform
+// GLOBAL del contexto padre (para recomponer/mover en espacio local). Con
+// owner = objeto con RigidBody a sincronizar tras la edicion.
+//
+// Es la misma maquinaria para editar el transform de un GameObject o el
+// transform local (offset) de un componente como un collider: cambia el par
+// {local, parentGlobal} y el gizmo hace lo mismo.
+struct GizmoTarget {
+    Transform* local = nullptr;
+    Transform* parentGlobal = nullptr;
+    GameObject* owner = nullptr;
+};
 
 /**
  * Application-facing editor operations. It does not own the registry or
@@ -23,6 +37,11 @@ private:
     // inspectores leen de aqui y publican cambios con selectObject() para que
     // el resto de sistemas se sincronize via EventBus.
     GameObject* selected = nullptr;
+
+    // Objetivo del gizmo cuando NO es el transform del objeto seleccionado
+    // (p. ej. el offset local de un collider). Se limpia al cambiar de
+    // seleccion o borrar objetos.
+    GizmoTarget gizmoTarget;
 
 public:
     EditorController(SceneRegistry* scene, PhysicsEngine* physics = nullptr,
@@ -55,6 +74,14 @@ public:
     // Valida que el objeto siga en la escena y propaga ObjectSelected.
     void selectObject(GameObject* object);
     void clearSelection();
+
+    // Objetivo del gizmo: si se setea un GizmoTarget, el gizmo de GameScene
+    // edita ESE transform (local) en vez del del objeto seleccionado. Se usa
+    // para editar el offset local del collider desde SettingsCollider*.
+    void setGizmoTarget(const GizmoTarget& target);
+    void clearGizmoTarget();
+    bool hasGizmoTarget() const noexcept { return gizmoTarget.local != nullptr; }
+    const GizmoTarget& getGizmoTarget() const noexcept { return gizmoTarget; }
 };
 
 #endif

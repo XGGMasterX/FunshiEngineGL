@@ -2,6 +2,10 @@
 
 #include <cmath>
 #include <btBulletDynamicsCommon.h>
+#include <glm/glm.hpp>
+#include <glm/gtc/type_ptr.hpp>
+
+#include "../../../Objetos/GameObject.h"
 
 void Collider::serializeComponent(std::ofstream* fileNamePathContentObject) {
     fileNamePathContentObject->write(reinterpret_cast<const char*>(&radio),
@@ -17,10 +21,12 @@ void Collider::deserializeComponent(std::ifstream* fileNamePathContentObject) {
     myTransform->loadComponent(fileNamePathContentObject);
 }
 
-Collider::Collider(float radio, Transform* transformOfDadObject)
+Collider::Collider(float radio, Transform* transformOfDadObject,
+                   GameObject* owner)
     : radio(radio),
       transformOfDadObject(transformOfDadObject),
-      myTransform(std::make_unique<Transform>()) {}
+      myTransform(std::make_unique<Transform>()),
+      owner(owner) {}
 
 Collider::~Collider() = default;
 
@@ -41,6 +47,27 @@ void Collider::setRadio(float radio) {
 float Collider::getRadio() { return radio; }
 
 Transform Collider::getGlobalTransform() const {
+    // Composicion real con matrices: global = owner->getGlobalTransform()
+    // (incluye jerarquia, rotacion y escala de ancestros) x myTransform.
+    if (owner) {
+        Transform* ownerGlobal = owner->getGlobalTransform();
+        if (ownerGlobal) {
+            float parentMat[16], localMat[16], globalMat[16];
+            buildMatrixFromTransform(ownerGlobal, parentMat);
+            buildMatrixFromTransform(myTransform.get(), localMat);
+
+            glm::mat4 mParent = glm::make_mat4(parentMat);
+            glm::mat4 mLocal = glm::make_mat4(localMat);
+            glm::mat4 mGlobal = mParent * mLocal;
+            const float* ptr = glm::value_ptr(mGlobal);
+            for (int i = 0; i < 16; ++i) globalMat[i] = ptr[i];
+
+            Transform resultado;
+            decomposeMatrixToTransform(globalMat, &resultado);
+            return resultado;
+        }
+    }
+
     Transform resultado;
     float* myPos = myTransform->getTranslatef();
     float* dadPos = transformOfDadObject->getTranslatef();

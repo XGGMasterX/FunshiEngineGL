@@ -5,13 +5,9 @@
 class GameObject;
 
 class MallaCollider : public Collider {
-private:
-	// Duenio del modelo: no se libera aqui (vive en la escena).
-	GameObject* meshOwner = nullptr;
-
 public:
 	MallaCollider(float radio, Transform* transformOfDadObject,
-	              GameObject* meshOwner = nullptr);
+	              GameObject* owner = nullptr);
 
 	std::unique_ptr<btCollisionShape> createCollisionShape() override;
 	void dibujarCollider() override;

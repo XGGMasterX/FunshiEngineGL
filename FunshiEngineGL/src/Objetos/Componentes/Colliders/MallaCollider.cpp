@@ -7,13 +7,13 @@
 #include "../../../Objetos/Modelos3D.h"
 
 MallaCollider::MallaCollider(float radio, Transform* transformOfDadObject,
-                             GameObject* meshOwner)
-    : Collider(radio, transformOfDadObject), meshOwner(meshOwner) {}
+                             GameObject* owner)
+    : Collider(radio, transformOfDadObject, owner) {}
 
 std::unique_ptr<btCollisionShape> MallaCollider::createCollisionShape() {
     // Convex hull de los vertices del modelo (es el colisionador geometrico
     // exacto de la malla). Sin malla cargada se cae a la shape de respaldo.
-    Modelos3D* modelo = dynamic_cast<Modelos3D*>(meshOwner);
+    Modelos3D* modelo = dynamic_cast<Modelos3D*>(owner);
     if (!modelo) return nullptr;
 
     const std::vector<vec3>& vertices = modelo->getVertices();
@@ -28,31 +28,52 @@ std::unique_ptr<btCollisionShape> MallaCollider::createCollisionShape() {
 
 void MallaCollider::dibujarCollider() {
     Transform globalT = getGlobalTransform();
-    float* pos = globalT.getTranslatef();
+    float modelArr[16];
+    buildMatrixFromTransform(&globalT, modelArr);
 
     glPushMatrix();
-    glTranslatef(pos[0], pos[1], pos[2]);
+    glMultMatrixf(modelArr);
+    glDisable(GL_LIGHTING);
     glColor3f(0.0f, 1.0f, 0.0f);
 
-    // Dibujo el hull como una caja envolvente rapida al radio.
-    float r = getRadio();
-    GLfloat vertices[8][3] = {
-        {-r, -r, -r}, { r, -r, -r}, { r,  r, -r}, {-r,  r, -r},
-        {-r, -r,  r}, { r, -r,  r}, { r,  r,  r}, {-r,  r,  r}
-    };
-
-    GLuint edges[12][2] = {
-        {0,1}, {1,2}, {2,3}, {3,0},
-        {4,5}, {5,6}, {6,7}, {7,4},
-        {0,4}, {1,5}, {2,6}, {3,7}
-    };
-
-    glBegin(GL_LINES);
-    for (int i = 0; i < 12; i++) {
-        glVertex3fv(vertices[edges[i][0]]);
-        glVertex3fv(vertices[edges[i][1]]);
+    // Dibujo el hull real (bordes del convex hull) en vez de la caja
+    // aproximada: getEdge aplica m_localScaling, por eso usamos puntos
+    // sin escalar y dejamos que la matriz global aplique toda la escala.
+    btConvexHullShape* hull = nullptr;
+    if (collisionShape) {
+        hull = dynamic_cast<btConvexHullShape*>(collisionShape.get());
     }
-    glEnd();
+    if (hull && hull->getNumPoints() > 0) {
+        const btVector3* points = hull->getUnscaledPoints();
+        const int numPoints = hull->getNumPoints();
+        glBegin(GL_LINES);
+        for (int i = 0; i < numPoints; ++i) {
+            const btVector3& a = points[i];
+            const btVector3& b = points[(i + 1) % numPoints];
+            glVertex3f(a.x(), a.y(), a.z());
+            glVertex3f(b.x(), b.y(), b.z());
+        }
+        glEnd();
+    } else {
+        // Respaldo grafico: caja envolvente rapida al radio.
+        float r = getRadio();
+        GLfloat box[8][3] = {
+            {-r, -r, -r}, { r, -r, -r}, { r,  r, -r}, {-r,  r, -r},
+            {-r, -r,  r}, { r, -r,  r}, { r,  r,  r}, {-r,  r,  r}
+        };
+        GLuint edges[12][2] = {
+            {0,1}, {1,2}, {2,3}, {3,0},
+            {4,5}, {5,6}, {6,7}, {7,4},
+            {0,4}, {1,5}, {2,6}, {3,7}
+        };
+        glBegin(GL_LINES);
+        for (int i = 0; i < 12; i++) {
+            glVertex3fv(box[edges[i][0]]);
+            glVertex3fv(box[edges[i][1]]);
+        }
+        glEnd();
+    }
 
+    glEnable(GL_LIGHTING);
     glPopMatrix();
 }

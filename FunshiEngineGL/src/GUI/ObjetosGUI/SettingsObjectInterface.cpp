@@ -70,15 +70,21 @@ void SettingsObjectInterface::loadComponents() {
 	// SOPORTE PARA AMBOS COLLIDER
 	Collider* collider = object->getComponent<EsfereCollider>();
 	if (collider != nullptr) {
-		listaDESettingsComponent->addLast(new SettingsColliderEsfera(object));
+		SettingsColliderEsfera* s = new SettingsColliderEsfera(object);
+		s->setEditor(editor);
+		listaDESettingsComponent->addLast(s);
 	}
 	collider = object->getComponent<CubeCollider>();
 	if (collider != nullptr) {
-		listaDESettingsComponent->addLast(new SettingsColliderCubo(object));
+		SettingsColliderCubo* s = new SettingsColliderCubo(object);
+		s->setEditor(editor);
+		listaDESettingsComponent->addLast(s);
 	}
 	collider = object->getComponent<MallaCollider>();
 	if (collider != nullptr) {
-		listaDESettingsComponent->addLast(new SettingsColliderMalla(object));
+		SettingsColliderMalla* s = new SettingsColliderMalla(object);
+		s->setEditor(editor);
+		listaDESettingsComponent->addLast(s);
 	}
 	RigidBody* rigidBody = object->getComponent<RigidBody>();
 	if (rigidBody != nullptr) {
@@ -161,7 +167,8 @@ void SettingsObjectInterface::contentGUI() {
 				    object->getComponent<Transform>() != nullptr) {
 					object->addComponent(
 					    new EsfereCollider(5.0f,
-					                       object->getComponent<Transform>()));
+					                       object->getComponent<Transform>(),
+					                       object));
 					listaDESettingsComponent->addLast(
 					    new SettingsColliderEsfera(object));
 				}
@@ -171,7 +178,8 @@ void SettingsObjectInterface::contentGUI() {
 				    object->getComponent<Transform>() != nullptr) {
 					object->addComponent(
 					    new CubeCollider(5.0f,
-					                     object->getComponent<Transform>()));
+					                     object->getComponent<Transform>(),
+					                     object));
 					listaDESettingsComponent->addLast(
 					    new SettingsColliderCubo(object));
 				}

@@ -40,6 +40,9 @@ bool EditorController::deleteGameObject(GameObject* object) {
         if (events)
             events->publish({SceneEventType::ObjectSelected, nullptr, nullptr});
     }
+    // Un objeto borrado puede ser el owner de un gizmo en curso: desarmarlo
+    // evita punteros colgantes en el gizmo del collider.
+    if (gizmoTarget.owner == object) clearGizmoTarget();
     const bool deleted = scene->deleteObject(object);
     return deleted;
 }
@@ -95,6 +98,7 @@ void EditorController::clearScene() {
     }
     scene->clear();
     selected = nullptr;
+    clearGizmoTarget();
     if (events) {
         events->publish({SceneEventType::SceneCleared, nullptr, nullptr});
         events->publish({SceneEventType::ObjectSelected, nullptr, nullptr});
@@ -132,12 +136,21 @@ void EditorController::registerSceneRigidBodies() {
 void EditorController::selectObject(GameObject* object) {
     // Nunca seleccionar un puntero que ya no pertenece a la escena.
     if (object && scene && !scene->contains(object)) return;
+    // Un cambio de seleccion desarma el gizmo de componentes: el gizmo vuelve
+    // a editar el transform del objeto recien seleccionado.
+    if (selected != object) clearGizmoTarget();
     selected = object;
     if (events)
         events->publish({SceneEventType::ObjectSelected, selected, nullptr});
 }
 
 void EditorController::clearSelection() { selectObject(nullptr); }
+
+void EditorController::setGizmoTarget(const GizmoTarget& target) {
+    gizmoTarget = target;
+}
+
+void EditorController::clearGizmoTarget() { gizmoTarget = GizmoTarget{}; }
 
 bool EditorController::addComponent(GameObject* object,
                                     std::unique_ptr<Component> component) {
@@ -157,6 +170,12 @@ bool EditorController::removeComponent(GameObject* object, Component* component)
             physics->removeRigidBody(body);
     }
     object->deleteComponent(component);
+    // El gizmo puede estar editando el transform local (myTransform) del
+    // collider recien borrado: desarmarlo evita un puntero colgante.
+    if (Collider* collider = dynamic_cast<Collider*>(component)) {
+        if (collider->getTransform() == gizmoTarget.local)
+            clearGizmoTarget();
+    }
     if (events)
         events->publish({SceneEventType::ComponentChanged, object, nullptr});
     return true;

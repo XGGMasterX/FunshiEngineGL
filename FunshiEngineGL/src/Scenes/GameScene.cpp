@@ -13,6 +13,7 @@
 #include "../Objetos/Modelos3D.h"
 #include "../Objetos/Componentes/Colliders/EsfereCollider.h"
 #include "../Objetos/Componentes/Colliders/CubeCollider.h"
+#include "../Objetos/Componentes/Colliders/Collider.h"
 #include "../Objetos/Componentes/RigidBody/RigidBody.h"
 #include "EditorController.h"
 #include "SceneRegistry.h"
@@ -226,6 +227,23 @@ void GameScene::dibujarObjectConOjo(GameObject* object, GameObject* camaraOjo) {
     if (object->getComponent<Light>()) dibujarMarcadorLuz(object);
     if (object->getComponent<CameraComponent>() && object != camaraOjo)
         dibujarMarcadorCamara(object);
+
+    // Gizmo visual del collider del objeto seleccionado: el wireframe del
+    // collider (p.ej. el hull de la malla) queda visible en la escena 3D,
+    // acompañando al gizmo de transform cuando se edita el componente.
+    if (isEditorActivo() && object != camaraOjo) {
+        GameObject* selected = selecteableGUI ? selecteableGUI->getReturnableEntity() : nullptr;
+        if (selected) {
+            if (object == selected) {
+                if (Collider* collider = object->getComponent<Collider>())
+                    collider->dibujarCollider();
+            } else if (editorController && editorController->hasGizmoTarget()) {
+                const GizmoTarget& t = editorController->getGizmoTarget();
+                if (t.owner == object && object->getComponent<Collider>())
+                    object->getComponent<Collider>()->dibujarCollider();
+            }
+        }
+    }
 }
 
 // Gizmo visual de una luz: un octaedro alambre amarillo en la posicion del
@@ -703,69 +721,99 @@ void GameScene::gameScene() {
 
     gizmoReady = false;
     GameObject* selected = selecteableGUI ? selecteableGUI->getReturnableEntity() : nullptr;
-    if (selected && gizmoOperation != 0) {
-        Transform* globalTransform = selected->getGlobalTransform();
-        if (globalTransform) {
-            float matrix[16];
-            buildMatrixFromTransform(globalTransform, matrix);
-            static ImGuizmo::MODE mode = ImGuizmo::LOCAL;
-            ImGuizmo::Manipulate(view, projection,
-                                 static_cast<ImGuizmo::OPERATION>(gizmoOperation),
-                                 mode, matrix, nullptr,
-                                 nullptr, nullptr, nullptr);
-            gizmoReady = true;
-            if (ImGuizmo::IsUsing()) {
-                Transform* localTransform = selected->getComponent<Transform>();
-                if (localTransform) {
-                    bool freeze = localTransform->childsFreeze;
-                    std::vector<std::pair<Entity*, glm::mat4>> childSnapshots;
-                    if (freeze) {
-                        for (auto* child : selected->getChildEntities()) {
-                            if (child && child->getComponent<Transform>()) {
-                                float m[16];
-                                buildMatrixFromTransform(child->getGlobalTransform(), m);
-                                childSnapshots.push_back({child, glm::make_mat4(m)});
-                            }
-                        }
-                    }
 
-                    Entity* parentEnt = selected->getParentEntity();
-                    Transform* parentGlobal = parentEnt ? parentEnt->getGlobalTransform() : nullptr;
-                    if (parentGlobal) {
-                        float parentGlobalArr[16];
-                        buildMatrixFromTransform(parentGlobal, parentGlobalArr);
-                        glm::mat4 invParentGlobal = glm::inverse(glm::make_mat4(parentGlobalArr));
-                        glm::mat4 newLocal = invParentGlobal * glm::make_mat4(matrix);
-                        float localMatArr[16];
-                        const float* ptr = glm::value_ptr(newLocal);
-                        for (int i = 0; i < 16; ++i) localMatArr[i] = ptr[i];
-                        decomposeMatrixToTransform(localMatArr, localTransform);
-                    } else {
-                        decomposeMatrixToTransform(matrix, localTransform);
-                    }
+    // Gizmo generico: se edita el Transform que diga el GizmoTarget activo.
+    // Default: el Transform del objeto seleccionado con el global de su padre
+    // como contexto. Si SettingsCollider* armo un target (offset del collider),
+    // se edita ESE transform local y el owner es el objeto con el RigidBody.
+    GizmoTarget target;
+    if (editorController && editorController->hasGizmoTarget()) {
+        target = editorController->getGizmoTarget();
+    } else if (selected) {
+        target.local = selected->getComponent<Transform>();
+        Entity* parentEnt = selected->getParentEntity();
+        target.parentGlobal = parentEnt ? parentEnt->getGlobalTransform() : nullptr;
+        target.owner = selected;
+    }
 
-                    if (freeze && !childSnapshots.empty()) {
-                        float pM[16];
-                        buildMatrixFromTransform(selected->getGlobalTransform(), pM);
-                        glm::mat4 invParent = glm::inverse(glm::make_mat4(pM));
-                        for (auto& snap : childSnapshots) {
-                            glm::mat4 newLocal = invParent * snap.second;
-                            float localArr[16];
-                            const float* ptr = glm::value_ptr(newLocal);
-                            for (int i = 0; i < 16; ++i) localArr[i] = ptr[i];
-                            decomposeMatrixToTransform(localArr, snap.first->getComponent<Transform>());
-                        }
-                    }
+    if (target.local && gizmoOperation != 0) {
+        // Matriz que maniula el gizmo: parentGlobal * local (o solo local si
+        // no hay contexto padre, p.ej. un objeto raiz).
+        float localArr[16];
+        buildMatrixFromTransform(target.local, localArr);
+        float matrix[16];
+        if (target.parentGlobal) {
+            float parentArr[16];
+            buildMatrixFromTransform(target.parentGlobal, parentArr);
+            glm::mat4 mGlobal = glm::make_mat4(parentArr) * glm::make_mat4(localArr);
+            const float* ptr = glm::value_ptr(mGlobal);
+            for (int i = 0; i < 16; ++i) matrix[i] = ptr[i];
+        } else {
+            for (int i = 0; i < 16; ++i) matrix[i] = localArr[i];
+        }
 
-                    // El gizmo movio el Transform del objeto: empujarlo hacia
-                    // el cuerpo fisico para que la simulacion parta de donde
-                    // quedo visualmente (INCLUYE los hijos con RigidBody).
-                    if (RigidBody* body = selected->getComponent<RigidBody>())
-                        body->syncGameObjectToPhysics();
-                    for (auto* child : selected->getChildEntities()) {
-                        if (child && child->getComponent<RigidBody>())
-                            child->getComponent<RigidBody>()->syncGameObjectToPhysics();
+        static ImGuizmo::MODE mode = ImGuizmo::LOCAL;
+        ImGuizmo::Manipulate(view, projection,
+                             static_cast<ImGuizmo::OPERATION>(gizmoOperation),
+                             mode, matrix, nullptr,
+                             nullptr, nullptr, nullptr);
+        gizmoReady = true;
+        if (ImGuizmo::IsUsing()) {
+            // Congelar hijos SOLO al editar el transform de un objeto; el
+            // offset local de un componente (collider) no arrastra hijos.
+            const bool esObjeto =
+                !(editorController && editorController->hasGizmoTarget());
+            bool freeze = false;
+            if (esObjeto && target.local) freeze = target.local->childsFreeze;
+
+            std::vector<std::pair<Entity*, glm::mat4>> childSnapshots;
+            if (freeze && target.owner) {
+                for (auto* child : target.owner->getChildEntities()) {
+                    if (child && child->getComponent<Transform>()) {
+                        float m[16];
+                        buildMatrixFromTransform(child->getGlobalTransform(), m);
+                        childSnapshots.push_back({child, glm::make_mat4(m)});
                     }
+                }
+            }
+
+            // Escribir de vuelta AL local: newLocal = inv(parentGlobal) * matrix
+            Transform* localTransform = target.local;
+            if (target.parentGlobal) {
+                float parentGlobalArr[16];
+                buildMatrixFromTransform(target.parentGlobal, parentGlobalArr);
+                glm::mat4 invParentGlobal = glm::inverse(glm::make_mat4(parentGlobalArr));
+                glm::mat4 newLocal = invParentGlobal * glm::make_mat4(matrix);
+                float localMatArr[16];
+                const float* ptr = glm::value_ptr(newLocal);
+                for (int i = 0; i < 16; ++i) localMatArr[i] = ptr[i];
+                decomposeMatrixToTransform(localMatArr, localTransform);
+            } else {
+                decomposeMatrixToTransform(matrix, localTransform);
+            }
+
+            if (freeze && !childSnapshots.empty() && target.owner) {
+                float pM[16];
+                buildMatrixFromTransform(target.owner->getGlobalTransform(), pM);
+                glm::mat4 invParent = glm::inverse(glm::make_mat4(pM));
+                for (auto& snap : childSnapshots) {
+                    glm::mat4 newLocal = invParent * snap.second;
+                    float localArr2[16];
+                    const float* ptr = glm::value_ptr(newLocal);
+                    for (int i = 0; i < 16; ++i) localArr2[i] = ptr[i];
+                    decomposeMatrixToTransform(localArr2, snap.first->getComponent<Transform>());
+                }
+            }
+
+            // El gizmo movio el transform del target: empujarlo hacia el
+            // cuerpo fisico para que la simulacion parta de donde quedo
+            // visualmente (INCLUYE los hijos con RigidBody).
+            if (target.owner) {
+                if (RigidBody* body = target.owner->getComponent<RigidBody>())
+                    body->syncGameObjectToPhysics();
+                for (auto* child : target.owner->getChildEntities()) {
+                    if (child && child->getComponent<RigidBody>())
+                        child->getComponent<RigidBody>()->syncGameObjectToPhysics();
                 }
             }
         }

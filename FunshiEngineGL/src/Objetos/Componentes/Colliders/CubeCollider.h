@@ -4,7 +4,8 @@
 
 class CubeCollider : public Collider {
 public:
-    CubeCollider(float radio, Transform* transformOfDadObject);
+    CubeCollider(float radio, Transform* transformOfDadObject,
+                 GameObject* owner = nullptr);
 
     std::unique_ptr<btCollisionShape> createCollisionShape() override;
     void dibujarCollider() override;
