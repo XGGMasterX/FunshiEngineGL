@@ -1,5 +1,7 @@
 #include "FileManager.h"
 
+#include <filesystem>
+
 #include "FileSystemWatcher.h"
 #include "../GestorDeArchivos/Carpeta.h"
 #include "../Herramientas/PathUtils.h"
@@ -13,9 +15,15 @@ Carpeta* buscarPreOrden(ArbolEnlazado<File*>* arbol,
                         const std::string& ruta) {
     if (!arbol || !current) return nullptr;
     File* elemento = current->getElement();
-    if (elemento && current != arbol->rootOfTree() &&
-        (elemento->getPathRoot() + PATH_SEP + elemento->getPathName()) == ruta) {
-        return dynamic_cast<Carpeta*>(elemento);
+    if (elemento && current != arbol->rootOfTree()) {
+        // Comparacion de rutas como std::filesystem::path, NO de string crudo:
+        // en Windows '/' y '\\' son equivalentes pero la representacion puede
+        // diferir segun quien armo la ruta (el arbol vs una ingresada a mano),
+        // y string == las trataria como rutas distintas.
+        const std::filesystem::path rutaNodo =
+            elemento->getPathRoot() + PATH_SEP + elemento->getPathName();
+        if (rutaNodo == std::filesystem::path(ruta))
+            return dynamic_cast<Carpeta*>(elemento);
     }
     if (arbol->isInternal(current)) {
         Carpeta* encontrado = nullptr;
