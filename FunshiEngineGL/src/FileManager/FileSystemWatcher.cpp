@@ -53,7 +53,7 @@ void FileSystemWatcher::agregarWatch(const std::string& rutaCarpeta) {
 // rama interna no dispara eventos en watches que todavia no existen, asi que
 // hay que descenderle (inotify_add_watch por ruta es idempotente: mismo wd).
 void FileSystemWatcher::agregarWatchRama(const std::string& raizRama) {
-    if (raizRama.empty()) return;
+    if (raizRama.empty() || fd_ < 0) return;
     agregarWatch(raizRama);
     std::error_code ec;
     std::filesystem::recursive_directory_iterator it(raizRama, ec);
@@ -119,10 +119,20 @@ bool FileSystemWatcher::huboCambiosYConsumir() {
     }
     return false;
 #else
+    // Fallback sin inotify: dimensionar por el mtime de la raiz evita el
+    // rescaneo completo cada 3s aun sin ningun cambio. Detecta choques
+    // directos de la raiz; los cambios anidados fuera de la carpeta visible
+    // quedan para el grid (que se auto-invalida por mtime, R5) o un rescaneo
+    // manual. Es el mejor esfuerzo en una plataforma sin watch nativo aqui.
     const auto ahora = std::chrono::steady_clock::now();
     if (ahora - ultimoPulso_ >= INTERVALO_POLLING) {
         ultimoPulso_ = ahora;
-        return true; // rescaneo periodico; compareTreesByPath evita el rebuild
+        std::error_code ec;
+        const auto mtime = std::filesystem::last_write_time(raiz_, ec);
+        if (!ec && mtime != ultimoMtimeRaiz_) {
+            ultimoMtimeRaiz_ = mtime;
+            return true;
+        }
     }
     return false;
 #endif

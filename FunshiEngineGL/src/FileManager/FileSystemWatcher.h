@@ -5,6 +5,10 @@
 #include <string>
 #include <unordered_map>
 
+#if !defined(__linux__)
+#include <filesystem>
+#endif
+
 // Observa el directorio del proyecto y avisa cuando algo cambia FUERA de la
 // mano del editor (Dolphin, terminal, un build, un importador...). El arbol
 // de archivos hoy solo se rescancea cuando una operacion interna sube
@@ -41,6 +45,7 @@ private:
     bool huboCambios_ = false;
 #if !defined(__linux__)
     std::chrono::steady_clock::time_point ultimoPulso_;
+    std::filesystem::file_time_type ultimoMtimeRaiz_{};
 #endif
 };
 
