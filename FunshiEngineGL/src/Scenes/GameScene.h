@@ -40,6 +40,10 @@ private:
     LightSystem lightSystem;
     float deltaTime = 0.0f;
     bool start = false;
+    // version anterior de start: detecta la transicion false->true para
+    // sincronizar los cuerpos a la pose VISUAL del editor ANTES de que el
+    // primer stepSimulation los dispare desde la pose vieja.
+    bool previousStart = false;
     bool menuActivo = false;
     // Sensibilidad global del mouse look, sincronizada desde MenuGUI (vista
     // Opciones). La aplica main al offset del raton antes de updateYaw().

@@ -540,6 +540,28 @@ void GameScene::update(float value) {
     // La fisica SOLO corre en modo play (start==true); en editor (start==false)
     // stepSimulation no tiene consumidor (syncPhysicsToGameObject no escribe),
     // y solo causa explosiones por penetracion con el suelo (plano y=-1).
+
+    // Transicion editor->play: el cuerpo fue creado en una pose PASADA (al
+    // agregar el RigidBody o al ultimo sync). Mientras estuvo en pausa el
+    // usuario pudo mover el objeto o el offset del collider; si el primer
+    // stepSimulation corre con el body viejo, la sync de vuelta escribe la
+    // pose del collider desde una posicion descartada. Se empuja el body a
+    // la pose VISUAL actual antes de arrancar.
+    if (start && !previousStart) {
+        auto* gameObjects = getGameObjectsScene();
+        if (!gameObjects->isEmpty()) {
+            Position<GameObject*>* pos = gameObjects->first();
+            while (pos && pos->getElement()) {
+                if (RigidBody* body =
+                        pos->getElement()->getComponent<RigidBody>())
+                    body->syncGameObjectToPhysics();
+                pos = (pos != gameObjects->last()) ? gameObjects->next(pos)
+                                                   : nullptr;
+            }
+        }
+    }
+    previousStart = start;
+
     if (phisics && start && !gizmoInUse()) phisics->stepSimulation(value);
 
     // Sincronizar la fisica de vuelta a los GameObjects del mundo
