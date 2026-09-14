@@ -23,6 +23,12 @@ public:
 	float arrTranslatef[3], arrScalef[3], arrRotatef[4];
 	bool childsFreeze = false;
 
+	// Gizmo "activo/dormido" (solo editor, NO se serializa: cambia el formato
+	// binario de las escenas guardadas). true = el gizmo edita este transform
+	// cuando corresponde (objeto seleccionado u offset de collider habilitado);
+	// false = el gizmo se duerme y no aparece para este transform.
+	bool gizmoHabilitado = true;
+
 	void setTranslatef(float x, float y, float z);
 	void setRotatef(float angle, float x, float y, float z);
 	void setScalef(float x, float y, float z);

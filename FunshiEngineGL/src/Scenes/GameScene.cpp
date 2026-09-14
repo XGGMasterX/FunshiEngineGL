@@ -13,6 +13,8 @@
 #include "../Objetos/Modelos3D.h"
 #include "../Objetos/Componentes/Colliders/EsfereCollider.h"
 #include "../Objetos/Componentes/Colliders/CubeCollider.h"
+#include "../Objetos/Componentes/Colliders/Collider.h"
+#include "../Objetos/Componentes/RigidBody/RigidBody.h"
 #include "EditorController.h"
 #include "SceneRegistry.h"
 #include "SceneSerializer.h"
@@ -29,6 +31,18 @@
 #include <glm/gtx/matrix_decompose.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
+// True si la matriz 4x4 tiene algun elemento no finito (NaN/Inf). El gizmo
+// nunca debe operar ni escribir matrices no finitas: al tocar un gizmo con
+// una matriz corrupta, todo el transform quedaria en -nan y el objeto
+// desapareceria de la escena.
+static bool matrizNoFinita(glm::mat4 m) {
+    const float* p = glm::value_ptr(m);
+    for (int i = 0; i < 16; ++i) {
+        if (!std::isfinite(p[i])) return true;
+    }
+    return false;
+}
+
 GameScene::GameScene(GUIManager* manager)
     : managerGUI(manager),
       sceneRegistry(std::make_unique<SceneRegistry>()),
@@ -42,7 +56,6 @@ GameScene::GameScene(GUIManager* manager)
     selecteableGUI = managerGUI->getSelecteableGUI();
     managerGUI->bindScene(sceneRegistry.get(), editorController.get(), &events);
     menuBarGUI = managerGUI->getMenuBarGUI(&start);
-    selecteableGUI->setPhysics(phisics.get());
 }
 
 GameScene::~GameScene() {
@@ -64,6 +77,11 @@ bool GameScene::isStart() { return start; }
 void GameScene::loadScene(const std::string& pathTxt, const std::string& semiPath) {
     if (sceneSerializer) {
         sceneSerializer->load(pathTxt, semiPath);
+        // Los RigidBody deserializados nunca pasan por EditorController: la
+        // malla se carga despues de los componentes (shape provisional) y el
+        // cuerpo no se registra en el mundo. Aqui se reconstruye la shape con
+        // los vertices recien cargados y se registra el cuerpo.
+        if (editorController) editorController->registerSceneRigidBodies();
         if (selecteableGUI)
             selecteableGUI->bindScene(sceneRegistry.get(), editorController.get(),
                                        &events);
@@ -221,6 +239,19 @@ void GameScene::dibujarObjectConOjo(GameObject* object, GameObject* camaraOjo) {
     if (object->getComponent<Light>()) dibujarMarcadorLuz(object);
     if (object->getComponent<CameraComponent>() && object != camaraOjo)
         dibujarMarcadorCamara(object);
+
+    // Wireframe del collider en la escena 3D: SOLO mientras el gizmo del
+    // offset del collider esta habilitado para este objeto (checkbox "Gizmo
+    // activo" del transform del collider). Si se lo dibujara siempre sobre el
+    // objeto seleccionado, se superpondria al gizmo del transform y pareceria
+    // 'un segundo gizmo' apilado.
+    if (isEditorActivo() && object != camaraOjo && editorController) {
+        Collider* collider = object->getComponent<Collider>();
+        Transform* colliderTransform = collider ? collider->getTransform() : nullptr;
+        if (collider && colliderTransform && colliderTransform->gizmoHabilitado &&
+            collider->getOwner() == editorController->getSelectedObject())
+            collider->dibujarCollider();
+    }
 }
 
 // Gizmo visual de una luz: un octaedro alambre amarillo en la posicion del
@@ -333,8 +364,7 @@ void GameScene::mallaScene(float tam) {
 void GameScene::GUI() {
     auto* gameObjects = getGameObjectsScene();
     selecteableGUI->printGUI();
-    if (gameObjects->isElement(selecteableGUI->getReturnableEntity()) && phisics) {
-        managerGUI->setPhysics(phisics.get());
+    if (gameObjects->isElement(selecteableGUI->getReturnableEntity())) {
         managerGUI->getSettingGUI(selecteableGUI->getReturnableEntity())->printGUI();
     }
     pintarViewportsGUI();
@@ -506,7 +536,49 @@ void GameScene::pintarVentanaCamaras() {
 
 void GameScene::update(float value) {
     deltaTime = value;
-    if (phisics) phisics->stepSimulation(value);
+    // Mientras se manipula el gizmo NO se avanza la simulacion: de lo
+    // contrario la gravedad/contactos eyectan el cuerpo y la sync de vuelta
+    // arrastra al objeto (efecto 'sale disparado'). Al soltar, la sim sigue.
+    // La fisica SOLO corre en modo play (start==true); en editor (start==false)
+    // stepSimulation no tiene consumidor (syncPhysicsToGameObject no escribe),
+    // y solo causa explosiones por penetracion con el suelo (plano y=-1).
+
+    // Transicion editor->play: el cuerpo fue creado en una pose PASADA (al
+    // agregar el RigidBody o al ultimo sync). Mientras estuvo en pausa el
+    // usuario pudo mover el objeto o el offset del collider; si el primer
+    // stepSimulation corre con el body viejo, la sync de vuelta escribe la
+    // pose del collider desde una posicion descartada. Se empuja el body a
+    // la pose VISUAL actual antes de arrancar.
+    if (start && !previousStart) {
+        auto* gameObjects = getGameObjectsScene();
+        if (!gameObjects->isEmpty()) {
+            Position<GameObject*>* pos = gameObjects->first();
+            while (pos && pos->getElement()) {
+                if (RigidBody* body =
+                        pos->getElement()->getComponent<RigidBody>())
+                    body->syncGameObjectToPhysics();
+                pos = (pos != gameObjects->last()) ? gameObjects->next(pos)
+                                                   : nullptr;
+            }
+        }
+    }
+    previousStart = start;
+
+    if (phisics && start && !gizmoInUse()) phisics->stepSimulation(value);
+
+    // Sincronizar la fisica de vuelta a los GameObjects del mundo
+    // (GameObject::update escribe en los Transforms via RigidBody).
+    if (start && !gizmoInUse()) {
+        auto* gameObjects = getGameObjectsScene();
+        if (!gameObjects->isEmpty()) {
+            Position<GameObject*>* pos = gameObjects->first();
+            while (pos && pos->getElement()) {
+                pos->getElement()->update(value);
+                pos = (pos != gameObjects->last()) ? gameObjects->next(pos)
+                                                   : nullptr;
+            }
+        }
+    }
 }
 
 static bool intersectRayAABB(const glm::vec3& rayOrigin, const glm::vec3& rayDir,
@@ -685,59 +757,175 @@ void GameScene::gameScene() {
 
     gizmoReady = false;
     GameObject* selected = selecteableGUI ? selecteableGUI->getReturnableEntity() : nullptr;
-    if (selected && gizmoOperation != 0) {
-        Transform* globalTransform = selected->getGlobalTransform();
-        if (globalTransform) {
-            float matrix[16];
-            buildMatrixFromTransform(globalTransform, matrix);
-            static ImGuizmo::MODE mode = ImGuizmo::LOCAL;
-            ImGuizmo::Manipulate(view, projection,
-                                 static_cast<ImGuizmo::OPERATION>(gizmoOperation),
-                                 mode, matrix, nullptr,
-                                 nullptr, nullptr, nullptr);
-            gizmoReady = true;
-            if (ImGuizmo::IsUsing()) {
-                Transform* localTransform = selected->getComponent<Transform>();
-                if (localTransform) {
-                    bool freeze = localTransform->childsFreeze;
-                    std::vector<std::pair<Entity*, glm::mat4>> childSnapshots;
-                    if (freeze) {
-                        for (auto* child : selected->getChildEntities()) {
-                            if (child && child->getComponent<Transform>()) {
-                                float m[16];
-                                buildMatrixFromTransform(child->getGlobalTransform(), m);
-                                childSnapshots.push_back({child, glm::make_mat4(m)});
-                            }
-                        }
-                    }
 
-                    Entity* parentEnt = selected->getParentEntity();
-                    Transform* parentGlobal = parentEnt ? parentEnt->getGlobalTransform() : nullptr;
-                    if (parentGlobal) {
-                        float parentGlobalArr[16];
-                        buildMatrixFromTransform(parentGlobal, parentGlobalArr);
-                        glm::mat4 invParentGlobal = glm::inverse(glm::make_mat4(parentGlobalArr));
-                        glm::mat4 newLocal = invParentGlobal * glm::make_mat4(matrix);
-                        float localMatArr[16];
-                        const float* ptr = glm::value_ptr(newLocal);
-                        for (int i = 0; i < 16; ++i) localMatArr[i] = ptr[i];
-                        decomposeMatrixToTransform(localMatArr, localTransform);
-                    } else {
-                        decomposeMatrixToTransform(matrix, localTransform);
-                    }
+    // Gizmo generico: se edita el Transform que diga el GizmoTarget activo.
+    // Default: el Transform del objeto seleccionado con el global de su padre
+    // como contexto. Un GizmoTarget externo (SettingsCollider*) tiene
+    // prioridad. Si no hay target externo, el transfor del collider con su
+    // gizmo habilitado toma prioridad sobre el del objeto: asi el checkbox
+    // "Gizmo activo" del transform del collider (via SettingsTransform)
+    // activa/dormita el gizmo del offset del collider cuando quieras.
+    GizmoTarget target;
+    if (editorController && editorController->hasGizmoTarget()) {
+        target = editorController->getGizmoTarget();
+        // Refrescar el contexto global del duenio cada frame: si el objeto o
+        // sus ancestros se movieron, el parentGlobal almacenado quedaria
+        // desactualizado y el offset local se recompondria contra una base
+        // vieja (el puntero en si es estable: globalTransformCache del owner).
+        if (target.owner)
+            target.parentGlobal = target.owner->getGlobalTransform();
+    } else if (selected) {
+        // Collider offset primero: si su transform local tiene el gizmo
+        // encendido se edita el offset; si no, el transform del objeto.
+        if (Collider* collider = selected->getComponent<Collider>()) {
+            Transform* colliderTransform = collider->getTransform();
+            if (colliderTransform && colliderTransform->gizmoHabilitado) {
+                target.local = colliderTransform;
+                target.parentGlobal = selected->getGlobalTransform();
+                target.owner = selected;
+            }
+        }
+        if (!target.local) {
+            Transform* objectTransform = selected->getComponent<Transform>();
+            if (objectTransform && objectTransform->gizmoHabilitado) {
+                target.local = objectTransform;
+                Entity* parentEnt = selected->getParentEntity();
+                target.parentGlobal =
+                    parentEnt ? parentEnt->getGlobalTransform() : nullptr;
+                target.owner = selected;
+            }
+        }
+    }
 
-                    if (freeze && !childSnapshots.empty()) {
-                        float pM[16];
-                        buildMatrixFromTransform(selected->getGlobalTransform(), pM);
-                        glm::mat4 invParent = glm::inverse(glm::make_mat4(pM));
-                        for (auto& snap : childSnapshots) {
-                            glm::mat4 newLocal = invParent * snap.second;
-                            float localArr[16];
-                            const float* ptr = glm::value_ptr(newLocal);
-                            for (int i = 0; i < 16; ++i) localArr[i] = ptr[i];
-                            decomposeMatrixToTransform(localArr, snap.first->getComponent<Transform>());
-                        }
+    if (target.local && gizmoOperation != 0) {
+        // Matriz que maniula el gizmo: parentGlobal * local. Para translate y
+        // rotate ImGuizmo EXPLOTA con matrices escaladas (no-ortonormales):
+        // con el objeto o su padre escalado, el objeto sale disparado al usar
+        // el gizmo. Por eso se desescala antes de pasarla y se reinserta la
+        // escala al leer el resultado.
+        float scaleVec[3] = {1.0f, 1.0f, 1.0f};
+        const bool sinEscala = gizmoOperation != ImGuizmo::SCALE;
+
+        float localArr[16];
+        buildMatrixFromTransform(target.local, localArr);
+        glm::mat4 mFull = glm::make_mat4(localArr);
+        if (target.parentGlobal) {
+            float parentArr[16];
+            buildMatrixFromTransform(target.parentGlobal, parentArr);
+            mFull = glm::make_mat4(parentArr) * mFull;
+        }
+
+        // Si la matriz de entrada ya es no finita (transform del objeto o de
+        // algun ancestro corrupto), NO se opera el gizmo con ella: un drag la
+        // escribiria tal cual y quedaria -nan en el transform. Se sigue con el
+        // resto del frame con el gizmo apagado (es seguro: solo se dibuja).
+        if (matrizNoFinita(mFull)) {
+            gizmoReady = false;
+            return;
+        }
+
+        if (sinEscala) {
+            // Ortonormalizar zoom: guardar escala por columna y normalizar.
+            glm::vec4 c0 = mFull[0];
+            glm::vec4 c1 = mFull[1];
+            glm::vec4 c2 = mFull[2];
+            scaleVec[0] = glm::length(c0);
+            scaleVec[1] = glm::length(c1);
+            scaleVec[2] = glm::length(c2);
+            // Ojo: el guard < 0.0001 NO atrapa NaN (toda comparacion con NaN
+            // es false). Sin isfinite, una escala NaN se divide por si misma y
+            // contamina toda la matriz.
+            for (int i = 0; i < 3; ++i) {
+                if (!std::isfinite(scaleVec[i]) || scaleVec[i] < 0.0001f)
+                    scaleVec[i] = 1.0f;
+            }
+            mFull[0] = c0 / scaleVec[0];
+            mFull[1] = c1 / scaleVec[1];
+            mFull[2] = c2 / scaleVec[2];
+        }
+
+        float matrix[16];
+        const float* ptr = glm::value_ptr(mFull);
+        for (int i = 0; i < 16; ++i) matrix[i] = ptr[i];
+
+        static ImGuizmo::MODE mode = ImGuizmo::LOCAL;
+        ImGuizmo::Manipulate(view, projection,
+                             static_cast<ImGuizmo::OPERATION>(gizmoOperation),
+                             mode, matrix, nullptr,
+                             nullptr, nullptr, nullptr);
+        gizmoReady = true;
+        if (ImGuizmo::IsUsing()) {
+            // Reinsertar la escala que quitamos: M = M' * diag(scale).
+            glm::mat4 mManip = glm::make_mat4(matrix);
+            if (sinEscala) {
+                glm::mat4 sMat = glm::scale(
+                    glm::mat4(1.0f), glm::vec3(scaleVec[0], scaleVec[1], scaleVec[2]));
+                mManip = mManip * sMat;
+            }
+
+            // Escribir de vuelta AL local: newLocal = inv(parentGlobal) * matrix
+            Transform* localTransform = target.local;
+            glm::mat4 newLocal = mManip;
+            if (target.parentGlobal) {
+                float parentGlobalArr[16];
+                buildMatrixFromTransform(target.parentGlobal, parentGlobalArr);
+                glm::mat4 invParentGlobal = glm::inverse(glm::make_mat4(parentGlobalArr));
+                // glm::inverse de una matriz singular/no finita produce Inf/NaN.
+                if (matrizNoFinita(glm::make_mat4(parentGlobalArr)) ||
+                    matrizNoFinita(invParentGlobal)) {
+                    return;
+                }
+                newLocal = invParentGlobal * mManip;
+            }
+
+            // El resultado del drag no debe corromper el transform con -nan:
+            // si la matriz manipulada quedo no finita, se descarta este frame.
+            if (matrizNoFinita(mManip) || matrizNoFinita(newLocal)) return;
+            float localMatArr[16];
+            const float* ptr2 = glm::value_ptr(newLocal);
+            for (int i = 0; i < 16; ++i) localMatArr[i] = ptr2[i];
+            decomposeMatrixToTransform(localMatArr, localTransform);
+
+            // Congelar hijos SOLO al editar el transform de un objeto; el
+            // offset local de un componente (collider) no arrastra hijos.
+            const bool esObjeto =
+                target.owner && target.owner->getComponent<Transform>() == target.local;
+            bool freeze = false;
+            if (esObjeto && target.local) freeze = target.local->childsFreeze;
+
+            std::vector<std::pair<Entity*, glm::mat4>> childSnapshots;
+            if (freeze && target.owner) {
+                for (auto* child : target.owner->getChildEntities()) {
+                    if (child && child->getComponent<Transform>()) {
+                        float m[16];
+                        buildMatrixFromTransform(child->getGlobalTransform(), m);
+                        childSnapshots.push_back({child, glm::make_mat4(m)});
                     }
+                }
+            }
+
+            if (freeze && !childSnapshots.empty() && target.owner) {
+                float pM[16];
+                buildMatrixFromTransform(target.owner->getGlobalTransform(), pM);
+                glm::mat4 invParent = glm::inverse(glm::make_mat4(pM));
+                for (auto& snap : childSnapshots) {
+                    glm::mat4 newLocal = invParent * snap.second;
+                    float localArr2[16];
+                    const float* ptr = glm::value_ptr(newLocal);
+                    for (int i = 0; i < 16; ++i) localArr2[i] = ptr[i];
+                    decomposeMatrixToTransform(localArr2, snap.first->getComponent<Transform>());
+                }
+            }
+
+            // El gizmo movio el transform del target: empujarlo hacia el
+            // cuerpo fisico para que la simulacion parta de donde quedo
+            // visualmente (INCLUYE los hijos con RigidBody).
+            if (target.owner) {
+                if (RigidBody* body = target.owner->getComponent<RigidBody>())
+                    body->syncGameObjectToPhysics();
+                for (auto* child : target.owner->getChildEntities()) {
+                    if (child && child->getComponent<RigidBody>())
+                        child->getComponent<RigidBody>()->syncGameObjectToPhysics();
                 }
             }
         }
@@ -760,6 +948,10 @@ int GameScene::getGizmoOperation() const {
 
 bool GameScene::isGizmoCapturingInput() const {
     return gizmoReady && (ImGuizmo::IsOver() || ImGuizmo::IsUsing());
+}
+
+bool GameScene::gizmoInUse() const {
+    return gizmoReady && ImGuizmo::IsUsing();
 }
 
 void GameScene::toggleEditorInterfaces() {

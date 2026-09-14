@@ -25,7 +25,13 @@ protected:
     bool state = true;
     int id = 0;
     int tam = 1;
-    std::unique_ptr<Transform> globalTransformCache;
+    // Buffer reutilizable para el global transform. NO puede ser un
+    // unique_ptr recreado por llamada: getGlobalTransform() devuelve puntero a
+    // este miembro y otros sistemas (gizmo, colliders, settings) lo guardan
+    // entre frames; si se reasignara, quedarian punteros a memoria liberada
+    // (heap-use-after-free). El valor se sobrescribe en cada llamada, pero la
+    // direccion es estable mientras el GameObject viva.
+    Transform globalTransformCache;
 
 public:
     explicit GameObject(Entity* origin);

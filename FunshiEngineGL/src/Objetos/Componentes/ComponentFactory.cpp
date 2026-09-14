@@ -26,11 +26,11 @@ std::unique_ptr<Component> ComponentFactory::create(const std::string& typeName,
     if (typeName == "CameraComponent" || typeName == "Camera")
         return std::make_unique<CameraComponent>();
     if (typeName == "EsfereCollider" && transform)
-        return std::make_unique<EsfereCollider>(5.0f, transform);
+        return std::make_unique<EsfereCollider>(5.0f, transform, &owner);
     if (typeName == "CubeCollider" && transform)
-        return std::make_unique<CubeCollider>(5.0f, transform);
+        return std::make_unique<CubeCollider>(5.0f, transform, &owner);
     if (typeName == "MallaCollider" && transform)
-        return std::make_unique<MallaCollider>(5.0f, transform);
+        return std::make_unique<MallaCollider>(5.0f, transform, &owner);
     if (typeName == "RigidBody") {
         Collider* collider = owner.getComponent<Collider>();
         if (collider) return std::make_unique<RigidBody>(collider, 1.0f);

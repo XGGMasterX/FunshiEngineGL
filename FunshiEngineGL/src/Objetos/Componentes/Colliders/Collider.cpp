@@ -1,8 +1,11 @@
 #include "Collider.h"
 
-#include <cfloat>
 #include <cmath>
 #include <btBulletDynamicsCommon.h>
+#include <glm/glm.hpp>
+#include <glm/gtc/type_ptr.hpp>
+
+#include "../../../Objetos/GameObject.h"
 
 void Collider::serializeComponent(std::ofstream* fileNamePathContentObject) {
     fileNamePathContentObject->write(reinterpret_cast<const char*>(&radio),
@@ -16,13 +19,26 @@ void Collider::deserializeComponent(std::ifstream* fileNamePathContentObject) {
                                     sizeof(float));
     transformOfDadObject->loadComponent(fileNamePathContentObject);
     myTransform->loadComponent(fileNamePathContentObject);
+    // el flag de gizmo no se serializa: al cargar una escena el offset queda
+    // dormido de nuevo (mismo estado por defecto que al crearlo).
+    myTransform->gizmoHabilitado = false;
 }
 
-Collider::Collider(float radio, Transform* transformOfDadObject) {
-    this->radio = radio;
-    this->transformOfDadObject = transformOfDadObject;
-    this->myTransform = new Transform();
+Collider::Collider(float radio, Transform* transformOfDadObject,
+                   GameObject* owner)
+    : radio(radio),
+      transformOfDadObject(transformOfDadObject),
+      myTransform(std::make_unique<Transform>()),
+      owner(owner) {
+    // El gizmo del offset del collider arranca DORMIDO: si estuviera activo
+    // por defecto, al seleccionar un objeto con collider el gizmo editaria el
+    // offset y no el transform del objeto (molesto, se activaria a cada rato).
+    // El usuario lo enciende con el checkbox "Gizmo activo" del transform del
+    // collider en los settings.
+    myTransform->gizmoHabilitado = false;
 }
+
+Collider::~Collider() = default;
 
 void Collider::saveComponent(std::ofstream* fileNamePathContentObject) {
     serializeComponent(fileNamePathContentObject);
@@ -39,32 +55,82 @@ void Collider::setRadio(float radio) {
 }
 
 float Collider::getRadio() { return radio; }
+Transform Collider::getGlobalTransform() const {
+    // Composicion real con matrices: global = owner->getGlobalTransform()
+    // (incluye jerarquia, rotacion y escala de ancestros) x myTransform.
+    if (owner) {
+        Transform* ownerGlobal = owner->getGlobalTransform();
+        if (ownerGlobal) {
+            float parentMat[16], localMat[16], globalMat[16];
+            buildMatrixFromTransform(ownerGlobal, parentMat);
+            buildMatrixFromTransform(myTransform.get(), localMat);
 
-Transform* Collider::getGlobalTransform() {
-    Transform* resultado = new Transform();
+            glm::mat4 mParent = glm::make_mat4(parentMat);
+            glm::mat4 mLocal = glm::make_mat4(localMat);
+            glm::mat4 mGlobal = mParent * mLocal;
+            const float* ptr = glm::value_ptr(mGlobal);
+            for (int i = 0; i < 16; ++i) globalMat[i] = ptr[i];
+
+            Transform resultado;
+            decomposeMatrixToTransform(globalMat, &resultado);
+            return resultado;
+        }
+    }
+
+    // Fallback legacy (sin owner): MISMA composicion de matrices usando el
+    // transform del padre. La version vieja sumaba posiciones a ciegas (dx =
+    // myPos + dadPos); eso ignora la MAGNITUD del offset cuando el padre esta
+    // rotado o escalado, y la coordenada global del collider se corre respecto
+    // de donde tendria que colisionar (el objeto 'flota'). Con la matriz, la
+    // rotacion y escala del padre se aplican de verdad sobre el offset local.
+    if (transformOfDadObject) {
+        float parentMat[16], localMat[16], globalMat[16];
+        buildMatrixFromTransform(transformOfDadObject, parentMat);
+        buildMatrixFromTransform(myTransform.get(), localMat);
+
+        glm::mat4 mGlobal = glm::make_mat4(parentMat) * glm::make_mat4(localMat);
+        const float* ptr = glm::value_ptr(mGlobal);
+        for (int i = 0; i < 16; ++i) globalMat[i] = ptr[i];
+
+        Transform resultado;
+        decomposeMatrixToTransform(globalMat, &resultado);
+        return resultado;
+    }
+
+    // Ultimo recurso: copia del local (mas que nada por seguridad).
+    Transform resultado;
     float* myPos = myTransform->getTranslatef();
-    float* dadPos = transformOfDadObject->getTranslatef();
-
-    // desplazamiento del padre heredado
-    float dx = myPos[0] + dadPos[0];
-    float dy = myPos[1] + dadPos[1];
-    float dz = myPos[2] + dadPos[2];
-    resultado->setTranslatef(dx, dy, dz);
+    resultado.setTranslatef(myPos[0], myPos[1], myPos[2]);
     float* myRots = myTransform->getRotatef();
-    resultado->setRotatef(myRots[0], myRots[1], myRots[2], myRots[3]);
+    resultado.setRotatef(myRots[0], myRots[1], myRots[2], myRots[3]);
     float* myScales = myTransform->getScalef();
-    resultado->setScalef(myScales[0], myScales[1], myScales[2]);
+    resultado.setScalef(myScales[0], myScales[1], myScales[2]);
     return resultado;
 }
 
+btCollisionShape* Collider::getCollisionShape() {
+    if (!collisionShape) {
+        collisionShape = createCollisionShape();
+        // Respaldo defensivo: nunca devolver nullptr a RigidBody/Bullet.
+        if (!collisionShape) {
+            collisionShape = std::make_unique<btSphereShape>(radio);
+        }
+    }
+    return collisionShape.get();
+}
+
+void Collider::invalidateCollisionShape() {
+    collisionShape.reset();
+}
+
 bool Collider::isCollision(Collider* other) {
-    Transform* myTransform = this->getGlobalTransform();
-    Transform* otherTransform = other->getGlobalTransform();
+    if (!other) return false;
 
-    if (!myTransform || !otherTransform) return FLT_MAX;
+    Transform myT = this->getGlobalTransform();
+    Transform otherT = other->getGlobalTransform();
 
-    float* myPos = myTransform->getTranslatef();
-    float* otherPos = otherTransform->getTranslatef();
+    float* myPos = myT.getTranslatef();
+    float* otherPos = otherT.getTranslatef();
 
     float dxmyTransform = myPos[0];
     float dymyTransform = myPos[1];

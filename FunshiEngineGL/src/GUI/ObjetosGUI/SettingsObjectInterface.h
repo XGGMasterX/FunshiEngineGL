@@ -6,20 +6,20 @@
 
 class GameObject;
 class SettingsComponent;
-class PhysicsEngine;
+class EditorController;
 
 class SettingsObjectInterface : public GeneralUserInterface {
 private:
 	GameObject* object;
 	ListaDE<SettingsComponent*>* listaDESettingsComponent;
-	PhysicsEngine* phisics = nullptr;
+	EditorController* editor = nullptr;
 	int momentaneantID = 0;
 
 public:
 	SettingsObjectInterface(GameObject* object, bool stateGUI);
 	~SettingsObjectInterface();
 
-	void setPhysics(PhysicsEngine* phisics);
+	void setEditor(EditorController* editor);
 	void loadComponents();
 
 	// Cambia el objeto inspeccionado sin recrear la ventana: limpia y recarga
