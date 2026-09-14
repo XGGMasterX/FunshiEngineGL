@@ -179,6 +179,15 @@ bool EditorController::removeComponent(GameObject* object, Component* component)
     if (Collider* collider = dynamic_cast<Collider*>(component)) {
         if (collider->getTransform() == gizmoTarget.local)
             clearGizmoTarget();
+        // El RigidBody guarda su collider por puntero y lo usa en cada
+        // update/sync (syncPhysicsToGameObject): si se libera el collider sin
+        // desacoplarlo, queda un puntero colgante (heap-use-after-free).
+        // Des-registrar el cuerpo del mundo y dejarlo inerte (collider=null)
+        // ANTES de deleteComponent.
+        if (RigidBody* body = object->getComponent<RigidBody>()) {
+            if (physics) physics->removeRigidBody(body);
+            body->detachCollider();
+        }
     }
     if (physics) {
         if (auto* body = dynamic_cast<RigidBody*>(component))
