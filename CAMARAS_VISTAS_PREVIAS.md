@@ -336,16 +336,11 @@ cd FunshiEngineGL/FunshiEngineGL
 cmake --build build --target FunshiEngineGL -- -j4
 ```
 
-**Instrumentación temporal de diagnóstico (ya eliminada):** para reproducir los
-bugs y verificar los fixes se usó un **hot-wire** en `main.cpp` controlado por
-env-var que llamaba `scene->agregarCamaraEnVistaActiva()` al iniciar, y una
-**sonda de píxeles** en `dibujarViewportsPrevios` controlada por `FS_PROBE`:
-
-```bash
-FS_TEST_CAMERA=1 FS_PROBE=1 timeout 12 gdb -batch -ex run --args ./build/FunshiEngineGL
-```
-
-Ambas ramas quedaron **revertidas**; el código final no contiene estas rutas.
+> Nota histórica: para reproducir estos bugs se usó temporalmente una
+> instrumentación de diagnóstico (un hot-wire de cámara al arrancar y una sonda
+> de píxeles controlada por variables de entorno). Ambas ramas fueron revertidas
+> y el código final no las contiene; los fixes se verificaron con los sanitizers
+> del build Debug.
 
 ---
 
@@ -383,9 +378,14 @@ Ambas ramas quedaron **revertidas**; el código final no contiene estas rutas.
 
 - [ ] Conectar la ventana de previsualización con la **selección**: clic dentro
       de una preview para elegir esa cámara (hoy es pasiva).
-- [ ] Mostrar las previews también en reproducción (`isEditorActivo()` == false)
-      si se desea un "camera monitor" en el gameplay.
+- [ ] Mostrar las ventanas de vista previa durante el gameplay como "camera
+      monitor": la pasada FBO ya corre todos los frames, pero las ventanas solo
+      se dibujan con el editor activo.
 - [ ] Limpiar el `glEndList()` huérfano de `mallaScene`.
-- [ ] Revisar el aviso UBSan de `ImGuizmo` (operación inválida 4294967295).
 - [ ] Versionado/validación de la serialización binaria (evitaría la clase de
       desincronización de §6.1 para futuros cambios de componentes).
+
+> Resuelto después de esta fase: el aviso UBSan de `ImGuizmo` (operación
+> inválida 4294967295) se corrigió inicializando `mOperation` al comienzo de
+> `Manipulate`; la física ya no simula fuera del modo Play; y el gizmo ya no
+> genera dobles visuales con el wireframe del collider.

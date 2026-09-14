@@ -50,7 +50,8 @@ void volver();             // de Opciones/ConfigProyecto → Principal
 
 bool estaVisible() const noexcept;
 Vista getVista() const noexcept;
-// datos: nombreProyecto (get/set), idioma (get/set), idiomasDisponibles (get)
+// datos: nombreProyecto (get/set), idioma (get/set), idiomas (get) y
+// sensibilidadCamara (get/set, multiplicador del mouse look en Opciones)
 ```
 
 Todas las transiciones son asignaciones triviales del enum `vista`.
@@ -60,7 +61,7 @@ Todas las transiciones son asignaciones triviales del enum `vista`.
 | Vista | Contenido |
 |---|---|
 | `Principal` | Botones centrados: "Iniciar Estudio", "Config Proyect" (etiqueta con el nombre actual), "Opciones" (etiqueta con el idioma actual), "Exit". |
-| `Opciones` | Título "Opciones", selector de idioma (`BeginCombo` sobre las opciones del modelo), "Volver". |
+| `Opciones` | Título "Opciones", selector de idioma (`BeginCombo` sobre las opciones del modelo) y slider de sensibilidad de cámara, "Volver". |
 | `ConfigProyecto` | Título "Config Proyect", `InputText` del nombre del proyecto (buffer de 128 en la vista), "Volver". |
 | `Ninguna` | Menú oculto → corre el editor (equivale a "Iniciar Estudio"). |
 
