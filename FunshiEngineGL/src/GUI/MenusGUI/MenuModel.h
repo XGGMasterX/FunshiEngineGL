@@ -42,11 +42,18 @@ public:
     void setIdioma(const std::string& valor);
     const std::vector<std::string>& getIdiomas() const noexcept;
 
+    // Sensibilidad global del mouse look de la camara (vista Opciones del
+    // menu). Multiplicador aplicado en main al offset del raton; 1.0 = 1:1
+    // pixel/grado (comportamiento historico).
+    float getSensibilidadCamara() const noexcept;
+    void setSensibilidadCamara(float sensibilidad) noexcept;
+
 private:
     Vista vista = Vista::Principal;
     std::string nombreProyecto = "Nuevo Proyecto";
     std::string idioma = "Espanol";
     std::vector<std::string> idiomasDisponibles = {"Espanol", "English"};
+    float sensibilidadCamara = 1.0f;
 };
 
 #endif

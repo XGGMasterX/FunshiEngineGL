@@ -39,3 +39,11 @@ void MenuModel::setIdioma(const std::string& valor) { idioma = valor; }
 const std::vector<std::string>& MenuModel::getIdiomas() const noexcept {
     return idiomasDisponibles;
 }
+
+float MenuModel::getSensibilidadCamara() const noexcept {
+    return sensibilidadCamara;
+}
+
+void MenuModel::setSensibilidadCamara(float sensibilidad) noexcept {
+    if (sensibilidad > 0.0f) sensibilidadCamara = sensibilidad;
+}
