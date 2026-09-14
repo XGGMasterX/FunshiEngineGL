@@ -19,6 +19,9 @@ void Collider::deserializeComponent(std::ifstream* fileNamePathContentObject) {
                                     sizeof(float));
     transformOfDadObject->loadComponent(fileNamePathContentObject);
     myTransform->loadComponent(fileNamePathContentObject);
+    // el flag de gizmo no se serializa: al cargar una escena el offset queda
+    // dormido de nuevo (mismo estado por defecto que al crearlo).
+    myTransform->gizmoHabilitado = false;
 }
 
 Collider::Collider(float radio, Transform* transformOfDadObject,
@@ -26,7 +29,14 @@ Collider::Collider(float radio, Transform* transformOfDadObject,
     : radio(radio),
       transformOfDadObject(transformOfDadObject),
       myTransform(std::make_unique<Transform>()),
-      owner(owner) {}
+      owner(owner) {
+    // El gizmo del offset del collider arranca DORMIDO: si estuviera activo
+    // por defecto, al seleccionar un objeto con collider el gizmo editaria el
+    // offset y no el transform del objeto (molesto, se activaria a cada rato).
+    // El usuario lo enciende con el checkbox "Gizmo activo" del transform del
+    // collider en los settings.
+    myTransform->gizmoHabilitado = false;
+}
 
 Collider::~Collider() = default;
 
@@ -45,7 +55,6 @@ void Collider::setRadio(float radio) {
 }
 
 float Collider::getRadio() { return radio; }
-
 Transform Collider::getGlobalTransform() const {
     // Composicion real con matrices: global = owner->getGlobalTransform()
     // (incluye jerarquia, rotacion y escala de ancestros) x myTransform.
@@ -68,22 +77,34 @@ Transform Collider::getGlobalTransform() const {
         }
     }
 
+    // Fallback legacy (sin owner): MISMA composicion de matrices usando el
+    // transform del padre. La version vieja sumaba posiciones a ciegas (dx =
+    // myPos + dadPos); eso ignora la MAGNITUD del offset cuando el padre esta
+    // rotado o escalado, y la coordenada global del collider se corre respecto
+    // de donde tendria que colisionar (el objeto 'flota'). Con la matriz, la
+    // rotacion y escala del padre se aplican de verdad sobre el offset local.
+    if (transformOfDadObject) {
+        float parentMat[16], localMat[16], globalMat[16];
+        buildMatrixFromTransform(transformOfDadObject, parentMat);
+        buildMatrixFromTransform(myTransform.get(), localMat);
+
+        glm::mat4 mGlobal = glm::make_mat4(parentMat) * glm::make_mat4(localMat);
+        const float* ptr = glm::value_ptr(mGlobal);
+        for (int i = 0; i < 16; ++i) globalMat[i] = ptr[i];
+
+        Transform resultado;
+        decomposeMatrixToTransform(globalMat, &resultado);
+        return resultado;
+    }
+
+    // Ultimo recurso: copia del local (mas que nada por seguridad).
     Transform resultado;
     float* myPos = myTransform->getTranslatef();
-    float* dadPos = transformOfDadObject->getTranslatef();
-
-    // desplazamiento del padre heredado
-    float dx = myPos[0] + dadPos[0];
-    float dy = myPos[1] + dadPos[1];
-    float dz = myPos[2] + dadPos[2];
-    resultado.setTranslatef(dx, dy, dz);
+    resultado.setTranslatef(myPos[0], myPos[1], myPos[2]);
     float* myRots = myTransform->getRotatef();
     resultado.setRotatef(myRots[0], myRots[1], myRots[2], myRots[3]);
     float* myScales = myTransform->getScalef();
-    float* dadScales = transformOfDadObject->getScalef();
-    resultado.setScalef(myScales[0] * dadScales[0],
-                        myScales[1] * dadScales[1],
-                        myScales[2] * dadScales[2]);
+    resultado.setScalef(myScales[0], myScales[1], myScales[2]);
     return resultado;
 }
 

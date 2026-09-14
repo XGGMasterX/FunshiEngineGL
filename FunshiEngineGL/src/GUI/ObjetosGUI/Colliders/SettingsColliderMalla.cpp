@@ -37,22 +37,6 @@ void SettingsColliderMalla::showDataComponent() {
 	}
 	settingsTransform->showDataComponent();
 
-	if (editor && myCollider->getOwner()) {
-		bool activo = editor->hasGizmoTarget() &&
-		              editor->getGizmoTarget().local == myCollider->getTransform();
-		if (ImGui::Checkbox("Editar con gizmo", &activo)) {
-			if (activo) {
-				GizmoTarget t;
-				t.local = myCollider->getTransform();
-				t.parentGlobal = myCollider->getOwner()->getGlobalTransform();
-				t.owner = myCollider->getOwner();
-				editor->setGizmoTarget(t);
-			} else {
-				editor->clearGizmoTarget();
-			}
-		}
-	}
-
 	myCollider->dibujarCollider();
 }
 
