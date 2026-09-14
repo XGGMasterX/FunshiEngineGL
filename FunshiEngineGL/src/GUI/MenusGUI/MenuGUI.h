@@ -74,6 +74,14 @@ public:
     // (sensibilidad del mouse look de la camara). main la propaga a la escena
     // cuando la escena corre (el menu esta pausado mientras es visible).
     float getSensibilidadCamara() const noexcept;
+    void setSensibilidadCamara(float sensibilidad) noexcept;
+
+    // Datos del menu persistidos por EditorConfig (main los aplica al arrancar
+    // y los recoge al salir).
+    const std::string& getNombreProyecto() const noexcept;
+    void setNombreProyecto(const std::string& nombre) noexcept;
+    const std::string& getIdioma() const noexcept;
+    void setIdioma(const std::string& valor) noexcept;
 
 private:
     // Orden de membresia = orden de construccion: el presentador se construye

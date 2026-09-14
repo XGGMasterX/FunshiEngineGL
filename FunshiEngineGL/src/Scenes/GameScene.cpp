@@ -788,6 +788,14 @@ void GameScene::setSensibilidadCamara(float sensibilidad) noexcept {
     if (sensibilidad > 0.0f) sensibilidadCamara = sensibilidad;
 }
 
+bool GameScene::getVentanaCamarasAbierta() const noexcept {
+    return ventanaCamarasAbierta;
+}
+
+void GameScene::setVentanaCamarasAbierta(bool abierta) noexcept {
+    ventanaCamarasAbierta = abierta;
+}
+
 bool GameScene::isEditorActivo() const {
     return menuActivo ||
            (selecteableGUI && selecteableGUI->getReturnableEntity() != nullptr);

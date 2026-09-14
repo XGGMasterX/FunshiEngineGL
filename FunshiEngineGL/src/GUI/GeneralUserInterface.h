@@ -22,9 +22,9 @@ public:
 	void setNameGui(string nameGUI);
 	void setStateGui(bool stateGUI);
 
-	string getNameGui();
-	bool getStateGui();
-	ImGuiWindowFlags getFlagGui();
+	string getNameGui() const;
+	bool getStateGui() const;
+	ImGuiWindowFlags getFlagGui() const;
 
 	virtual void initGUI();
 

@@ -30,3 +30,23 @@ void MenuGUI::PedirCierre() noexcept {
 float MenuGUI::getSensibilidadCamara() const noexcept {
     return model.getSensibilidadCamara();
 }
+
+void MenuGUI::setSensibilidadCamara(float sensibilidad) noexcept {
+    model.setSensibilidadCamara(sensibilidad);
+}
+
+const std::string& MenuGUI::getNombreProyecto() const noexcept {
+    return model.getNombreProyecto();
+}
+
+void MenuGUI::setNombreProyecto(const std::string& nombre) noexcept {
+    model.setNombreProyecto(nombre);
+}
+
+const std::string& MenuGUI::getIdioma() const noexcept {
+    return model.getIdioma();
+}
+
+void MenuGUI::setIdioma(const std::string& valor) noexcept {
+    model.setIdioma(valor);
+}

@@ -145,6 +145,10 @@ file(GLOB IMGUZIMO_SRC ${CMAKE_SOURCE_DIR}/ImGuizmo/*.cpp)
 target_sources(${PROJECT_NAME} PRIVATE ${IMGUZIMO_SRC})
 target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/ImGuizmo)
 
+# nlohmann/json (vendoriado en External/nlohmann) para la configuracion del
+# editor (EditorConfig). Mismamente el nombre .hpp cuelga de External/.
+target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/External)
+
 # Assimp
 option(USE_ASSIMP "Enable Assimp model loading" ON)
 if(USE_ASSIMP)
@@ -186,6 +190,20 @@ set_target_properties(filemanager-tests PROPERTIES
     CXX_EXTENSIONS OFF
 )
 add_test(NAME filemanager-tests COMMAND filemanager-tests)
+
+# EditorConfig (JSON tolerante) tambien se prueba headless y en las tres
+# plataformas: verifica round-trip y la carga ante ausencia/corrupcion.
+add_executable(configuracion-tests
+    ${SRC_DIR}/Configuracion/EditorConfig.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../tests/EditorConfigTests.cpp
+)
+target_include_directories(configuracion-tests PRIVATE ${CMAKE_SOURCE_DIR}/External)
+set_target_properties(configuracion-tests PROPERTIES
+    CXX_STANDARD 17
+    CXX_STANDARD_REQUIRED ON
+    CXX_EXTENSIONS OFF
+)
+add_test(NAME configuracion-tests COMMAND configuracion-tests)
 
 if(WIN32)
     # dbghelp: CapturaBackTrace/SymFromAddr/SymInitialize (RuntimeException).
