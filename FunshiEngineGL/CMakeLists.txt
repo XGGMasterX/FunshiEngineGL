@@ -13,8 +13,14 @@ set(SRC_DIR ${CMAKE_SOURCE_DIR}/src)
 file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS ${SRC_DIR}/*.cpp ${SRC_DIR}/*.c)
 file(GLOB_RECURSE HEADERS CONFIGURE_DEPENDS ${SRC_DIR}/*.h ${SRC_DIR}/*.hpp)
 
-# Ejecutable principal
-add_executable(${PROJECT_NAME} ${SOURCES} ${HEADERS})
+# El engine es opcional: CI puede compilar SOLO las pruebas headless del
+# subsistema FileManager (sin la pila grafica) en cualquier plataforma, con
+# BUILD_ENGINE=OFF. Por defecto se construye igual que siempre.
+option(BUILD_ENGINE "Build engine executable" ON)
+
+if(BUILD_ENGINE)
+    # Ejecutable principal
+    add_executable(${PROJECT_NAME} ${SOURCES} ${HEADERS})
 
 target_compile_definitions(${PROJECT_NAME} PRIVATE GLM_ENABLE_EXPERIMENTAL)
 
@@ -148,3 +154,27 @@ endif()
 # GLM
 set(GLM_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/External/glm")
 target_include_directories(${PROJECT_NAME} PRIVATE ${GLM_INCLUDE_DIR})
+
+endif() # BUILD_ENGINE
+
+# --- Pruebas headless del subsistema FileManager (sin pila gráfica) ---------
+# Compilan en cualquier plataforma (solo std C++17 + los headers de ImGui para
+# TreeGUI.h) y ejercitan GestorDeArchivos/FileManager/FileSystemWatcher contra
+# un proyecto temporal, sin ventanas. Registradas en ctest.
+enable_testing()
+add_executable(filemanager-tests
+    ${SRC_DIR}/GestorDeArchivos/GestorDeArchivos.cpp
+    ${SRC_DIR}/GestorDeArchivos/File.cpp
+    ${SRC_DIR}/GestorDeArchivos/Carpeta.cpp
+    ${SRC_DIR}/FileManager/FileManager.cpp
+    ${SRC_DIR}/FileManager/FileSystemWatcher.cpp
+    ${SRC_DIR}/ExcepcionesCPP/RuntimeException.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../tests/FileManagerTests.cpp
+)
+target_include_directories(filemanager-tests PRIVATE ${SRC_DIR}/ImGui)
+set_target_properties(filemanager-tests PROPERTIES
+    CXX_STANDARD 17
+    CXX_STANDARD_REQUIRED ON
+    CXX_EXTENSIONS OFF
+)
+add_test(NAME filemanager-tests COMMAND filemanager-tests)
