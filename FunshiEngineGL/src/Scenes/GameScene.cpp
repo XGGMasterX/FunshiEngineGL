@@ -763,7 +763,29 @@ bool GameScene::isGizmoCapturingInput() const {
 }
 
 void GameScene::toggleEditorInterfaces() {
-    menuActivo = !menuActivo;
+    // E siempre apaga TODO de un toque (todas las pestanas, el gizmo y el
+    // bloqueo de la camara) cuando hay algo activo; si no hay nada activo,
+    // enciende el modo editor. La logica antigua (menuActivo = !menuActivo)
+    // no limpiaba la seleccion: con un objeto seleccionado, isEditorActivo()
+    // segui a true tras E y la camara parecia no desbloquearse nunca.
+    const bool hayAlgoActivo =
+        menuActivo ||
+        (selecteableGUI &&
+         selecteableGUI->getReturnableEntity() != nullptr);
+    if (hayAlgoActivo) {
+        menuActivo = false;
+        clearSelection();
+    } else {
+        menuActivo = true;
+    }
+}
+
+float GameScene::getSensibilidadCamara() const noexcept {
+    return sensibilidadCamara;
+}
+
+void GameScene::setSensibilidadCamara(float sensibilidad) noexcept {
+    if (sensibilidad > 0.0f) sensibilidadCamara = sensibilidad;
 }
 
 bool GameScene::isEditorActivo() const {

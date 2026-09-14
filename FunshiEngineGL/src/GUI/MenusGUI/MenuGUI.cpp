@@ -26,3 +26,7 @@ void MenuGUI::Renderizar() { view.printGUI(); }
 void MenuGUI::PedirCierre() noexcept {
     presenter.PedirCierre();
 }
+
+float MenuGUI::getSensibilidadCamara() const noexcept {
+    return model.getSensibilidadCamara();
+}

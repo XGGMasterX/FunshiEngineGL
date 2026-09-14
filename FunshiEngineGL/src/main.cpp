@@ -177,8 +177,12 @@ public:
         bool gizmoCapturing = scene && scene->isGizmoCapturingInput();
         bool editorActivo = scene && scene->isEditorActivo();
         if (!editorActivo && !io.WantCaptureMouse && !gizmoCapturing) {
-            if (CameraComponent* camara = scene ? scene->getActiveCamera() : nullptr)
-                camara->updateYaw(dx, dy);
+            if (CameraComponent* camara = scene ? scene->getActiveCamera() : nullptr) {
+                // Sensibilidad global configurada en Opciones (menuGUI).
+                const float sensibilidad =
+                    scene ? scene->getSensibilidadCamara() : 1.0f;
+                camara->updateYaw(dx * sensibilidad, dy * sensibilidad);
+            }
         }
 
     }
@@ -295,6 +299,11 @@ int main(void)
                 mainMenu->SetMenuActivo(menuDebeEstarAbierto);
                 menuReflejadoEnFachada = menuDebeEstarAbierto;
             }
+
+            // La sensibilidad del mouse look se configura en Opciones (menu) y
+            // se propaga a la escena; el menu esta pausado mientras es visible,
+            // asi que la lectura por frame no tiene costo apreciable.
+            scene->setSensibilidadCamara(mainMenu->getSensibilidadCamara());
 
             if (mainMenu->ConsultarMenu()) {
                 mainMenu->Renderizar();             // la vista dibuja la vista activa del modelo

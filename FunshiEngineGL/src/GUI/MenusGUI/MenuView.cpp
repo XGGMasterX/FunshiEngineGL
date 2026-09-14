@@ -134,6 +134,17 @@ void MenuView::renderizarOpciones() {
     }
 
     cursorFila(2);
+    ImGui::Text("Sensibilidad de camara");
+    ImGui::SameLine();
+
+    // Slider del multiplicador del mouse look (1.0 = 1:1, valor historico).
+    float sensibilidad = model->getSensibilidadCamara();
+    ImGui::SetNextItemWidth(kBotonAncho);
+    if (ImGui::SliderFloat("##sensibilidad", &sensibilidad, 0.1f, 5.0f, "%.2f")) {
+        model->setSensibilidadCamara(sensibilidad);
+    }
+
+    cursorFila(3);
     if (ImGui::Button("Volver", ImVec2(kBotonAncho, kBotonAlto))) {
         model->volver();
     }
