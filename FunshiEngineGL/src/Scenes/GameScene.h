@@ -105,6 +105,10 @@ public:
     // Sensibilidad del mouse look (la setea main desde MenuGUI/Opciones).
     float getSensibilidadCamara() const noexcept;
     void setSensibilidadCamara(float sensibilidad) noexcept;
+
+    // Estado de la ventana "Camaras" (persistido por EditorConfig).
+    bool getVentanaCamarasAbierta() const noexcept;
+    void setVentanaCamarasAbierta(bool abierta) noexcept;
 };
 
 #endif
