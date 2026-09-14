@@ -1,5 +1,6 @@
 #ifndef TREEFILESINTERFACE_H
 #define TREEFILESINTERFACE_H
+
 #include <string>
 #include "../GeneralUserInterface.h"
 #include "../../Herramientas/TreeGUI/TreeGUI.h"
@@ -10,9 +11,6 @@ class Carpeta;
 class GestorDeArchivos;
 class IconosGUI;
 
-// Explorador de archivos ("BrowseFile"). El recorrido del arbol usa el widget
-// generico TreeIG::drawTree (compartido con la jerarquia de la escena); aqui
-// solo vive la logica de dominio: seleccion de carpeta y su menu contextual.
 class TreeFilesInterface : public GeneralUserInterface {
 protected:
     bool actualizar = false;
@@ -23,18 +21,25 @@ protected:
     Carpeta* lastSelectedFolder = nullptr;
     IconosGUI* iconosGUI = nullptr;
     TreeIG::OpenState openNodes;
-    // Borrado diferido: se aplica tras el recorrido para no invalidar
-    // iteradores (mismo patron que en la jerarquia de escena).
     Carpeta* carpetaAEliminar = nullptr;
+
+    // --- NUEVO: Variable de navegación diferida. Es una RUTA (no un puntero)
+    // para que sobreviva a un refresco del árbol sin quedar colgando (B6). ---
+    std::string pendingFolderPath;
 
 public:
     TreeFilesInterface(bool stateGUI, const std::string& pathProyect);
     ~TreeFilesInterface();
-
     TreeFilesInterface(const TreeFilesInterface&) = delete;
     TreeFilesInterface& operator=(const TreeFilesInterface&) = delete;
 
     void setIconosGUI(IconosGUI* iconosG);
+    // Pide que el árbol se rescancee; lo usa el panel de contenido tras
+    // crear carpetas en disco (B2).
+    void solicitarActualizacion();
+
+    // --- NUEVO: Solo guarda la ruta de la carpeta a abrir, no aplica nada ---
+    void requestOpenFolder(Carpeta* parent, const std::string& childName);
 
     virtual void initGUI() override;
     virtual void contentGUI() override;
@@ -45,8 +50,8 @@ public:
     void setFolderContent(Carpeta* folder);
 
 private:
-    // Reconstruye el arbol desde disco y descarta seleccion/colapso previos.
     void refrescarArbol();
     TreeIG::RowResult drawFolderRow(File* element, bool wasOpen);
 };
+
 #endif
