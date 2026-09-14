@@ -726,6 +726,12 @@ void GameScene::gameScene() {
     GizmoTarget target;
     if (editorController && editorController->hasGizmoTarget()) {
         target = editorController->getGizmoTarget();
+        // Refrescar el contexto global del duenio cada frame: si el objeto o
+        // sus ancestros se movieron, el parentGlobal almacenado quedaria
+        // desactualizado y el offset local se recompondria contra una base
+        // vieja (el puntero en si es estable: globalTransformCache del owner).
+        if (target.owner)
+            target.parentGlobal = target.owner->getGlobalTransform();
     } else if (selected) {
         target.local = selected->getComponent<Transform>();
         Entity* parentEnt = selected->getParentEntity();

@@ -594,11 +594,10 @@ Transform* GameObject::getGlobalTransform() {
     glm::mat4 mLocal = glm::make_mat4(localMat);
     glm::mat4 mGlobal = mParent * mLocal;
 
-    globalTransformCache = std::make_unique<Transform>();
     float globalMat[16];
     const float* ptr = glm::value_ptr(mGlobal);
     for (int i = 0; i < 16; ++i) globalMat[i] = ptr[i];
-    decomposeMatrixToTransform(globalMat, globalTransformCache.get());
+    decomposeMatrixToTransform(globalMat, &globalTransformCache);
 
-    return globalTransformCache.get();
+    return &globalTransformCache;
 }
