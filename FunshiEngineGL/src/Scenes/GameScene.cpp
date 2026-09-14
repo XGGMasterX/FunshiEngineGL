@@ -240,15 +240,17 @@ void GameScene::dibujarObjectConOjo(GameObject* object, GameObject* camaraOjo) {
     if (object->getComponent<CameraComponent>() && object != camaraOjo)
         dibujarMarcadorCamara(object);
 
-    // Wireframe del collider en la escena 3D: SOLO cuando se esta editando el
-    // collider con el gizmo (GizmoTarget activo sobre ese objeto). Si se lo
-    // dibujara siempre sobre el objeto seleccionado, se superpondria al gizmo
-    // del transform y pareceria 'un segundo gizmo' apilado.
-    if (isEditorActivo() && object != camaraOjo && editorController &&
-        editorController->hasGizmoTarget()) {
-        const GizmoTarget& t = editorController->getGizmoTarget();
-        if (t.owner == object && object->getComponent<Collider>())
-            object->getComponent<Collider>()->dibujarCollider();
+    // Wireframe del collider en la escena 3D: SOLO mientras el gizmo del
+    // offset del collider esta habilitado para este objeto (checkbox "Gizmo
+    // activo" del transform del collider). Si se lo dibujara siempre sobre el
+    // objeto seleccionado, se superpondria al gizmo del transform y pareceria
+    // 'un segundo gizmo' apilado.
+    if (isEditorActivo() && object != camaraOjo && editorController) {
+        Collider* collider = object->getComponent<Collider>();
+        Transform* colliderTransform = collider ? collider->getTransform() : nullptr;
+        if (collider && colliderTransform && colliderTransform->gizmoHabilitado &&
+            collider->getOwner() == editorController->getSelectedObject())
+            collider->dibujarCollider();
     }
 }
 
@@ -758,8 +760,11 @@ void GameScene::gameScene() {
 
     // Gizmo generico: se edita el Transform que diga el GizmoTarget activo.
     // Default: el Transform del objeto seleccionado con el global de su padre
-    // como contexto. Si SettingsCollider* armo un target (offset del collider),
-    // se edita ESE transform local y el owner es el objeto con el RigidBody.
+    // como contexto. Un GizmoTarget externo (SettingsCollider*) tiene
+    // prioridad. Si no hay target externo, el transfor del collider con su
+    // gizmo habilitado toma prioridad sobre el del objeto: asi el checkbox
+    // "Gizmo activo" del transform del collider (via SettingsTransform)
+    // activa/dormita el gizmo del offset del collider cuando quieras.
     GizmoTarget target;
     if (editorController && editorController->hasGizmoTarget()) {
         target = editorController->getGizmoTarget();
@@ -770,10 +775,26 @@ void GameScene::gameScene() {
         if (target.owner)
             target.parentGlobal = target.owner->getGlobalTransform();
     } else if (selected) {
-        target.local = selected->getComponent<Transform>();
-        Entity* parentEnt = selected->getParentEntity();
-        target.parentGlobal = parentEnt ? parentEnt->getGlobalTransform() : nullptr;
-        target.owner = selected;
+        // Collider offset primero: si su transform local tiene el gizmo
+        // encendido se edita el offset; si no, el transform del objeto.
+        if (Collider* collider = selected->getComponent<Collider>()) {
+            Transform* colliderTransform = collider->getTransform();
+            if (colliderTransform && colliderTransform->gizmoHabilitado) {
+                target.local = colliderTransform;
+                target.parentGlobal = selected->getGlobalTransform();
+                target.owner = selected;
+            }
+        }
+        if (!target.local) {
+            Transform* objectTransform = selected->getComponent<Transform>();
+            if (objectTransform && objectTransform->gizmoHabilitado) {
+                target.local = objectTransform;
+                Entity* parentEnt = selected->getParentEntity();
+                target.parentGlobal =
+                    parentEnt ? parentEnt->getGlobalTransform() : nullptr;
+                target.owner = selected;
+            }
+        }
     }
 
     if (target.local && gizmoOperation != 0) {
@@ -868,7 +889,7 @@ void GameScene::gameScene() {
             // Congelar hijos SOLO al editar el transform de un objeto; el
             // offset local de un componente (collider) no arrastra hijos.
             const bool esObjeto =
-                !(editorController && editorController->hasGizmoTarget());
+                target.owner && target.owner->getComponent<Transform>() == target.local;
             bool freeze = false;
             if (esObjeto && target.local) freeze = target.local->childsFreeze;
 

@@ -93,6 +93,10 @@ void SettingsTransform::showDataComponent() {
 
 	ImGui::Separator();
 	ImGui::Checkbox("Childs Freeze", &componentTransform->childsFreeze);
+	// Gizmo activo/dormido de ESTE transform: desmarcarlo apaga el gizmo del
+	// objeto (o del offset del collider cuando es el transform del collider)
+	// sin tener que deseleccionar.
+	ImGui::Checkbox("Gizmo activo", &componentTransform->gizmoHabilitado);
 }
 
 Component* SettingsTransform::getComponent() {
