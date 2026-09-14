@@ -97,7 +97,7 @@ TreeIG::RowResult TreeFilesInterface::drawFolderRow(File* element, bool wasOpen)
 
     bool nodeOpen;
     bool toggled;
-    if (renombrandoInline && carpetaRenombrando == folderRoot) {
+    if (renombrandoInline && carpetaRenombrando == rutaDe(folderRoot)) {
         // R6: fila en modo rename -> InputText inline en lugar del nombre.
         nodeOpen = ImGui::TreeNodeEx("##renombrar_carpeta", nodeFlags, " ");
         toggled = ImGui::IsItemToggledOpen();
@@ -136,7 +136,7 @@ TreeIG::RowResult TreeFilesInterface::drawFolderRow(File* element, bool wasOpen)
                     }
                 }
             }
-            carpetaRenombrando = nullptr;
+            carpetaRenombrando.clear();
             renombrandoInline = false;
         }
     } else {
@@ -166,7 +166,11 @@ TreeIG::RowResult TreeFilesInterface::drawFolderRow(File* element, bool wasOpen)
             ImGui::Text("Carpeta: %s", folderRoot->getPathName().c_str());
             ImGui::Separator();
             if (ImGui::MenuItem("Renombrar Carpeta")) {
-                carpetaRenombrando = folderRoot;
+                // R6: se guarda la RUTA (no el puntero: un rescaneo
+                // reconstruye el arbol y deja punteros colgando). Como el
+                // editor se dibuja en la fila que coincide por ruta, su
+                // "destino" se re-resuelve cada frame contra el arbol vigente.
+                carpetaRenombrando = rutaDe(folderRoot);
                 renombrandoInline = true;
                 std::memset(bufferRenombrar, 0, sizeof(bufferRenombrar));
                 std::strncpy(bufferRenombrar,
@@ -183,7 +187,7 @@ TreeIG::RowResult TreeFilesInterface::drawFolderRow(File* element, bool wasOpen)
                 }
             }
             if (ImGui::MenuItem("Eliminar Carpeta")) {
-                carpetaAConfirmar = folderRoot;
+                carpetaAConfirmar = rutaDe(folderRoot);
                 confirmarEliminar = true;
             }
             ImGui::EndPopup();
@@ -195,23 +199,34 @@ TreeIG::RowResult TreeFilesInterface::drawFolderRow(File* element, bool wasOpen)
 void TreeFilesInterface::initGUI() {
     ImGui::Begin(getNameGui().c_str(), &stateGUI, getFlagGui());
 
-    if (confirmarEliminar && carpetaAConfirmar) {
+    if (confirmarEliminar && !carpetaAConfirmar.empty()) {
         ImGui::OpenPopup("ConfirmarEliminar");
         confirmarEliminar = false;
     }
     if (ImGui::BeginPopupModal("ConfirmarEliminar", nullptr,
                                ImGuiWindowFlags_AlwaysAutoResize)) {
-        ImGui::Text("Eliminar \"%s\" y todo su contenido?",
-                    carpetaAConfirmar ? carpetaAConfirmar->getPathName().c_str() : "");
-        if (ImGui::Button("Eliminar", ImVec2(120, 0))) {
-            carpetaAEliminar = carpetaAConfirmar;
-            carpetaAConfirmar = nullptr;
+        // Ruta -> puntero SOLO contra el arbol del frame. Si la carpeta ya no
+        // existe (rescaneo con el modal abierto), el modal se cierra en vez de
+        // leer memoria liberada o eliminar una carpeta distinta por reuso del
+        // heap.
+        Carpeta* carpetaAConfirmarResuelta =
+            fileManager->buscarCarpetaPorRuta(carpetaAConfirmar);
+        if (!carpetaAConfirmarResuelta) {
+            carpetaAConfirmar.clear();
             ImGui::CloseCurrentPopup();
-        }
-        ImGui::SameLine();
-        if (ImGui::Button("Cancelar", ImVec2(120, 0))) {
-            carpetaAConfirmar = nullptr;
-            ImGui::CloseCurrentPopup();
+        } else {
+            ImGui::Text("Eliminar \"%s\" y todo su contenido?",
+                        carpetaAConfirmarResuelta->getPathName().c_str());
+            if (ImGui::Button("Eliminar", ImVec2(120, 0))) {
+                carpetaAEliminar = carpetaAConfirmar;
+                carpetaAConfirmar.clear();
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Cancelar", ImVec2(120, 0))) {
+                carpetaAConfirmar.clear();
+                ImGui::CloseCurrentPopup();
+            }
         }
         ImGui::EndPopup();
     }
@@ -223,7 +238,7 @@ void TreeFilesInterface::refrescarArbol() {
     // R4: openPaths se indexa por RUTA y sobrevive a la reconstruccion del
     // arbol; ya no se limpia aqui (las ramas borradas quedan como entradas
     // hueso que nunca se dibujan, inofensivas).
-    carpetaAEliminar = nullptr;
+    carpetaAEliminar.clear();
     ultimoContadorVisto = fileManager->getSelection()->contadorCambios;
     // navegacionPendiente NO se limpia: es una ruta y debe aplicarse (FASE 2)
     // contra el arbol recien reconstruido; limpiarla aqui perderia el doble
@@ -297,18 +312,23 @@ void TreeFilesInterface::contentGUI() {
             });
     }
 
-    // Borrado diferido (fuera del recorrido del arbol, B4).
-    if (carpetaAEliminar) {
-        Carpeta* doomed = carpetaAEliminar;
-        carpetaAEliminar = nullptr;
-        if (sel->carpetaActual == doomed) {
-            sel->carpetaActual = nullptr;
-            sel->rutaVisible.clear();
-        }
-        Position<File*>* posicion = arbolDeArchivos->whatIsPositionOf(doomed);
-        if (posicion && posicion != arbolDeArchivos->rootOfTree() &&
-            fileManager->eliminarCarpeta(rutaDe(doomed))) {
-            limpiarYLiberarSubarbol(arbolDeArchivos, posicion, openPaths);
+    // Borrado diferido (fuera del recorrido del arbol, B4). La ruta se resuelve
+    // contra el arbol VIGENTE del frame: si un rescaneo reconstruyo el arbol
+    // entre la confirmacion y aca, el puntero guardado habria quedado colgando.
+    if (!carpetaAEliminar.empty()) {
+        const std::string rutaAeliminar = carpetaAEliminar;
+        carpetaAEliminar.clear();
+        Carpeta* doomed = fileManager->buscarCarpetaPorRuta(rutaAeliminar);
+        if (doomed) {
+            if (sel->carpetaActual == doomed) {
+                sel->carpetaActual = nullptr;
+                sel->rutaVisible.clear();
+            }
+            Position<File*>* posicion = arbolDeArchivos->whatIsPositionOf(doomed);
+            if (posicion && posicion != arbolDeArchivos->rootOfTree() &&
+                fileManager->eliminarCarpeta(rutaAeliminar)) {
+                limpiarYLiberarSubarbol(arbolDeArchivos, posicion, openPaths);
+            }
         }
     }
 }

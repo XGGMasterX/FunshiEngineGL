@@ -27,15 +27,25 @@ protected:
     // (los punteros a File* quedan colgando tras un rescaneo). La clave es la
     // ruta completa de la carpeta, igual que FileSelection::rutaVisible.
     std::set<std::string> openPaths;
-    // Eliminacion recursiva diferida: el menu contextual solo la encola y el
-    // borrado del nodo se aplica al final del frame (fuera del recorrido), para
-    // no invalidar iteradores (B4).
-    Carpeta* carpetaAEliminar = nullptr;
-    // Confirmacion modal de "Eliminar Carpeta" (R7).
+    // Eliminacion recursiva diferida: el menu contextual solo encola la RUTA
+    // del nodo a borrar y esta se resuelve contra el arbol vigente al final
+    // del frame (fuera del recorrido) para no invalidar iteradores (B4). Por
+    // ruta, igual que openPaths: los punteros a File* quedan colgando cuando
+    // un rescaneo reconstruye el arbol (mismo invariante que ya siguen
+    // rutaVisible y navegacionPendiente).
+    std::string carpetaAEliminar;
+    // Confirmacion modal de "Eliminar Carpeta" (R7): ruta de la carpeta a
+    // confirmar, re-resuelta a puntero SOLO dentro del modal contra el arbol
+    // del frame. Un puntero guardado desde el menu quedaría colgando si un
+    // rescaneo entra con el modal abierto.
     bool confirmarEliminar = false;
-    Carpeta* carpetaAConfirmar = nullptr;
-    // Renombrado inline de una carpeta en el arbol (R6).
-    Carpeta* carpetaRenombrando = nullptr;
+    std::string carpetaAConfirmar;
+    // Renombrado inline de una carpeta en el arbol (R6), por RUTA igualmente.
+    // El editor se dibuja en la fila cuya ruta coincide; si la carpeta deja de
+    // existir tras un rescaneo el editor simplemente deja de dibujarse, sin
+    // referenciar memoria liberada ni confundir filas (el heap reusa
+    // la direccion del nodo viejo).
+    std::string carpetaRenombrando;
     bool renombrandoInline = false;
     char bufferRenombrar[256] = "";
     // Ultimo contador de cambios que este panel ya rescaneco.
