@@ -6,7 +6,7 @@ class CubeCollider : public Collider {
 public:
     CubeCollider(float radio, Transform* transformOfDadObject);
 
-    btCollisionShape* createCollisionShape() override;
+    std::unique_ptr<btCollisionShape> createCollisionShape() override;
     void dibujarCollider() override;
 };
 #endif

@@ -1,26 +1,35 @@
 #ifndef COLLIDER_H
 #define COLLIDER_H
+#include <memory>
 #include "../Component.h"
 #include "../Transform.h"
 
 class btCollisionShape;
 
+// Collider: componente geometrico de colision.
+//
+// RAII: es duenio de su shape de Bullet (createCollisionShape la construye
+// una sola vez, lazy) y de su transform local (myTransform). getGlobalTransform
+// devuelve el Transform global POR VALOR: sin new/delete manuales.
 class Collider : public Component {
 protected:
 	float radio;
 	Transform* transformOfDadObject;
-	Transform* myTransform;
+	std::unique_ptr<Transform> myTransform;
+	std::unique_ptr<btCollisionShape> collisionShape;
 
 	void serializeComponent(std::ofstream* fileNamePathContentObject) override;
 	void deserializeComponent(std::ifstream* fileNamePathContentObject) override;
 
+	// Construye la shape concreta del collider (se llama una sola vez).
+	virtual std::unique_ptr<btCollisionShape> createCollisionShape() = 0;
+
 public:
 	Collider(float radio, Transform* transformOfDadObject);
+	~Collider() override;
 
 	void saveComponent(std::ofstream* fileNamePathContentObject) override;
 	void loadComponent(std::ifstream* fileNamePathContentObject) override;
-
-	virtual btCollisionShape* createCollisionShape() = 0;
 
 	// radio debe ser positivo
 	virtual void setRadio(float radio);
@@ -28,9 +37,14 @@ public:
 
 	Transform* getDadTransform() { return transformOfDadObject; }
 
-	Transform* getTransform() { return myTransform; }
+	Transform* getTransform() { return myTransform.get(); }
 
-	Transform* getGlobalTransform();
+	// Transform global (hereda la posicion del padre) POR VALOR.
+	Transform getGlobalTransform() const;
+
+	// Acceso no-duenio a la shape: la construye lazy y queda viva
+	// mientras exista el collider.
+	btCollisionShape* getCollisionShape();
 
 	virtual void dibujarCollider() = 0;
 

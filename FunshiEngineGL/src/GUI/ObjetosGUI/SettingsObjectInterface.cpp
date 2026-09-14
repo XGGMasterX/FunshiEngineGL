@@ -194,7 +194,7 @@ void SettingsObjectInterface::contentGUI() {
 				RigidBody* rb =
 				    new RigidBody(object->getComponent<Collider>(), 1.0f);
 				object->addComponent(rb);
-				phisics->getWorld()->addRigidBody(rb->getRigidBody());
+				phisics->addRigidBody(rb);
 				listaDESettingsComponent->addLast(new SettingsRigidBody(object));
 			}
 		}
@@ -261,8 +261,7 @@ void SettingsObjectInterface::contentGUI() {
 					RigidBody* rb = object->getComponent<RigidBody>();
 					// SI ESTA RELACIONADO QUITAR SINO SEGUIR
 					if ((rb != nullptr && rb == comp->getComponent())) {
-						phisics->getWorld()->removeRigidBody(
-						    rb->getRigidBody());
+						phisics->removeRigidBody(rb);
 					}
 					delete comp;
 					ImGui::EndPopup();

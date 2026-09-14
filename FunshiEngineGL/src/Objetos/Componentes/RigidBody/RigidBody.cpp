@@ -12,28 +12,27 @@ RigidBody::RigidBody(Collider* collider, float mass)
     createRigidBody();
 }
 
-RigidBody::~RigidBody() {
-    if (rigidBody) {
-        delete rigidBody->getMotionState();
-        delete rigidBody;
-    }
-}
+RigidBody::~RigidBody() = default;
 
 void RigidBody::createRigidBody() {
+    // Reentrante: descarta el cuerpo/anterior antes de recrear
+    rigidBody.reset();
+    motionState.reset();
+
+    if (!collider) return;
+
     // 1. Obtener la posicion GLOBAL del collider (no la local)
-    Transform* globalTransform = collider->getGlobalTransform();
-    float* tr = globalTransform->getTranslatef();
+    Transform globalTransform = collider->getGlobalTransform();
+    float* tr = globalTransform.getTranslatef();
     pos[0] = tr[0];
     pos[1] = tr[1];
     pos[2] = tr[2];
 
-    // 2. Copiar la rotacion ANTES de liberar el transform global
-    //    (getRotatef devuelve punteros a arrays internos del objeto:
-    //    [angulo, ejeX, ejeY, ejeZ]).
-    float* rotAxisAngle = globalTransform->getRotatef();
+    // 2. Copiar la rotacion: getRotatef devuelve punteros a arrays internos
+    //    del objeto: [angulo, ejeX, ejeY, ejeZ].
+    float* rotAxisAngle = globalTransform.getRotatef();
     const float anguloGrados = rotAxisAngle[0];
     btVector3 axis(rotAxisAngle[1], rotAxisAngle[2], rotAxisAngle[3]);
-    delete globalTransform;
 
     // Convertir de angulo+eje a cuaternion
     if (axis.length2() == 0) {
@@ -48,8 +47,9 @@ void RigidBody::createRigidBody() {
     rot[2] = q.z();
     rot[3] = q.w();
 
-    // Crear shape desde el collider
-    btCollisionShape* shape = collider->createCollisionShape();
+    // Shape prestada del collider (el collider es duenio y la mantiene viva)
+    btCollisionShape* shape = collider->getCollisionShape();
+    if (!shape) return;
 
     // Configurar transform inicial del rigid body
     btTransform startTransform;
@@ -62,14 +62,15 @@ void RigidBody::createRigidBody() {
     if (mass != 0.f) shape->calculateLocalInertia(mass, localInertia);
 
     // Crear motion state y rigid body
-    btDefaultMotionState* motionState =
-        new btDefaultMotionState(startTransform);
-    btRigidBody::btRigidBodyConstructionInfo rbInfo(mass, motionState, shape,
-                                                    localInertia);
-    rigidBody = new btRigidBody(rbInfo);
+    motionState = std::make_unique<btDefaultMotionState>(startTransform);
+    btRigidBody::btRigidBodyConstructionInfo rbInfo(mass, motionState.get(),
+                                                    shape, localInertia);
+    rigidBody = std::make_unique<btRigidBody>(rbInfo);
 }
 
 void RigidBody::syncPhysicsToGameObject() {
+    if (!rigidBody || !collider) return;
+
     btTransform trans;
     rigidBody->getMotionState()->getWorldTransform(trans);
     btVector3 origin = trans.getOrigin(); // Posicion global deseada (fisica)
@@ -116,7 +117,7 @@ void RigidBody::saveComponent(std::ofstream* fileNamePathContentObject) {
 void RigidBody::loadComponent(std::ifstream* fileNamePathContentObject) {
     deserializeComponent(fileNamePathContentObject);
 
-    // Luego crea el rigidBody con estos datos
+    // Luego crea el rigidBody con estos datos (reentrante)
     createRigidBody();
 }
 
