@@ -2647,6 +2647,11 @@ namespace IMGUIZMO_NAMESPACE
 
    bool Manipulate(const float* view, const float* projection, OPERATION operation, MODE mode, float* matrix, float* deltaMatrix, const float* snap, const float* localBounds, const float* boundsSnap)
    {
+      // Se setea ANTES de cualquier early-return (p.ej. gizmo detras de la
+      // camara): Isover()/IsUsing() dependen de mOperation. Si quedara el
+      // OPERATION(-1) por defecto, leerla como enum es UB (UBSan: "load of
+      // value 4294967295, not a valid value for type OPERATION").
+      gContext.mOperation = operation;
       gContext.mDrawList->PushClipRect (ImVec2 (gContext.mX, gContext.mY), ImVec2 (gContext.mX + gContext.mWidth, gContext.mY + gContext.mHeight), false);
 
       // Scale is always local or matrix will be skewed when applying world scale or oriented matrix
@@ -2692,7 +2697,6 @@ namespace IMGUIZMO_NAMESPACE
          DrawScaleGizmo(operation, type);
          DrawScaleUniveralGizmo(operation, type);
       }
-
       gContext.mDrawList->PopClipRect ();
       return manipulated;
    }
