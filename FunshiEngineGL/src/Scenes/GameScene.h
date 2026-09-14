@@ -81,6 +81,7 @@ public:
     void setGizmoOperation(int operation);
     int getGizmoOperation() const;
     bool isGizmoCapturingInput() const;
+    bool gizmoInUse() const;
     GameObject* pickObject(float mouseX, float mouseY);
 
     // Camara de la escena como Component: devuelve el primer objeto que tenga

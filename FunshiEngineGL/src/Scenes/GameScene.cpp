@@ -528,11 +528,14 @@ void GameScene::pintarVentanaCamaras() {
 
 void GameScene::update(float value) {
     deltaTime = value;
-    if (phisics) phisics->stepSimulation(value);
+    // Mientras se manipula el gizmo NO se avanza la simulacion: de lo
+    // contrario la gravedad/contactos eyectan el cuerpo y la sync de vuelta
+    // arrastra al objeto (efecto 'sale disparado'). Al soltar, la sim sigue.
+    if (phisics && !gizmoInUse()) phisics->stepSimulation(value);
 
     // Sincronizar la fisica de vuelta a los GameObjects del mundo
     // (GameObject::update escribe en los Transforms via RigidBody).
-    if (start) {
+    if (start && !gizmoInUse()) {
         auto* gameObjects = getGameObjectsScene();
         if (!gameObjects->isEmpty()) {
             Position<GameObject*>* pos = gameObjects->first();
@@ -737,20 +740,42 @@ void GameScene::gameScene() {
     }
 
     if (target.local && gizmoOperation != 0) {
-        // Matriz que maniula el gizmo: parentGlobal * local (o solo local si
-        // no hay contexto padre, p.ej. un objeto raiz).
+        // Matriz que maniula el gizmo: parentGlobal * local. Para translate y
+        // rotate ImGuizmo EXPLOTA con matrices escaladas (no-ortonormales):
+        // con el objeto o su padre escalado, el objeto sale disparado al usar
+        // el gizmo. Por eso se desescala antes de pasarla y se reinserta la
+        // escala al leer el resultado.
+        float scaleVec[3] = {1.0f, 1.0f, 1.0f};
+        const bool sinEscala = gizmoOperation != ImGuizmo::SCALE;
+
         float localArr[16];
         buildMatrixFromTransform(target.local, localArr);
-        float matrix[16];
+        glm::mat4 mFull = glm::make_mat4(localArr);
         if (target.parentGlobal) {
             float parentArr[16];
             buildMatrixFromTransform(target.parentGlobal, parentArr);
-            glm::mat4 mGlobal = glm::make_mat4(parentArr) * glm::make_mat4(localArr);
-            const float* ptr = glm::value_ptr(mGlobal);
-            for (int i = 0; i < 16; ++i) matrix[i] = ptr[i];
-        } else {
-            for (int i = 0; i < 16; ++i) matrix[i] = localArr[i];
+            mFull = glm::make_mat4(parentArr) * mFull;
         }
+
+        if (sinEscala) {
+            // Ortonormalizar zoom: guardar escala por columna y normalizar.
+            glm::vec4 c0 = mFull[0];
+            glm::vec4 c1 = mFull[1];
+            glm::vec4 c2 = mFull[2];
+            scaleVec[0] = glm::length(c0);
+            scaleVec[1] = glm::length(c1);
+            scaleVec[2] = glm::length(c2);
+            if (scaleVec[0] < 0.0001f) scaleVec[0] = 1.0f;
+            if (scaleVec[1] < 0.0001f) scaleVec[1] = 1.0f;
+            if (scaleVec[2] < 0.0001f) scaleVec[2] = 1.0f;
+            mFull[0] = c0 / scaleVec[0];
+            mFull[1] = c1 / scaleVec[1];
+            mFull[2] = c2 / scaleVec[2];
+        }
+
+        float matrix[16];
+        const float* ptr = glm::value_ptr(mFull);
+        for (int i = 0; i < 16; ++i) matrix[i] = ptr[i];
 
         static ImGuizmo::MODE mode = ImGuizmo::LOCAL;
         ImGuizmo::Manipulate(view, projection,
@@ -759,6 +784,28 @@ void GameScene::gameScene() {
                              nullptr, nullptr, nullptr);
         gizmoReady = true;
         if (ImGuizmo::IsUsing()) {
+            // Reinsertar la escala que quitamos: M = M' * diag(scale).
+            glm::mat4 mManip = glm::make_mat4(matrix);
+            if (sinEscala) {
+                glm::mat4 sMat = glm::scale(
+                    glm::mat4(1.0f), glm::vec3(scaleVec[0], scaleVec[1], scaleVec[2]));
+                mManip = mManip * sMat;
+            }
+
+            // Escribir de vuelta AL local: newLocal = inv(parentGlobal) * matrix
+            Transform* localTransform = target.local;
+            glm::mat4 newLocal = mManip;
+            if (target.parentGlobal) {
+                float parentGlobalArr[16];
+                buildMatrixFromTransform(target.parentGlobal, parentGlobalArr);
+                glm::mat4 invParentGlobal = glm::inverse(glm::make_mat4(parentGlobalArr));
+                newLocal = invParentGlobal * mManip;
+            }
+            float localMatArr[16];
+            const float* ptr2 = glm::value_ptr(newLocal);
+            for (int i = 0; i < 16; ++i) localMatArr[i] = ptr2[i];
+            decomposeMatrixToTransform(localMatArr, localTransform);
+
             // Congelar hijos SOLO al editar el transform de un objeto; el
             // offset local de un componente (collider) no arrastra hijos.
             const bool esObjeto =
@@ -775,21 +822,6 @@ void GameScene::gameScene() {
                         childSnapshots.push_back({child, glm::make_mat4(m)});
                     }
                 }
-            }
-
-            // Escribir de vuelta AL local: newLocal = inv(parentGlobal) * matrix
-            Transform* localTransform = target.local;
-            if (target.parentGlobal) {
-                float parentGlobalArr[16];
-                buildMatrixFromTransform(target.parentGlobal, parentGlobalArr);
-                glm::mat4 invParentGlobal = glm::inverse(glm::make_mat4(parentGlobalArr));
-                glm::mat4 newLocal = invParentGlobal * glm::make_mat4(matrix);
-                float localMatArr[16];
-                const float* ptr = glm::value_ptr(newLocal);
-                for (int i = 0; i < 16; ++i) localMatArr[i] = ptr[i];
-                decomposeMatrixToTransform(localMatArr, localTransform);
-            } else {
-                decomposeMatrixToTransform(matrix, localTransform);
             }
 
             if (freeze && !childSnapshots.empty() && target.owner) {
@@ -836,6 +868,10 @@ int GameScene::getGizmoOperation() const {
 
 bool GameScene::isGizmoCapturingInput() const {
     return gizmoReady && (ImGuizmo::IsOver() || ImGuizmo::IsUsing());
+}
+
+bool GameScene::gizmoInUse() const {
+    return gizmoReady && ImGuizmo::IsUsing();
 }
 
 void GameScene::toggleEditorInterfaces() {
