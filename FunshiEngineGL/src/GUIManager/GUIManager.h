@@ -2,7 +2,9 @@
 #define GUIMANAGER_H
 
 #include <iostream>
+#include <map>
 #include <memory>
+#include <string>
 #include <cstdlib>
 #include "../GUI/MenusGUI/MenuGUI.h"
 #include "../GUI/SceneGUI/SceneSelectedInterface.h"
@@ -58,5 +60,12 @@ public:
 	SceneSelectedInterface* getSelecteableGUI();
 	ContentFolderInterface* getContentFolderGUI();
 	DockSpaceInterface* getDockSpaceGUI();
+
+	// Persistencia del estado de las ventanas (EditorConfig): restaura el
+	// stateGUI de cada ventana persistente por su nombre y recoge el estado
+	// actual. La ventana Settings es dinamica (depende de la seleccion) y se
+	// deja fuera.
+	void restaurarEstadosVentanas(const std::map<std::string, bool>& estados);
+	std::map<std::string, bool> obtenerEstadosVentanas() const;
 };
 #endif

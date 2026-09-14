@@ -91,13 +91,15 @@ FunshiEngineGL/                          ← raíz del repo
         │   ├── File.h/.cpp
         │   ├── Carpeta.h/.cpp
         │   └── GestorDeArchivos.h/.cpp  ← exploración de directorios del sistema
+        ├── Configuracion/
+        │   └── EditorConfig.h/.cpp      ← persistencia JSON (nlohmann) de la configuración del editor (interfaz + menú)
         ├── Gizmo/
         │   ├── Camera.h/.cpp            ← cámara FPS: forward/back/left/right/up/down
         │   └── Gizmo.h                  ← placeholder (lógica en ImGuizmo)
         ├── GUI/
         │   ├── GeneralUserInterface.h/.cpp  ← interfaz base de paneles ImGui
         │   ├── FileManagerGUI/              ← explorador de archivos visual
-        │   ├── MenusGUI/                    ← menú principal e interfaces de opciones/proyecto
+        │   ├── MenusGUI/                    ← paquete MenuGUI (menú de inicio): MenuModel/MenuView/StartMenuPresenter/MenuGUI (MVC-MVP)
         │   ├── ObjetosGUI/                  ← inspector de objetos y componentes
         │   │   ├── SettingsObjectInterface.h       ← despachador: crea Settings* según el tipo de componente
         │   │   ├── SettingsComponent.h
@@ -179,7 +181,7 @@ main.cpp
   ├── ImGui init (glfw + opengl3 backend)
   ├── Camera
   ├── GUIManager
-  │   ├── MenuInterface
+  │   ├── menu (fachada MenuGUI)
   │   ├── SceneSelectedInterface
   │   ├── SceneMenuBarInterface
   │   ├── TreeFilesInterface
@@ -271,7 +273,10 @@ La clase `MiAPP` en `main.cpp` actúa como composition root y registra los callb
   Usan íconos desde `Imagenes/`.
 - `SceneMenuBarInterface` gestiona la barra de menú de escena (Play/Stop/Save/Load).
   Recibe un `bool*` (`start`) para comunicar el estado Play/Stop al `main`.
-- `MenuInterface` y sus sub-interfaces gestionan el menú principal (opciones y proyecto).
+- `MenuGUI` es la fachada del paquete `MenusGUI` (menú principal): `MenuModel`
+  (lógica pura) + `MenuView` (ImGui) + `StartMenuPresenter` (puente motor).
+  Ver `src/GUI/MenusGUI/README.md`. Reemplaza a las antiguas `MenuInterface`/
+  sub-interfaces de opciones y proyecto.
 
 ### Persistencia
 
@@ -283,6 +288,12 @@ La clase `MiAPP` en `main.cpp` actúa como composition root y registra los callb
 - `Binario` encapsula los streams binarios usados por las entidades.
 - `GameObject::saveEntity/loadEntity` coordina la serialización binaria propia
   (atributos globales, locales, componentes).
+- `EditorConfig` (JSON via nlohmann) persiste la configuración del editor:
+  menú (proyecto, idioma, sensibilidad de cámara) y ventanas (estado abierto/
+  cerrado de GUIManager), en `~/MotorGrafico/Configuracion.json` (Linux) /
+  `C:/MotorGraficoArchivos/Configuracion.json` (Windows). Tolerante a archivos
+  ausentes o corruptos: los defaults quedan en `EditorConfig.h` y el motor los la
+  aplica al guardar si falta un campo.
 - Limitación conocida: no hay versionado, validación de tamaño ni abstracción de formato.
 
 ### Scripts dinámicos
@@ -302,6 +313,7 @@ La clase `MiAPP` en `main.cpp` actúa como composition root y registra los callb
 | Bullet Physics | Física y colisiones (btDiscreteDynamicsWorld) | `find_package(Bullet)` |
 | Assimp | Importación de modelos 3D (obj, fbx, etc.) | `find_package(assimp)` |
 | GLM | Matrices, vectores, descomposición de transformaciones | Headers en `External/glm` |
+| nlohmann/json | Persistencia de configuración del editor (`EditorConfig`) | Header único vendoriado en `External/nlohmann/json.hpp` |
 | Dear ImGui | Interfaz del editor completa | Integrado en `src/ImGui/` |
 | ImGuizmo | Gizmos de transformación (translate/rotate/scale) | Integrado en `ImGuizmo/` |
 | ncurses | Dependencia auxiliar de Linux | `find_package(Curses)` |

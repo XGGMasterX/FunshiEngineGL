@@ -22,6 +22,7 @@ Motor y editor 3D en tiempo real escrito en C++17, con interfaz ImGui y renderiz
 - Iluminación básica OpenGL (`Ilumination`, `glLight*`).
 - Cámara FPS navegable desde el editor.
 - Cámaras como componente y **vistas previas en vivo** por cámara (render a FBO + ventanas ImGui) — ver [CAMARAS_VISTAS_PREVIAS.md](CAMARAS_VISTAS_PREVIAS.md).
+- **Configuración del editor persistida en JSON** (`EditorConfig`, nlohmann/json): proyecto, idioma, sensibilidad de cámara y estado de las ventanas ImGui. Archivo junto al proyecto: `~/MotorGrafico/Configuracion.json` (Linux) / `C:/MotorGraficoArchivos/Configuracion.json` (Windows).
 - Estructuras de datos propias: listas doblemente enlazadas, árboles enlazados binarios, listas con prioridad, métodos de ordenamiento (mergesort).
 - Jerarquía de excepciones propia (herencia de `Throwable`).
 - Build reproducible en **Linux** y **Windows** con **CMake**.
