@@ -32,6 +32,11 @@ public:
     // ALTERAR EL DAD TRANSFORM
     void syncPhysicsToGameObject();
 
+    // Empuja el Transform del GameObject (collider+padre) hacia el cuerpo
+    // fisico. Se usa cuando el gizmo mueve/rota/escala el objeto para que la
+    // simulacion parta de la posicion visual del editor.
+    void syncGameObjectToPhysics();
+
     void saveComponent(std::ofstream* fileNamePathContentObject) override;
     void loadComponent(std::ifstream* fileNamePathContentObject) override;
 

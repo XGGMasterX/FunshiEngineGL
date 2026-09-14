@@ -180,8 +180,8 @@ void SettingsObjectInterface::contentGUI() {
 				if (object->getComponent<Collider>() == nullptr &&
 				    object->getComponent<Transform>() != nullptr) {
 					object->addComponent(
-					    new MallaCollider(5.0f,
-					                      object->getComponent<Transform>()));
+					    new MallaCollider(
+					        5.0f, object->getComponent<Transform>(), object));
 					listaDESettingsComponent->addLast(
 					    new SettingsColliderMalla(object));
 				}

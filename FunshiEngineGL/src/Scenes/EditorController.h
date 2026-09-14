@@ -42,6 +42,14 @@ public:
     bool addComponent(GameObject* object, std::unique_ptr<Component> component);
     bool removeComponent(GameObject* object, Component* component);
 
+    // Registra los RigidBody de TODA la escena en el mundo de fisica. Al
+    // deserializar una escena, los componentes se crean con GameObject::
+    // addComponent (no via EditorController), por lo que los cuerpos nunca
+    // entran al mundo y los colliders quedan con la shape de respaldo (la malla
+    // aun no estaba cargada). Este metodo invalida la shape (se reconstruye con
+    // la malla ya disponible) y recrea+registra cada cuerpo.
+    void registerSceneRigidBodies();
+
     // Seleccion del editor: unica fuente de verdad compartida por GUI y gizmo.
     GameObject* getSelectedObject() const noexcept { return selected; }
     // Valida que el objeto siga en la escena y propaga ObjectSelected.

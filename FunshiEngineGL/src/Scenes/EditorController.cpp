@@ -101,6 +101,34 @@ void EditorController::clearScene() {
     }
 }
 
+void EditorController::registerSceneRigidBodies() {
+    if (!scene || !physics) return;
+    scene->refreshGameObjectView();
+    auto* objects = scene->getGameObjects();
+    auto reRegistrar = [this](GameObject* object) {
+        if (!object) return;
+        RigidBody* body = object->getComponent<RigidBody>();
+        if (!body) return;
+        // La malla recien deserializada: descartar la shape provisional
+        // (esfera de respaldo) y recrear el cuerpo con la shape real.
+        if (Collider* collider = object->getComponent<Collider>())
+            collider->invalidateCollisionShape();
+        physics->removeRigidBody(body);
+        body->createRigidBody();
+        physics->addRigidBody(body);
+    };
+    if (objects && !objects->isEmpty()) {
+        auto* position = objects->first();
+        while (position) {
+            reRegistrar(position->getElement());
+            position = (position != objects->last())
+                           ? objects->next(position)
+                           : nullptr;
+        }
+    }
+    reRegistrar(scene->getRoot());
+}
+
 void EditorController::selectObject(GameObject* object) {
     // Nunca seleccionar un puntero que ya no pertenece a la escena.
     if (object && scene && !scene->contains(object)) return;
