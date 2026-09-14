@@ -27,19 +27,20 @@ void RigidBody::createRigidBody() {
     pos[1] = tr[1];
     pos[2] = tr[2];
 
-    // 2. Obtener la rotacion (ya en angulo+eje)
-    float* rotAxisAngle = globalTransform->getRotatef(); // [angulo, ejeX, ejeY, ejeZ]
-    delete globalTransform;
-
-// Convertir de angulo+eje a cuaternion (copiar antes de liberar el
-    // transform global, que es quien posee los arrays de rotacion).
+    // 2. Copiar la rotacion ANTES de liberar el transform global
+    //    (getRotatef devuelve punteros a arrays internos del objeto:
+    //    [angulo, ejeX, ejeY, ejeZ]).
+    float* rotAxisAngle = globalTransform->getRotatef();
+    const float anguloGrados = rotAxisAngle[0];
     btVector3 axis(rotAxisAngle[1], rotAxisAngle[2], rotAxisAngle[3]);
     delete globalTransform;
+
+    // Convertir de angulo+eje a cuaternion
     if (axis.length2() == 0) {
         axis = btVector3(0, 1, 0); // eje por defecto si no hay rotacion
     }
     btQuaternion q;
-    q.setRotation(axis.normalized(), rotAxisAngle[0] * SIMD_RADS_PER_DEG);
+    q.setRotation(axis.normalized(), anguloGrados * SIMD_RADS_PER_DEG);
 
     // Guardar cuaternion en rot[]
     rot[0] = q.x();
