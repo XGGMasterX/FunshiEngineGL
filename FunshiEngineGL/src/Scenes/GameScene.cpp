@@ -31,6 +31,18 @@
 #include <glm/gtx/matrix_decompose.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
+// True si la matriz 4x4 tiene algun elemento no finito (NaN/Inf). El gizmo
+// nunca debe operar ni escribir matrices no finitas: al tocar un gizmo con
+// una matriz corrupta, todo el transform quedaria en -nan y el objeto
+// desapareceria de la escena.
+static bool matrizNoFinita(glm::mat4 m) {
+    const float* p = glm::value_ptr(m);
+    for (int i = 0; i < 16; ++i) {
+        if (!std::isfinite(p[i])) return true;
+    }
+    return false;
+}
+
 GameScene::GameScene(GUIManager* manager)
     : managerGUI(manager),
       sceneRegistry(std::make_unique<SceneRegistry>()),
@@ -760,6 +772,15 @@ void GameScene::gameScene() {
             mFull = glm::make_mat4(parentArr) * mFull;
         }
 
+        // Si la matriz de entrada ya es no finita (transform del objeto o de
+        // algun ancestro corrupto), NO se opera el gizmo con ella: un drag la
+        // escribiria tal cual y quedaria -nan en el transform. Se sigue con el
+        // resto del frame con el gizmo apagado (es seguro: solo se dibuja).
+        if (matrizNoFinita(mFull)) {
+            gizmoReady = false;
+            return;
+        }
+
         if (sinEscala) {
             // Ortonormalizar zoom: guardar escala por columna y normalizar.
             glm::vec4 c0 = mFull[0];
@@ -768,9 +789,13 @@ void GameScene::gameScene() {
             scaleVec[0] = glm::length(c0);
             scaleVec[1] = glm::length(c1);
             scaleVec[2] = glm::length(c2);
-            if (scaleVec[0] < 0.0001f) scaleVec[0] = 1.0f;
-            if (scaleVec[1] < 0.0001f) scaleVec[1] = 1.0f;
-            if (scaleVec[2] < 0.0001f) scaleVec[2] = 1.0f;
+            // Ojo: el guard < 0.0001 NO atrapa NaN (toda comparacion con NaN
+            // es false). Sin isfinite, una escala NaN se divide por si misma y
+            // contamina toda la matriz.
+            for (int i = 0; i < 3; ++i) {
+                if (!std::isfinite(scaleVec[i]) || scaleVec[i] < 0.0001f)
+                    scaleVec[i] = 1.0f;
+            }
             mFull[0] = c0 / scaleVec[0];
             mFull[1] = c1 / scaleVec[1];
             mFull[2] = c2 / scaleVec[2];
@@ -802,8 +827,17 @@ void GameScene::gameScene() {
                 float parentGlobalArr[16];
                 buildMatrixFromTransform(target.parentGlobal, parentGlobalArr);
                 glm::mat4 invParentGlobal = glm::inverse(glm::make_mat4(parentGlobalArr));
+                // glm::inverse de una matriz singular/no finita produce Inf/NaN.
+                if (matrizNoFinita(glm::make_mat4(parentGlobalArr)) ||
+                    matrizNoFinita(invParentGlobal)) {
+                    return;
+                }
                 newLocal = invParentGlobal * mManip;
             }
+
+            // El resultado del drag no debe corromper el transform con -nan:
+            // si la matriz manipulada quedo no finita, se descarta este frame.
+            if (matrizNoFinita(mManip) || matrizNoFinita(newLocal)) return;
             float localMatArr[16];
             const float* ptr2 = glm::value_ptr(newLocal);
             for (int i = 0; i < 16; ++i) localMatArr[i] = ptr2[i];
