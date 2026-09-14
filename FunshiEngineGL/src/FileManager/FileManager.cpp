@@ -1,5 +1,6 @@
 #include "FileManager.h"
 
+#include "FileSystemWatcher.h"
 #include "../GestorDeArchivos/Carpeta.h"
 #include "../Herramientas/PathUtils.h"
 #include "../Herramientas/TreeGUI/TreeGUI.h"
@@ -28,7 +29,9 @@ Carpeta* buscarPreOrden(ArbolEnlazado<File*>* arbol,
 } // namespace
 
 FileManager::FileManager(const std::string& pathProyect)
-    : pathProyect(pathProyect), gestor(new GestorDeArchivos(pathProyect)) {}
+    : pathProyect(pathProyect),
+      gestor(new GestorDeArchivos(pathProyect)),
+      vigilante(new FileSystemWatcher(pathProyect)) {}
 
 FileManager::~FileManager() = default;
 
@@ -42,6 +45,10 @@ void FileManager::refrescar() {
     sel->carpetaActual = nullptr;
     if (!rutaVisible.empty())
         sel->carpetaActual = buscarCarpetaPorRuta(rutaVisible);
+}
+
+bool FileManager::huboCambiosExternos() {
+    return vigilante ? vigilante->huboCambiosYConsumir() : false;
 }
 
 bool FileManager::crearCarpeta(const std::string& ruta) {

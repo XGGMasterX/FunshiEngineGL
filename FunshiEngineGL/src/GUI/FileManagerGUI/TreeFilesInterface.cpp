@@ -289,10 +289,12 @@ void TreeFilesInterface::aplicarNavegacionPendiente() {
 void TreeFilesInterface::contentGUI() {
     FileSelection* sel = fileManager->getSelection();
 
-    // Refresco programado (actualizar) o por cambio de FS detectado (el panel
-    // de contenido creo/copio una carpeta y subio el contador, R3).
+    // Refresco programado (actualizar), por cambio de FS detectado (el panel
+    // de contenido creo/copio una carpeta y subio el contador, R3) o por
+    // cambios hechos FUERA del editor (FileSystemWatcher).
     if (!arbolDeArchivos || actualizar ||
-        sel->contadorCambios != ultimoContadorVisto) {
+        sel->contadorCambios != ultimoContadorVisto ||
+        fileManager->huboCambiosExternos()) {
         refrescarArbol();
         actualizar = false;
     }

@@ -7,6 +7,9 @@
 #include "../GestorDeArchivos/GestorDeArchivos.h"
 #include "FileSelection.h"
 
+class GestorDeArchivos;
+class FileSystemWatcher;
+
 // Fachada del explorador de archivos (mismo patron que EditorController y la
 // fachada MenuGUI): es DUENA del modelo (GestorDeArchivos) y del estado de
 // navegacion compartido (FileSelection). Expone las operaciones de dominio
@@ -29,6 +32,11 @@ public:
     // colgando).
     void refrescar();
 
+    // Cambios externos detectados por FileSystemWatcher: drena el fd (aplica
+    // vigilancia a carpetas nuevas) y consume la marca al consultarse. El
+    // arbol la usa como condicion de rescaneo ademas de contadorCambios.
+    bool huboCambiosExternos();
+
     bool crearCarpeta(const std::string& ruta);
     bool eliminarCarpeta(const std::string& ruta);
     bool crearArchivo(const std::string& ruta, const std::string& contenido);
@@ -44,6 +52,7 @@ public:
 private:
     std::string pathProyect;
     std::unique_ptr<GestorDeArchivos> gestor;
+    std::unique_ptr<FileSystemWatcher> vigilante;
     FileSelection selection;
 };
 
