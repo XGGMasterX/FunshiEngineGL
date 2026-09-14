@@ -22,7 +22,18 @@ void SettingsColliderEsfera::setEditor(EditorController* editor) {
 void SettingsColliderEsfera::showDataComponent() {
 	ImGui::InputFloat("Radio", &newRadio);
 	if (ImGui::Button("Confirmar")) {
-		myCollider->setRadio(newRadio);
+		if (newRadio > 0 && newRadio != myCollider->getRadio()) {
+			myCollider->setRadio(newRadio);
+			// La shape de Bullet se cachea con el radio viejo: sin
+			// reconstruirla, la fisica sigue chocando con la esfera del radio
+			// INICIAL (p.ej. 5) y el cuerpo en el mundo seria recreado sin la
+			// shape nueva. refreshRigidBody invalida la shape, saca el cuerpo
+			// viejo del mundo, lo recrea y re-registra.
+			if (editor && myCollider->getOwner())
+				editor->refreshRigidBody(myCollider->getOwner());
+			else
+				myCollider->invalidateCollisionShape();
+		}
 	}
 	settingsTransform->showDataComponent();
 

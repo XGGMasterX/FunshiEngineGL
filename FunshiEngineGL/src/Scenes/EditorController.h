@@ -69,6 +69,15 @@ public:
     // la malla ya disponible) y recrea+registra cada cuerpo.
     void registerSceneRigidBodies();
 
+    // Recrea y re-registra el RigidBody de UN objeto: invalida la shape del
+    // collider (se reconstruye lazy con el radio/escala/malla actual), saca el
+    // cuerpo viejo del mundo, lo crea de nuevo con la shape fresca y lo
+    // vuelve a agregar. Se usa cuando cambia el radio del collider desde la
+    // GUI: de lo contrario la shape de Bullet queda cacheada con el radio
+    // inicial (esfera/caja invisible mas grande/smaller) y la fisica choca
+    // con esa forma stale.
+    void refreshRigidBody(GameObject* object);
+
     // Seleccion del editor: unica fuente de verdad compartida por GUI y gizmo.
     GameObject* getSelectedObject() const noexcept { return selected; }
     // Valida que el objeto siga en la escena y propaga ObjectSelected.
