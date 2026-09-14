@@ -53,7 +53,10 @@ Transform Collider::getGlobalTransform() const {
     float* myRots = myTransform->getRotatef();
     resultado.setRotatef(myRots[0], myRots[1], myRots[2], myRots[3]);
     float* myScales = myTransform->getScalef();
-    resultado.setScalef(myScales[0], myScales[1], myScales[2]);
+    float* dadScales = transformOfDadObject->getScalef();
+    resultado.setScalef(myScales[0] * dadScales[0],
+                        myScales[1] * dadScales[1],
+                        myScales[2] * dadScales[2]);
     return resultado;
 }
 
@@ -66,6 +69,10 @@ btCollisionShape* Collider::getCollisionShape() {
         }
     }
     return collisionShape.get();
+}
+
+void Collider::invalidateCollisionShape() {
+    collisionShape.reset();
 }
 
 bool Collider::isCollision(Collider* other) {

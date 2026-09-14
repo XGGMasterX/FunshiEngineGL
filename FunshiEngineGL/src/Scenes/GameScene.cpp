@@ -13,6 +13,7 @@
 #include "../Objetos/Modelos3D.h"
 #include "../Objetos/Componentes/Colliders/EsfereCollider.h"
 #include "../Objetos/Componentes/Colliders/CubeCollider.h"
+#include "../Objetos/Componentes/RigidBody/RigidBody.h"
 #include "EditorController.h"
 #include "SceneRegistry.h"
 #include "SceneSerializer.h"
@@ -63,6 +64,11 @@ bool GameScene::isStart() { return start; }
 void GameScene::loadScene(const std::string& pathTxt, const std::string& semiPath) {
     if (sceneSerializer) {
         sceneSerializer->load(pathTxt, semiPath);
+        // Los RigidBody deserializados nunca pasan por EditorController: la
+        // malla se carga despues de los componentes (shape provisional) y el
+        // cuerpo no se registra en el mundo. Aqui se reconstruye la shape con
+        // los vertices recien cargados y se registra el cuerpo.
+        if (editorController) editorController->registerSceneRigidBodies();
         if (selecteableGUI)
             selecteableGUI->bindScene(sceneRegistry.get(), editorController.get(),
                                        &events);
@@ -749,6 +755,16 @@ void GameScene::gameScene() {
                             for (int i = 0; i < 16; ++i) localArr[i] = ptr[i];
                             decomposeMatrixToTransform(localArr, snap.first->getComponent<Transform>());
                         }
+                    }
+
+                    // El gizmo movio el Transform del objeto: empujarlo hacia
+                    // el cuerpo fisico para que la simulacion parta de donde
+                    // quedo visualmente (INCLUYE los hijos con RigidBody).
+                    if (RigidBody* body = selected->getComponent<RigidBody>())
+                        body->syncGameObjectToPhysics();
+                    for (auto* child : selected->getChildEntities()) {
+                        if (child && child->getComponent<RigidBody>())
+                            child->getComponent<RigidBody>()->syncGameObjectToPhysics();
                     }
                 }
             }

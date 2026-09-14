@@ -46,6 +46,10 @@ public:
 	// mientras exista el collider.
 	btCollisionShape* getCollisionShape();
 
+	// Descarta la shape cacheada: se reconstruye lazy en el proximo
+	// getCollisionShape() (se usa cuando cambia la malla del modelo).
+	void invalidateCollisionShape();
+
 	virtual void dibujarCollider() = 0;
 
 	// seria ideal crear un metodo que recorra todos los objetos

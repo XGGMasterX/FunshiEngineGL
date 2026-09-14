@@ -51,6 +51,10 @@ void RigidBody::createRigidBody() {
     btCollisionShape* shape = collider->getCollisionShape();
     if (!shape) return;
 
+    // Escalar la shape segun la escala global del collider (heredada del padre)
+    float* scales = globalTransform.getScalef();
+    shape->setLocalScaling(btVector3(scales[0], scales[1], scales[2]));
+
     // Configurar transform inicial del rigid body
     btTransform startTransform;
     startTransform.setIdentity();
@@ -108,6 +112,49 @@ void RigidBody::syncPhysicsToGameObject() {
     rot[1] = quat.y();
     rot[2] = quat.z();
     rot[3] = quat.w();
+}
+
+void RigidBody::syncGameObjectToPhysics() {
+    if (!rigidBody || !collider) return;
+
+    // 1. Transform global actual del collider (padre + local)
+    Transform globalTransform = collider->getGlobalTransform();
+    float* tr = globalTransform.getTranslatef();
+    pos[0] = tr[0];
+    pos[1] = tr[1];
+    pos[2] = tr[2];
+
+    // 2. Rotacion: angulo+eje -> cuaternion
+    float* rotAxisAngle = globalTransform.getRotatef();
+    const float anguloGrados = rotAxisAngle[0];
+    btVector3 axis(rotAxisAngle[1], rotAxisAngle[2], rotAxisAngle[3]);
+    if (axis.length2() == 0) {
+        axis = btVector3(0, 1, 0);
+    }
+    btQuaternion q;
+    q.setRotation(axis.normalized(), anguloGrados * SIMD_RADS_PER_DEG);
+    rot[0] = q.x();
+    rot[1] = q.y();
+    rot[2] = q.z();
+    rot[3] = q.w();
+
+    // 3. Aplicar escala global a la shape
+    float* scales = globalTransform.getScalef();
+    rigidBody->getCollisionShape()->setLocalScaling(
+        btVector3(scales[0], scales[1], scales[2]));
+
+    // 4. Mover el cuerpo y su motion state al transform visual del editor
+    btTransform startTransform;
+    startTransform.setIdentity();
+    startTransform.setOrigin(btVector3(pos[0], pos[1], pos[2]));
+    startTransform.setRotation(q);
+    rigidBody->setWorldTransform(startTransform);
+    rigidBody->getMotionState()->setWorldTransform(startTransform);
+
+    // 5. Cero de velocidades: el cuerpo comienza quieto en la posicion editada
+    rigidBody->setLinearVelocity(btVector3(0, 0, 0));
+    rigidBody->setAngularVelocity(btVector3(0, 0, 0));
+    rigidBody->activate();
 }
 
 void RigidBody::saveComponent(std::ofstream* fileNamePathContentObject) {
