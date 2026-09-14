@@ -4,6 +4,7 @@
 #include "../Scenes/SceneRegistry.h"
 
 #include <cstdlib>
+#include <vector>
 
 GUIManager::GUIManager(GLFWwindow* window)
     : menuGUI(new MenuGUI(window)),
@@ -65,3 +66,26 @@ SceneMenuBarInterface* GUIManager::getMenuBarGUI(bool* targetBool) {
 SceneSelectedInterface* GUIManager::getSelecteableGUI() { return selecteableGUI.get(); }
 ContentFolderInterface* GUIManager::getContentFolderGUI() { return contentOfThisFolder.get(); }
 DockSpaceInterface* GUIManager::getDockSpaceGUI() { return dockSpaceGUI.get(); }
+
+void GUIManager::restaurarEstadosVentanas(const std::map<std::string, bool>& estados) {
+    const std::vector<GeneralUserInterface*> ventanas = {
+        selecteableGUI.get(), menuBarGUI.get(), treeFilesGUI.get(),
+        contentOfThisFolder.get(), dockSpaceGUI.get()};
+    for (GeneralUserInterface* ventana : ventanas) {
+        if (!ventana) continue;
+        auto it = estados.find(ventana->getNameGui());
+        if (it != estados.end()) ventana->setStateGui(it->second);
+    }
+}
+
+std::map<std::string, bool> GUIManager::obtenerEstadosVentanas() const {
+    std::map<std::string, bool> estados;
+    const std::vector<GeneralUserInterface*> ventanas = {
+        selecteableGUI.get(), menuBarGUI.get(), treeFilesGUI.get(),
+        contentOfThisFolder.get(), dockSpaceGUI.get()};
+    for (const GeneralUserInterface* ventana : ventanas) {
+        if (!ventana) continue;
+        estados[ventana->getNameGui()] = ventana->getStateGui();
+    }
+    return estados;
+}

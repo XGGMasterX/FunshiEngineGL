@@ -1,5 +1,6 @@
 #include "../src/Scenes/GameScene.h"
 #include "../src/GUIManager/GUIManager.h"
+#include "../src/Configuracion/EditorConfig.h"
 #include <imgui.h>
 #include "Time.h"
 #include <imgui_impl_glfw.h>
@@ -35,6 +36,9 @@ static bool recFilesInit = true;
 // de inicio (paquete MenuGUI) informa su decision y aqui se refleja.
 static ApplicationStateMachine appStateMachine;
 static float deltaTime = 0.0f;
+// Ruta del imgui.ini (layout de docks/geometria de ventanas): el puntero que
+// guarda ImGui debe vivir toda la app, por eso es una global.
+static std::string g_imguiIniRuta;
 class MiAPP {
 private:
     GameScene* scene;
@@ -211,6 +215,19 @@ int main(void)
     Time::start();
     std::string homePath = std::getenv("HOME");
 
+    // Configuration del editor (interfaz + menu) persistida en JSON junto al
+    // proyecto del usuario. Al arrancar se carga y se aplica a cada capa; al
+    // salir se recogen los valores actuales y se guarda (ver fin de main).
+    // La escena es independiente: sigue en sus binarios (SceneSerializer).
+    EditorConfig editorConfig;
+    editorConfig.cargar(EditorConfig::rutaPorDefecto());
+    mainMenu->setNombreProyecto(editorConfig.datos().nombreProyecto);
+    mainMenu->setIdioma(editorConfig.datos().idioma);
+    mainMenu->setSensibilidadCamara(editorConfig.datos().sensibilidadCamara);
+    scene->setVentanaCamarasAbierta(editorConfig.datos().ventanaCamarasAbierta);
+    scene->setGizmoOperation(editorConfig.datos().gizmoOperacion);
+    managerOfGUI->restaurarEstadosVentanas(editorConfig.datos().estadoVentanas);
+
     // Ultimo estado de la maquina reflejado en la fachada del paquete MenuGUI
     // (guardia de cambio; ver el bucle principal).
     bool menuReflejadoEnFachada = appStateMachine.is(ApplicationState::MainMenu);
@@ -241,6 +258,10 @@ int main(void)
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO(); (void)io;
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+    // El imgui.ini (layout de docks y geometria de ventanas) se guarda junto
+    // al proyecto del usuario, no en el directorio actual de lanzamiento.
+    g_imguiIniRuta = EditorConfig::directorioProyectoPorDefecto() + "/imgui.ini";
+    io.IniFilename = g_imguiIniRuta.c_str();
     ImGui::StyleColorsDark();
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init("#version 440"); //460 PARA PC , 440 PARA NOTEBOOK
@@ -346,6 +367,17 @@ int main(void)
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();
 
+    // Guardado de la configuracion al salir (mismo punto donde se salva la
+    // escena). Se recogen los valores actuales ya que pudieron cambiar en la
+    // sesion (menu, ventanas, gizmo).
+    EditorConfig::Datos& cfg = editorConfig.datos();
+    cfg.nombreProyecto = mainMenu->getNombreProyecto();
+    cfg.idioma = mainMenu->getIdioma();
+    cfg.sensibilidadCamara = mainMenu->getSensibilidadCamara();
+    cfg.ventanaCamarasAbierta = scene->getVentanaCamarasAbierta();
+    cfg.gizmoOperacion = scene->getGizmoOperation();
+    cfg.estadoVentanas = managerOfGUI->obtenerEstadosVentanas();
+    editorConfig.guardar(EditorConfig::rutaPorDefecto());
 
     glfwTerminate();
     return 0;
