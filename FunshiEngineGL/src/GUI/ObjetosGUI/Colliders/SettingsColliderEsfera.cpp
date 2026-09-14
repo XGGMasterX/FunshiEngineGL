@@ -9,7 +9,7 @@
 SettingsColliderEsfera::SettingsColliderEsfera(GameObject* objeto) {
 	myCollider = objeto->getComponent<EsfereCollider>();
 	this->settingsTransform =
-	    new SettingsTransform(myCollider->getTransform());
+	    new SettingsTransform(myCollider->getTransform(), objeto);
 	this->newRadio = myCollider->getRadio();
 }
 

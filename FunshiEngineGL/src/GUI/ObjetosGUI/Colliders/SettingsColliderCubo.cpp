@@ -9,7 +9,7 @@
 SettingsColliderCubo::SettingsColliderCubo(GameObject* objeto) {
 	myCollider = objeto->getComponent<CubeCollider>();
 	this->settingsTransform =
-	    new SettingsTransform(myCollider->getTransform());
+	    new SettingsTransform(myCollider->getTransform(), objeto);
 	this->newRadio = myCollider->getRadio();
 }
 

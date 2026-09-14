@@ -37,12 +37,11 @@ void MallaCollider::dibujarCollider() {
     glColor3f(0.0f, 1.0f, 0.0f);
 
     // Dibujo el hull real (bordes del convex hull) en vez de la caja
-    // aproximada: getEdge aplica m_localScaling, por eso usamos puntos
-    // sin escalar y dejamos que la matriz global aplique toda la escala.
-    btConvexHullShape* hull = nullptr;
-    if (collisionShape) {
-        hull = dynamic_cast<btConvexHullShape*>(collisionShape.get());
-    }
+    // aproximada. getCollisionShape() construye la shape de forma lazy si
+    // todavia no existe; es lo que permite ver el hull apenas se crea el
+    // collider, sin esperar a que la fisica lo genere.
+    btConvexHullShape* hull =
+        dynamic_cast<btConvexHullShape*>(getCollisionShape());
     if (hull && hull->getNumPoints() > 0) {
         const btVector3* points = hull->getUnscaledPoints();
         const int numPoints = hull->getNumPoints();
