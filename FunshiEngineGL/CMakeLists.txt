@@ -114,7 +114,9 @@ endif()
 
 # Configuración para Windows
 if(WIN32)
-    target_link_libraries(${PROJECT_NAME} PRIVATE opengl32 glu32)
+    # dbghelp: CapturaBackTrace/SymFromAddr/SymInitialize (RuntimeException).
+    # En MinGW los #pragma comment(lib) de MSVC se ignoran, hay que enlazarla.
+    target_link_libraries(${PROJECT_NAME} PRIVATE opengl32 glu32 dbghelp)
 endif()
 
 # Dependencias específicas de Linux
@@ -184,3 +186,9 @@ set_target_properties(filemanager-tests PROPERTIES
     CXX_EXTENSIONS OFF
 )
 add_test(NAME filemanager-tests COMMAND filemanager-tests)
+
+if(WIN32)
+    # dbghelp: CapturaBackTrace/SymFromAddr/SymInitialize (RuntimeException).
+    # En MinGW los #pragma comment(lib) de MSVC se ignoran, hay que enlazarla.
+    target_link_libraries(filemanager-tests PRIVATE dbghelp)
+endif()
