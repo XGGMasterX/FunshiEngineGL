@@ -5,170 +5,156 @@
 `FunshiEngineGL` es un editor/motor gráfico 3D en C++17. El ejecutable combina:
 
 - Ventana y contexto OpenGL mediante GLFW.
-- Renderizado inmediato con OpenGL/GLU.
-- Interfaz de editor con Dear ImGui.
-- Manipulación de objetos y componentes.
+- Renderizado inmediato con OpenGL/GLU (pipeline de compatibilidad).
+- Interfaz de editor con Dear ImGui y gizmos con ImGuizmo.
 - Jerarquía de entidades basada en árboles enlazados propios.
-- Simulación física mediante Bullet Physics.
+- Simulación física mediante Bullet Physics detrás de una fachada desacoplada.
 - Carga de modelos 3D mediante Assimp.
-- Serialización binaria de escenas con preorden.
+- Serialización binaria de escenas en preorden (jerarquía completa).
 - EventBus para notificaciones desacopladas entre subsistemas.
 - Máquina de estados explícita (`ApplicationStateMachine`).
+- Explorador de archivos del proyecto con fachada propia y vigilancia de cambios.
+- Configuración del editor persistida en JSON (`EditorConfig`).
 - Soporte para scripts dinámicos (`.so`/`.dll`) via `IScriptBehaviour`.
 - Estructuras de datos genéricas propias y jerarquía de excepciones.
 
-El punto de entrada es `FunshiEngineGL/src/main.cpp`. La configuración de compilación está en `FunshiEngineGL/CMakeLists.txt`; también existe una solución de Visual Studio (`FunshiEngineGL.sln`).
+El punto de entrada es `FunshiEngineGL/src/main.cpp`. La configuración de compilación
+está en `FunshiEngineGL/CMakeLists.txt`; también existe una solución de Visual Studio
+(`FunshiEngineGL.sln`). Las pruebas headless viven en `tests/` y el CI en
+`.github/workflows/ci.yml`.
 
 ---
 
 ## 2. Árbol de archivos relevante
 
-Se omiten los archivos generados de `build/`, los archivos temporales de editor (`*.swp`, `*.swo`) y el contenido interno de las dependencias de terceros.
+Se omiten los directorios generados por el build (`build/`, `build_temp/`), los
+archivos temporales de editor (`*.swp`, `*.swo`) y el contenido interno de las
+dependencias de terceros.
 
 ```text
 FunshiEngineGL/                          ← raíz del repo
-├── README.md
-├── PROJECT_STRUCTURE.md
+├── README.md                            ← visión general, build, controles y pendientes
+├── PROJECT_STRUCTURE.md                 ← este documento
+├── CAMARAS_VISTAS_PREVIAS.md            ← Fase 2: cámaras componente + vistas previas
 ├── FunshiEngineGL.sln                   ← solución Visual Studio (Windows)
-├── imgui.ini
-├── .gitignore
-├── .gitattributes
+├── .github/workflows/ci.yml             ← CI: engine en Ubuntu + pruebas en Linux/Win/macOS
+├── .gitignore / .gitattributes
+├── tests/
+│   ├── FileManagerTests.cpp             ← pruebas headless del explorador de archivos
+│   └── EditorConfigTests.cpp            ← pruebas headless de la configuración JSON
 └── FunshiEngineGL/                      ← proyecto CMake principal
-    ├── CMakeLists.txt
-    ├── FunshiEngineGL.vcxproj
-    ├── FunshiEngineGL.vcxproj.filters
-    ├── Imagenes/                        ← íconos del editor (cpp.png, cubo.png, file.png, folder.png, hpp.png)
-    ├── ImGuizmo/                        ← dependencia externa integrada
-    │   ├── ImGuizmo.cpp/.h
-    │   ├── ImCurveEdit.cpp/.h
-    │   ├── ImGradient.cpp/.h
-    │   ├── ImSequencer.cpp/.h
-    │   └── GraphEditor.cpp/.h
-    ├── build_temp/                      ← build de referencia funcional
-    │   └── FunshiEngineGL               ← binario compilado (~50 MB, ASan)
+    ├── CMakeLists.txt                   ← GLOB de fuentes, dependencias, sanitizers,
+    │                                      pruebas (CTest) y opción BUILD_ENGINE
+    ├── FunshiEngineGL.vcxproj(.filters) ← proyecto de Visual Studio (Windows)
+    ├── Imagenes/                        ← íconos del explorador (cpp, cubo, file, folder, hpp)
+    ├── ImGuizmo/                        ← dependencia integrada (ImGuizmo.cpp/.h, etc.)
+    ├── External/nlohmann/json.hpp       ← nlohmann/json vendoriado (EditorConfig)
     └── src/
-        ├── main.cpp                     ← arranque, bucle principal, callbacks input
-        ├── Time.h / Time.cpp            ← delta time
+        ├── main.cpp                     ← composition root: ventanas, callbacks, bucle, config
+        ├── Time.h / Time.cpp            ← delta time y limitador de FPS
         ├── Ventana.h / Ventana.cpp      ← inicialización GLFW
         ├── Behaviour/
-        │   └── IScriptBehaviour.h       ← interfaz para scripts dinámicos (onStart, onUpdate)
+        │   └── IScriptBehaviour.h       ← interfaz de scripts dinámicos (onStart, onUpdate)
+        ├── Configuracion/
+        │   └── EditorConfig.h/.cpp      ← persistencia JSON de la configuración (menú + GUI)
         ├── Entity/
-        │   ├── Entity.h                 ← base abstracta: lista de componentes, Transform, serialización
+        │   ├── Entity.h                 ← base: lista de componentes, Transform, serialización
         │   └── Entity.cpp
-        ├── Estructuras/                 ← estructuras genéricas, header-only en su mayoría
-        │   ├── Comparable.h
-        │   ├── Ordenadora.h
+        ├── Estructuras/                 ← contenedores genéricos, header-only
+        │   ├── Comparable.h / Ordenadora.h
         │   ├── ListasEnlazadas/
         │   │   ├── ListasDoblementeEnlazada/ListaDE.h
         │   │   ├── ListasConPrioridad/PriorityListaDE.h
         │   │   └── PositionList.h
         │   ├── MetodosDeOrdenamiento/ListMergeSort.h
-        │   ├── Nodos/
-        │   │   ├── DNodo.h              ← nodo doble (listas)
-        │   │   └── TNodo.h              ← nodo árbol (contiene ListaDE de hijos)
+        │   ├── Nodos/DNodo.h + TNodo.h  ← nodos de listas y de árbol
         │   ├── Position/Position.h
         │   └── Trees/
         │       ├── Tree.h
-        │       ├── ArbolesEnlazados/ArbolEnlazado.h   ← árbol n-ario enlazado, jerarquía GO
-        │       └── ArbolesEnlazados/ArbolBinarioEnlazado.h
+        │       └── ArbolesEnlazados/
+        │           ├── ArbolEnlazado.h  ← árbol n-ario: jerarquía de GameObjects
+        │           └── ArbolBinarioEnlazado.h + Heap/ (Heap, MinHeap, MaxHeap)
         ├── Events/
         │   ├── EventBus.h               ← pub/sub tipado con token de suscripción
         │   └── EventBus.cpp
-        ├── ExcepcionesCPP/
-        │   ├── Throwable.h
-        │   ├── RuntimeException.h/.cpp
-        │   ├── BoundaryViolationException.h
-        │   ├── ClassCastException.h
-        │   ├── InvalidOperationException.h
-        │   ├── NullPointerException.h
-        │   └── ExcepcionesEstructuras/
+        ├── ExcepcionesCPP/              ← Throwable, RuntimeException, excepciones de
+        │                                  contenedores (ExcepcionesEstructuras/)
         ├── Fisicas/
-        │   ├── IPhysicsBackend.h        ← contrato de backend de física
-        │   ├── PhysicsEngine.h/.cpp     ← fachada; inicializa mundo Bullet con suelo estático
-        │   ├── BulletPhysicsAdapter.h/.cpp ← adaptador concreto de Bullet
-        ├── GestorDeArchivos/
-        │   ├── Binario.h/.cpp           ← streams binarios para serialización
-        │   ├── File.h/.cpp
-        │   ├── Carpeta.h/.cpp
-        │   └── GestorDeArchivos.h/.cpp  ← exploración de directorios del sistema
-        ├── Configuracion/
-        │   └── EditorConfig.h/.cpp      ← persistencia JSON (nlohmann) de la configuración del editor (interfaz + menú)
+        │   ├── IPhysicsBackend.h        ← contrato Strategy del backend de física
+        │   ├── PhysicsEngine.h/.cpp     ← fachada PIMPL; el header no expone Bullet
+        │   └── BulletPhysicsAdapter.h/.cpp ← adaptador concreto de Bullet (RAII)
+        ├── FileManager/
+        │   ├── FileManager.h/.cpp       ← fachada del explorador: modelo + operaciones
+        │   ├── FileSelection.h          ← estado de navegación compartido entre vistas
+        │   └── FileSystemWatcher.h/.cpp ← vigilancia de cambios externos (inotify)
+        ├── GestorDeArchivos/            ← Binario (streams binarios), File, Carpeta,
+        │                                  GestorDeArchivos (exploración del filesystem)
         ├── Gizmo/
-        │   ├── Camera.h/.cpp            ← cámara FPS: forward/back/left/right/up/down
-        │   └── Gizmo.h                  ← placeholder (lógica en ImGuizmo)
+        │   └── Gizmo.h                  ← placeholder (la manipulación real vive en ImGuizmo)
         ├── GUI/
-        │   ├── GeneralUserInterface.h/.cpp  ← interfaz base de paneles ImGui
-        │   ├── FileManagerGUI/              ← explorador de archivos visual
-        │   ├── MenusGUI/                    ← paquete MenuGUI (menú de inicio): MenuModel/MenuView/StartMenuPresenter/MenuGUI (MVC-MVP)
-        │   ├── ObjetosGUI/                  ← inspector de objetos y componentes
-        │   │   ├── SettingsObjectInterface.h       ← despachador: crea Settings* según el tipo de componente
+        │   ├── GeneralUserInterface.h/.cpp ← interfaz base de paneles ImGui
+        │   ├── WindowNames.h
+        │   ├── DockSpaceGUI/               ← dock principal del editor
+        │   ├── FileManagerGUI/             ← TreeFilesInterface + ContentFolderInterface
+        │   │                                  (vistas del explorador; conversan con FileManager)
+        │   ├── MenusGUI/                   ← paquete del menú de inicio (MVP); ver su README.md
+        │   │   ├── MenuModel.h/.cpp        ← lógica pura sin ImGui/GLFW
+        │   │   ├── MenuView.h/.cpp         ← dibujo ImGui
+        │   │   ├── StartMenuPresenter.h/.cpp ← puente motor ↔ modelo
+        │   │   └── MenuGUI.h/.cpp          ← fachada pública del paquete
+        │   ├── ObjetosGUI/
+        │   │   ├── SettingsObjectInterface.h/.cpp ← inspector: crea Settings* por componente
         │   │   ├── SettingsComponent.h
-        │   │   ├── Transform/SettingsTransform.h/.cpp
-        │   │   ├── Color/SettingsColor.h
-        │   │   ├── Model/SettingsModel.h
-        │   │   ├── Script/SettingsScript.h
-        │   │   ├── RigidBody/SettingsRigidBody.h
-        │   │   └── Colliders/
-        │   │       ├── SettingsColliderEsfera.h
-        │   │       ├── SettingsColliderCubo.h
-        │   │       └── SettingsColliderMalla.h
-        │   │   └── Camera/
-        │   │       └── SettingsCamera.h/.cpp ← inspector del componente de cámara (FOV, planos, velocidad, vista previa)
+        │   │   ├── Transform/SettingsTransform.h/.cpp ← transform + checkbox "Gizmo activo"
+        │   │   ├── Color/  Model/  Script/
+        │   │   ├── Material/SettingsMaterial.*  Light/SettingsLight.*
+        │   │   ├── Camera/SettingsCamera.*       ← FOV, planos, velocidad, vista previa
+        │   │   ├── RigidBody/SettingsRigidBody.*
+        │   │   └── Colliders/ (Esfera, Cubo, Malla) ← sync transform/shape con física
         │   └── SceneGUI/
-        │       ├── SceneSelectedInterface.h/.cpp  ← panel de jerarquía, selección de objetos
-        │       └── SceneMenuBarInterface.h/.cpp   ← barra de menú de escena (play/stop/save/load)
+        │       ├── SceneSelectedInterface.h/.cpp  ← jerarquía y selección; usa EditorController
+        │       ├── SceneObjectTree.h/.cpp         ← árbol de objetos (con drag & drop)
+        │       └── SceneMenuBarInterface.h/.cpp   ← barra Play/Stop/acciones de escena (flag `start`)
         ├── GUIManager/
-        │   ├── GUIManager.h             ← fábrica y registro de todas las ventanas ImGui
-        │   └── GUIManager.cpp
+        │   └── GUIManager.h/.cpp         ← fábrica y registro de ventanas; posee FileManager
         ├── Herramientas/
-        │   └── TypeUtils.h              ← utilidades de tipo (nombre legible de tipo)
+        │   ├── TypeUtils.h/.cpp          ← nombres legibles de tipos
+        │   ├── PathUtils.h               ← PATH_SEP multiplataforma compartido
+        │   ├── MaterialPresets.h         ← presets de Material como datos (reemplaza a materiales.h)
+        │   ├── TreeGUI/TreeGUI.h         ← widget de árbol genérico para ImGui
+        │   └── IconosGUI/                ← carga de íconos con stb_image
         ├── Iluminacion/
-        │   ├── Ilumination.h
-        │   └── Ilumination.cpp          ← configuración de glLight* (luz OpenGL fija)
-        ├── ImGui/                       ← Dear ImGui integrado (v1.x)
-        │   ├── imgui.cpp/.h
-        │   ├── imgui_impl_glfw.cpp/.h
-        │   ├── imgui_impl_opengl3.cpp/.h
-        │   ├── imgui_draw/widgets/tables.cpp
-        │   └── imstb_*.h
+        │   └── LightSystem.h/.cpp        ← dueño del estado GL de luces (GL_LIGHT0..7) por frame
+        ├── ImGui/                        ← Dear ImGui v1.x integrado (+ backends glfw/opengl3)
         ├── Matematicas/
-        │   ├── StructVec3.h             ← struct vec3 propio
-        │   └── Vector.cpp
+        │   ├── StructVec3.h              ← vec3 propio
+        │   └── Vector.cpp/.h
         ├── Rendering/
-        │   └── RenderTarget.h/.cpp      ← render a textura (FBO) para vistas previas de cámara (Fase 2)
+        │   └── RenderTarget.h/.cpp       ← render a textura (FBO) para vistas previas de cámara
         ├── Objetos/
-        │   ├── Malla.h                  ← placeholder de malla
-        │   ├── GameObject.h/.cpp        ← extend Entity; id, nombre, color, serialización, update
-        │   ├── GameObjectFactory.h/.cpp ← factory de GameObjects
-        │   ├── Modelos3D.h/.cpp         ← extend GameObject; carga Assimp, dibujo GL, serializa ruta
-        │   ├── Materiales/
-        │   │   ├── Material.h/.cpp
-        │   │   └── materiales.h
+        │   ├── GameObject.h/.cpp         ← id, nombre, estado, update, serialización binaria
+        │   ├── GameObjectFactory.h/.cpp
+        │   ├── Modelos3D.h/.cpp          ← carga Assimp y dibujo GL inmediato
+        │   ├── Malla.h                   ← placeholder de malla
         │   └── Componentes/
-        │       ├── Component.h          ← interfaz base polimórfica de componentes
-        │       ├── CameraComponent.h/.cpp ← cámara como componente: vista desde el Transform del dueño, navegación FPS, flag de vista previa (Fase 2)
-        │       ├── Phisics.h            ← typedef/struct auxiliar de física
-        │       ├── ComponentFactory.h/.cpp ← factory de componentes (usado por GUI y deserialización)
-        │       ├── Transform.h          ← posición, rotación, escala; matriz local/global; descomposición GLM
-        │       ├── Color.h              ← componente de color auxiliar (serializable)
-        │       ├── Model.h              ← referencia al modelo 3D cargado
-        │       ├── Script.h             ← carga/compilación de módulos dinámicos (.so/.dll)
-        │       ├── RigidBody/
-        │       │   └── RigidBody.h      ← conecta Collider con btRigidBody; sincroniza transform
+        │       ├── Component.h           ← interfaz base polimórfica (serialize/deserialize)
+        │       ├── ComponentFactory.h/.cpp ← creación por nombre (GUI y deserialización)
+        │       ├── Transform.h/.cpp      ← local/global con GLM; anti-NaN; flag gizmoHabilitado
+        │       ├── CameraComponent.h/.cpp ← cámara componente: vista, FPS, flag de vista previa
+        │       ├── Material.h/.cpp       ← AMBIENT/DIFFUSE/SPECULAR/EMISSION/SHININESS
+        │       ├── Light.h/.cpp          ← luz puntual serializable
+        │       ├── Color.h / Model.h / Script.h / Phisics.h
+        │       ├── RigidBody/RigidBody.h/.cpp ← cuerpo Bullet sincronizado (RAII)
         │       └── Colliders/
-        │           ├── Collider.h       ← base abstracta de colliders, dibuja wireframe
-        │           ├── EsfereCollider.h ← btSphereShape
-        │           ├── CubeCollider.h   ← btBoxShape
-        │           └── MallaCollider.h  ← btConvexHullShape (mesh)
-        ├── Scenes/
-        │   ├── Ilumination.h            ← forward de Ilumination para escenas
-        │   ├── GameScene.h/.cpp         ← coordinador de frame: render, GUI, física, gizmo, scripts
-        │   ├── SceneRegistry.h/.cpp     ← ownership único de GameObjects; árbol + vista lineal
-        │   ├── EditorController.h/.cpp  ← mutaciones de editor: crear/eliminar/reparentar/componentes
-        │   ├── SceneSerializer.h/.cpp   ← save/load binario en preorden con marcadores =>/<=
-        └── States/
-            ├── ApplicationStateMachine.h
-            └── ApplicationStateMachine.cpp  ← enum ApplicationState: MainMenu/Editing/Playing/Exiting
+        │           ├── Collider.h/.cpp   ← base abstracta; radio; gizmo del collider (GizmoTarget)
+        │           ├── EsfereCollider.*  ← btSphereShape
+        │           ├── CubeCollider.*    ← btBoxShape (half extents = radio)
+        │           └── MallaCollider.*   ← btConvexHullShape a partir de la malla
+        └── Scenes/
+            ├── GameScene.h/.cpp          ← coordinador del frame: render, GUI, física, gizmo, previews
+            ├── SceneRegistry.h/.cpp      ← ownership único (unique_ptr) + árbol + vista lineal
+            ├── EditorController.h/.cpp   ← mutaciones + GizmoTarget + registro de física
+            ├── SceneSerializer.h/.cpp    ← save/load binario preorden con marcadores =>/<=
 ```
 
 ---
@@ -178,36 +164,34 @@ FunshiEngineGL/                          ← raíz del repo
 ```text
 main.cpp
   ├── Ventana (GLFW init)
-  ├── ImGui init (glfw + opengl3 backend)
-  ├── Camera
-  ├── GUIManager
-  │   ├── menu (fachada MenuGUI)
-  │   ├── SceneSelectedInterface
-  │   ├── SceneMenuBarInterface
-  │   ├── TreeFilesInterface
-  │   └── ContentFolderInterface
-  ├── GameScene(camera, guiManager)
+  ├── ImGui init (backends glfw + opengl3; imgui.ini junto al proyecto)
+  ├── GUIManager (crea el menú y las ventanas; posee FileManager)
+  ├── GameScene(guiManager)
   │   ├── SceneRegistry            ← ownership de objetos
-  │   ├── PhysicsEngine            ← mundo Bullet (con suelo estático)
-  │   ├── EditorController         ← mutaciones
+  │   ├── PhysicsEngine (PIMPL)    ← mundo Bullet vía BulletPhysicsAdapter
+  │   ├── EditorController         ← mutaciones, gizmo, registro de física
   │   ├── SceneSerializer          ← persistencia
   │   └── EventBus                 ← notificaciones
-  ├── Ilumination (sun)
-  ├── ApplicationStateMachine
+  ├── EditorConfig                 ← carga JSON y aplica a menú/GUI/escena
+  ├── ApplicationStateMachine      ← MainMenu / Editing / Playing / Exiting
   └── bucle principal
       ├── glfwPollEvents
       ├── Time::update (deltaTime)
       ├── ImGui::NewFrame
-      ├── aplica estado (MainMenu / Editing / Playing / Exiting)
-      ├── si Playing → phisics.stepSimulation(dt)
+      ├── refleja el estado del menú en la fachada MenuGUI (guardia de cambio)
+      ├── si Playing → phisics.stepSimulation(dt) (solo con start==true)
       ├── dibujarGameObjects (OpenGL inmediato)
-      ├── dibujar gizmo ImGuizmo si objeto seleccionado
-      ├── GUI() de GameScene (paneles ImGui)
+      ├── gizmo ImGuizmo sobre el objetivo activo (objeto o collider)
+      ├── GUI() de GameScene (paneles) + vistas previas de cámaras (FBO)
       ├── ImGui::Render + swap buffers
-      └── si Exiting → break
+      └── al salir: saveScene + guardar EditorConfig
 ```
 
-La clase `MiAPP` en `main.cpp` actúa como composition root y registra los callbacks de teclado (`teclado_callback`) y ratón (`mouse_callback`) sobre GLFW. `GameScene` configura internamente `GUIManager`, `SceneRegistry`, `EditorController`, `SceneSerializer` y `EventBus`.
+`main.cpp` es el composition root y registra los callbacks de teclado y ratón sobre
+GLFW (`MiAPP`). El estado del menú lo gobierna el modelo del paquete `MenuGUI`,
+sincronizado por frame desde `ApplicationStateMachine`. `GameScene` configura
+internamente `GUIManager`, `SceneRegistry`, `EditorController`, `SceneSerializer` y
+`EventBus`.
 
 ---
 
@@ -216,20 +200,26 @@ La clase `MiAPP` en `main.cpp` actúa como composition root y registra los callb
 ### Aplicación y escena
 
 - `main.cpp` construye los objetos principales y conecta sus referencias. Es el único composition root.
-- `GameScene` recibe `Camera` y `GUIManager` y posee mediante `unique_ptr`:
-  `SceneRegistry`, `PhysicsEngine`, `EditorController` y `SceneSerializer`.
+- `GameScene` posee mediante `unique_ptr`: `SceneRegistry`, `PhysicsEngine`,
+  `EditorController` y `SceneSerializer`. Recibe el `GUIManager` por inyección.
 - `SceneRegistry` es el único propietario de los `GameObject`, mediante
   `std::vector<std::unique_ptr<GameObject>>`. El árbol y la lista son vistas no propietarias.
 - `EditorController` recibe el registro, la física y el EventBus por inyección.
-  Centraliza crear, eliminar, reparentar y modificar componentes.
+  Centraliza crear, eliminar, reparentar y modificar componentes; también es el
+  **registro central de física** (alta/baja de `RigidBody`) y el dueño del
+  `GizmoTarget` (objeto u offset de collider manipulado por el gizmo).
   Publica eventos en `EventBus` después de cada operación exitosa.
-- `EventBus` implementa suscripción tipada mediante tokens (`size_t`).
-  Soporta `ObjectCreated`, `ObjectDeleted`, `ObjectReparented`, `ComponentChanged`,
+- `SceneRegistry::reparent` valida el movimiento: rechaza la raíz, el auto-reparento
+  y cualquier ancestro del nuevo padre (no se pueden crear ciclos).
+- `EventBus` implementa suscripción tipada mediante tokens (`size_t`). Soporta
+  `ObjectCreated`, `ObjectDeleted`, `ObjectReparented`, `ComponentChanged`,
   `SceneCleared` y `ObjectSelected`. No es global: vive dentro de `GameScene`.
-- `Ilumination` es configurada por `main` (`setSun`) y aplicada durante el render.
-- `ApplicationStateMachine` modela los estados `MainMenu`, `Editing`, `Playing` y `Exiting`.
-  Las transiciones se realizan desde `main.cpp`; convive con flags de UI legados
-  (`menuActivo`, `start`).
+- `LightSystem` es el dueño del estado GL de luces: cada frame escanea los objetos,
+  toma los componentes `Light` y parametriza los slots `GL_LIGHT0..7`. No queda
+  lógica de luz en el bucle ni en los componentes.
+- `ApplicationStateMachine` modela los estados `MainMenu`, `Editing`, `Playing` y
+  `Exiting`. Las transiciones se realizan desde `main.cpp`; conviven con flags de
+  UI legados (`menuActivo`, `start`) con roles documentados.
 
 ### Entidades, objetos y componentes
 
@@ -240,22 +230,25 @@ La clase `MiAPP` en `main.cpp` actúa como composition root y registra los callb
 - `Modelos3D` extiende `GameObject`. Carga geometría (vértices, normales, índices)
   mediante Assimp, la dibuja con `glBegin/glEnd` (OpenGL inmediato) y serializa
   adicionalmente la ruta del archivo del modelo.
-- Los componentes concretos son: `Transform`, `Color`, `Model`, `Script`,
-  `EsfereCollider`, `CubeCollider`, `MallaCollider`, `RigidBody`.
-  Todos heredan de `Component` (interfaz base polimórfica).
-- `ComponentFactory` centraliza la creación de componentes tanto desde la GUI
-  como durante la deserialización, reduciendo el acoplamiento con clases concretas.
-- `Transform` provee transformaciones locales y globales usando GLM;
-  expone descomposición de matrices para ImGuizmo.
-- Los colliders crean la `btCollisionShape` correspondiente y `RigidBody`
-  la conecta al `btDiscreteDynamicsWorld` de `PhysicsEngine`.
+- Los componentes concretos son: `Transform`, `Color`, `Model`, `Material`, `Light`,
+  `CameraComponent`, `Script`, `EsfereCollider`, `CubeCollider`, `MallaCollider` y
+  `RigidBody`. Todos heredan de `Component` y serializan sus datos binarios.
+- `ComponentFactory` centraliza la creación por nombre de tipo tanto desde la GUI
+  como durante la deserialización (`"CameraComponent"` acepta el alias `"Camera"`).
+- `Transform` provee transformaciones locales y globales usando GLM; expone
+  descomposición de matrices para ImGuizmo y blinda su cadena contra NaN
+  (valores no finitos no entran al estado ni al render).
+- La cadena física: los colliders crean la `btCollisionShape` (reconstruida si
+  cambia el radio), `RigidBody` la conecta al mundo de `PhysicsEngine`, y el sync
+  de transformaciones entre objeto, collider y cuerpo se hace con matrices
+  compuestas (global T del dueño + offset del collider), no con deltas sueltos.
 
 ### Jerarquía y contenedores
 
 - `ArbolEnlazado<GameObject*>` representa la jerarquía padre-hijo dentro de
   `SceneRegistry`. No libera los objetos apuntados (la ownership está en el vector).
 - `ListaDE<GameObject*>` es una vista lineal reconstruible de `SceneRegistry`,
-  usada por GUI, render y actualización. Tampoco es propietaria.
+  usada por GUI, render, iluminación y actualización. Tampoco es propietaria.
 - `TNodo` contiene sus hijos mediante una `ListaDE<Position<E>*>`;
   `DNodo` implementa los nodos de listas doblemente enlazadas.
 - Las estructuras genéricas son header-only para permitir la instanciación de plantillas.
@@ -264,37 +257,46 @@ La clase `MiAPP` en `main.cpp` actúa como composition root y registra los callb
 
 - `GeneralUserInterface` define la interfaz común (`initGUI`, `contentGUI`, `printGUI`, `endGUI`).
 - `GUIManager` actúa como fábrica y registro centralizado de todas las ventanas
-  del editor. Expone métodos tipados (`getMenuGUI`, `getTreeFilesGUI`, etc.).
+  del editor. Expone métodos tipados (`getMenuGUI`, `getTreeFilesGUI`, etc.),
+  guarda/restaura el estado abierto/cerrado de las ventanas y **posee el
+  `FileManager`** del proyecto.
+- El explorador de archivos es una arquitectura de tres piezas: `FileManager`
+  (fachada dueña del modelo `GestorDeArchivos` y de las operaciones de dominio),
+  `FileSelection` (estado de navegación compartido) y las vistas
+  `TreeFilesInterface`/`ContentFolderInterface`, que solo conversan con la fachada.
+  `FileSystemWatcher` avisa de cambios externos (inotify) para re-escanear.
 - `SceneSelectedInterface` observa la escena inyectada y delega las
   operaciones de edición a `EditorController`. Usa `GameObjectFactory` para crear objetos.
+- `SceneObjectTree` dibuja el árbol de objetos (con drag & drop para reparentar).
 - `SettingsObjectInterface` inspecciona un `GameObject` seleccionado y crea/actualiza
-  los paneles `Settings*` específicos de cada componente presente.
-- `TreeFilesInterface` y `ContentFolderInterface` implementan el explorador de archivos visual.
-  Usan íconos desde `Imagenes/`.
-- `SceneMenuBarInterface` gestiona la barra de menú de escena (Play/Stop/Save/Load).
-  Recibe un `bool*` (`start`) para comunicar el estado Play/Stop al `main`.
+  los paneles `Settings*` específicos de cada componente presente. El checkbox
+  **"Gizmo activo"** de `SettingsTransform` enciende/apaga el gizmo de ese
+  transform (del objeto o del offset del collider) sin deseleccionar.
+- `SceneMenuBarInterface` gestiona la barra de menú de escena y comunica el
+  estado Play/Stop mediante un `bool*` (`start`) que consume `GameScene`.
 - `MenuGUI` es la fachada del paquete `MenusGUI` (menú principal): `MenuModel`
   (lógica pura) + `MenuView` (ImGui) + `StartMenuPresenter` (puente motor).
-  Ver `src/GUI/MenusGUI/README.md`. Reemplaza a las antiguas `MenuInterface`/
-  sub-interfaces de opciones y proyecto.
+  Ver `src/GUI/MenusGUI/README.md`.
 
 ### Persistencia
 
-- `SceneSerializer` es el único responsable del archivo `BBDDObjetos.txt`.
-  Guarda en preorden: escribe el binario de cada objeto y registra la ruta;
-  inserta `=>`/`<=` para la jerarquía.
-- La carga reconstruye la escena leyendo `BBDDObjetos.txt` y los `.db` individuales
-  de forma recursiva; inserta cada objeto directamente en `SceneRegistry`.
+- `SceneSerializer` es el único responsable del archivo `BBDDObjetos.txt` y de los
+  `.db` individuales. Guarda en preorden: escribe el binario de cada objeto y
+  registra la ruta; inserta `=>` para abrir un bloque de hijos y `<=` para cerrarlo.
+- La carga reconstruye la escena **de forma recursiva** (`loadPreOrder` con
+  look-ahead de marcadores), restaurando padres e hijos; inserta cada objeto
+  directamente en `SceneRegistry` vía `EditorController`.
 - `Binario` encapsula los streams binarios usados por las entidades.
 - `GameObject::saveEntity/loadEntity` coordina la serialización binaria propia
   (atributos globales, locales, componentes).
 - `EditorConfig` (JSON via nlohmann) persiste la configuración del editor:
-  menú (proyecto, idioma, sensibilidad de cámara) y ventanas (estado abierto/
-  cerrado de GUIManager), en `~/MotorGrafico/Configuracion.json` (Linux) /
-  `C:/MotorGraficoArchivos/Configuracion.json` (Windows). Tolerante a archivos
-  ausentes o corruptos: los defaults quedan en `EditorConfig.h` y el motor los la
-  aplica al guardar si falta un campo.
-- Limitación conocida: no hay versionado, validación de tamaño ni abstracción de formato.
+  menú (proyecto, idioma, sensibilidad de cámara), gizmo, ventana de cámaras y
+  ventanas (estado abierto/cerrado de GUIManager), en `~/MotorGrafico/Configuracion.json`
+  (Linux) / `C:/MotorGraficoArchivos/Configuracion.json` (Windows). Tolerante a
+  archivos ausentes o corruptos: los defaults quedan en `EditorConfig.h`.
+  El layout `imgui.ini` también se guarda junto al proyecto (no en el CWD).
+- Limitación conocida: la serialización binaria no tiene versionado ni validación
+  de tamaños; un cambio en la estructura de atributos invalida escenas guardadas.
 
 ### Scripts dinámicos
 
@@ -310,22 +312,22 @@ La clase `MiAPP` en `main.cpp` actúa como composition root y registra los callb
 |---|---|---|
 | GLFW | Ventana, contexto OpenGL y eventos de input | `find_package(glfw3)` |
 | OpenGL / GLU | Renderizado inmediato y utilidades de cámara | `find_package(OpenGL)` + fallback manual a libGLU |
-| Bullet Physics | Física y colisiones (btDiscreteDynamicsWorld) | `find_package(Bullet)` |
-| Assimp | Importación de modelos 3D (obj, fbx, etc.) | `find_package(assimp)` |
-| GLM | Matrices, vectores, descomposición de transformaciones | Headers en `External/glm` |
-| nlohmann/json | Persistencia de configuración del editor (`EditorConfig`) | Header único vendoriado en `External/nlohmann/json.hpp` |
-| Dear ImGui | Interfaz del editor completa | Integrado en `src/ImGui/` |
-| ImGuizmo | Gizmos de transformación (translate/rotate/scale) | Integrado en `ImGuizmo/` |
-| ncurses | Dependencia auxiliar de Linux | `find_package(Curses)` |
-| X11 / Xrandr / Xi | Dependencias del windowing en Linux | Link directo |
+| Bullet Physics | Física y colisiones (btDiscreteDynamicsWorld) | `find_package(Bullet)` con fallback a targets clásicos |
+| Assimp | Carga de modelos 3D (opcional via `USE_ASSIMP`) | `find_package(assimp)` |
+| GLM | Matemáticas de Transform y cámaras (`GLM_ENABLE_EXPERIMENTAL`) | Usa `External/glm` si existe; si no, `find_package(glm)` del sistema |
+| nlohmann/json | `EditorConfig` (persistencia de configuración) | Vendoriado en `External/nlohmann` |
+| Dear ImGui | Interfaz del editor | Integrada en `src/ImGui/` |
+| ImGuizmo | Gizmos de transformación | Integrada en `FunshiEngineGL/ImGuizmo/` |
+| ncurses / X11 | Enlace en Linux | `find_package(Curses)` + X11/Xrandr/Xi |
 
-`src/ImGui/` y `ImGuizmo/` contienen código de terceros compilado como parte del ejecutable, no como bibliotecas separadas.
+En Windows se enlaza además `opengl32`, `glu32` y `dbghelp` (stack traces de
+`RuntimeException`).
 
 ---
 
-## 6. Organización `.h` / `.cpp`
+## 6. Organización del código
 
-El código propio con lógica no genérica está dividido en headers de interfaz y archivos `.cpp` de implementación. Las excepciones son:
+La convención general es un par `.h`/`.cpp` por clase. Las excepciones son:
 
 - Estructuras de datos genéricas, que deben ser header-only para la instanciación de plantillas.
 - Componentes pequeños y algunas interfaces GUI, parcialmente inline por el acoplamiento actual.
@@ -333,38 +335,55 @@ El código propio con lógica no genérica está dividido en headers de interfaz
 
 `CMakeLists.txt` descubre automáticamente los `.cpp` y `.h` bajo `src/` mediante
 `GLOB_RECURSE CONFIGURE_DEPENDS`. Los nuevos archivos de implementación se incorporan
-al build sin enumerarlos manualmente.
+al build sin enumerarlos manualmente. Los archivos de ImGui se recopilan por separado
+desde `src/ImGui/` y los de ImGuizmo desde `ImGuizmo/` (fuera de `src/`).
 
-Los archivos de ImGui se recopilan por separado desde `src/ImGui/` y los de ImGuizmo
-desde `ImGuizmo/` (fuera de `src/`).
+Además del ejecutable, el proyecto define dos **targets de prueba headless**
+registrados en CTest:
+
+- `filemanager-tests`: ejercita `GestorDeArchivos`/`FileManager`/`FileSystemWatcher`
+  contra un proyecto temporal, sin ventanas ni pila gráfica.
+- `configuracion-tests`: round-trip del JSON de `EditorConfig` y carga tolerante
+  ante archivos ausentes o corruptos.
+
+La opción `BUILD_ENGINE=OFF` compila solo las pruebas (útil en CI y plataformas
+sin las librerías gráficas), y `ENABLE_ASAN` (ON por defecto en Debug) activa
+ASan+UBSan en GCC/Clang.
 
 ---
 
 ## 7. Flujo de datos principal
 
-```
+```text
 main.cpp
   │
-  ├─ input GLFW ──► MiAPP::onKey/onMouse ──► Camera (movimiento)
-  │                                       ──► menuActivo toggle (tecla E)
-  │                                       ──► sceneRunning = false (Escape)
+  ├─ input GLFW ──► MiAPP::onKey/onMouse ──► CameraComponent activa (movimiento)
+  │                                       ──► tecla E: toggleEditorInterfaces()
+  │                                       ──► 1/T, 2/R, 3/Y: operación del gizmo
+  │                                       ──► Escape: volver al menú (máquina de estados)
   │
   ├─ GameScene::GUI()
-  │     ├─ SceneMenuBarInterface ──► start flag ──► ApplicationStateMachine
+  │     ├─ SceneMenuBarInterface ──► flag start (Play/Stop) ──► GameScene::update
   │     ├─ SceneSelectedInterface ──► EditorController (crear/borrar/reparentar GO)
   │     │                         ──► EventBus.publish(ObjectCreated/Deleted/Selected)
+  │     ├─ SceneObjectTree ──► selección y reparentado por drag & drop
   │     └─ GUIManager paneles
-  │           └─ SettingsObjectInterface ──► EditorController (add/removeComponent)
+  │           └─ SettingsObjectInterface ──► EditorController (add/removeComponent,
+  │                                          sync colliders, "Gizmo activo")
   │
   ├─ GameScene::update(dt)
-  │     ├─ si Playing: PhysicsEngine::stepSimulation(dt)
+  │     ├─ transición editor→play: empuja la pose visual a los cuerpos Bullet
+  │     ├─ si start y gizmo libre: PhysicsEngine::stepSimulation(dt)
   │     │               └─ btDiscreteDynamicsWorld::stepSimulation
   │     └─ scripts: IScriptBehaviour::onUpdate (si compilados)
   │
-  └─ GameScene::dibujarGameObjects()
-        ├─ Ilumination::apply() [glLight*]
-        ├─ Modelos3D::dibujar(dt) [glBegin/glVertex/glEnd]
-        └─ ImGuizmo::Manipulate (gizmo sobre objeto seleccionado)
+  └─ GameScene::gameScene()
+        ├─ LightSystem::beginFrame() [glLight*]
+        ├─ dibujarGameObjects (Modelos3D con glBegin/glEnd)
+        ├─ marcadores de luz y cámara (wireframes auxiliares)
+        ├─ ImGuizmo::Manipulate sobre el GizmoTarget activo (objeto o collider)
+        ├─ dibujarViewportsPrevios (FBO de cámaras) + paneles ImGui
+        └─ pickObject con el mouse para seleccionar en el viewport
 ```
 
 ---
@@ -373,16 +392,17 @@ main.cpp
 
 | Patrón | Aplicación actual | Efecto arquitectónico |
 |---|---|---|
-| RAII / ownership explícito | `unique_ptr` en `GameScene`, `SceneRegistry` y `GUIManager` | Define propietarios claros y reduce liberaciones manuales. |
+| RAII / ownership explícito | `unique_ptr` en `GameScene`, `SceneRegistry`, `GUIManager`, `FileManager`; colliders y cuerpos Bullet gestionados por `Collider`/`RigidBody` | Propietarios claros y liberación automática. |
 | Composite | Árbol n-ario de `GameObject` en `ArbolEnlazado` | Modela la jerarquía padre-hijo y las transformaciones anidadas. |
 | Registry / Repository | `SceneRegistry` | Centraliza búsqueda, ownership y operaciones de escena. |
-| Controller | `EditorController` | Evita que la GUI coordine directamente las mutaciones. |
+| Controller | `EditorController` | La GUI no coordina mutaciones directamente; la física se registra aquí. |
 | Factory | `ComponentFactory`, `GameObjectFactory` | Reduce `new` concretos en GUI y serialización. |
-| Facade | `PhysicsEngine` | Oculta el mundo Bullet detrás de operaciones del dominio. |
+| Facade | `PhysicsEngine` (PIMPL) y `FileManager` | Ocultan Bullet y el filesystem detrás de operaciones del dominio. |
 | Adapter | `BulletPhysicsAdapter` | Permite sustituir el backend de física sin modificar `PhysicsEngine`. |
+| Strategy | `IPhysicsBackend` | Contrato de backend inyectado por constructor (con nullptr se puede montar la fachada sin mundo). |
+| MVP | Paquete `MenusGUI` (`MenuModel`/`MenuView`/`StartMenuPresenter`) | Lógica del menú testeable, independiente de ImGui/GLFW. |
 | Observer | `EventBus` (token-based) | Desacopla notificaciones de escena y selección entre subsistemas. |
 | State | `ApplicationStateMachine` | Explicita los modos principales de la aplicación. |
-| Strategy (parcial) | `IPhysicsBackend` | Contrato de backend, pero actualmente solo existe el adaptador Bullet. |
 
 No están implementados todavía:
 - `Command` para undo/redo.
@@ -396,68 +416,89 @@ No están implementados todavía:
 
 - `SceneRegistry` establece ownership único mediante `std::vector<unique_ptr<GameObject>>`.
   GUI, selección, física y vistas lineales solo mantienen referencias raw no propietarias.
-- `PhysicsEngine` inicializa directamente el mundo Bullet **en el constructor del header**,
-  incluyendo la creación del suelo estático. Esto acopla la física al header y dificulta pruebas.
-  La fachada `IPhysicsBackend` / `BulletPhysicsAdapter` existe pero `PhysicsEngine` no la usa todavía de forma consistente.
-- `GameScene` continúa siendo una fachada demasiado amplia: mezcla ciclo de frame, render,
-  GUI, física, scripts y gizmo. La extracción de `SceneRenderer`, `PhysicsSystem` y
-  `ScriptSystem` aliviaría esta responsabilidad.
+- `PhysicsEngine` es una fachada PIMPL con el backend inyectado (`IPhysicsBackend`):
+  el header no expone Bullet y la fachada puede existir sin mundo (útil para pruebas
+  y para el editor sin simulación).
+- `GameScene` sigue siendo un coordinador amplio: mezcla ciclo de frame, render,
+  GUI, física, gizmo y vistas previas. La extracción de `SceneRenderer`,
+  `PhysicsSystem` y `ScriptSystem` aliviaría esa responsabilidad.
 - `ApplicationStateMachine` explicita los estados, pero las transiciones se realizan
   desde `main.cpp` y conviven con flags de UI legados (`menuActivo`, `start`).
 - `EventBus` transporta `GameObject*` crudos. Un consumidor no debe conservar esos
-  punteros después de recibir `ObjectDeleted`.
-- `EditorController::deleteGameObject` publica el evento de eliminación **antes** de
-  destruir el objeto, para que los observadores puedan invalidar sus referencias con seguridad.
-- Las rutas de assets se resuelven a partir de `HOME` en Linux y rutas específicas en
-  Windows; centralizar esta configuración es necesario para la portabilidad.
-- La serialización binaria no tiene versionado ni validación formal de tamaños. Un cambio
-  en la estructura de atributos invalida escenas guardadas.
-- `SettingsObjectInterface` y algunos componentes todavía incluyen y construyen detalles
-  concretos; el siguiente paso de desacoplamiento es completar el uso de `EditorController`
-  y descriptors de componentes.
-- El renderer usa OpenGL fijo (`glBegin`, `glMatrixMode`, `glLight*`), por lo que
-  está fuertemente ligado al contexto de compatibilidad. No es compatible con OpenGL Core.
+  punteros después de recibir `ObjectDeleted`. `EditorController::deleteGameObject`
+  publica el evento **antes** de destruir el objeto, para que los observadores
+  invaliden sus referencias a tiempo (fix de un use-after-free histórico).
+- La manipulación del gizmo pausa `stepSimulation` mientras el usuario arrastra y
+  la física solo corre en Play; el sync collider↔rigidbody↔objeto usa la matriz
+  global compuesta del dueño, de modo que mover un collider no desincroniza el cuerpo.
+- Las rutas de usuario (`~/MotorGrafico`, `C:/MotorGraficoArchivos`) están
+  centralizadas en `EditorConfig` para la configuración y el layout, pero los assets
+  del proyecto todavía se resuelven a mano; `PathUtils.h` solo comparte el separador.
+- La serialización binaria no tiene versionado ni validación formal de tamaños. Un
+  cambio en la estructura de atributos invalida escenas guardadas.
+- `SettingsObjectInterface` y algunos componentes todavía incluyen y construyen
+  detalles concretos; el siguiente paso de desacoplamiento es completar el uso de
+  `EditorController` y descriptors de componentes.
+- El renderer usa OpenGL de compatibilidad (`glBegin`, `glMatrixMode`, `glLight*`);
+  no es compatible con un contexto OpenGL Core.
 
 ---
 
 ## 10. Capas de la aplicación
 
 ```text
-Aplicación:     main.cpp, MiAPP, ApplicationStateMachine, GUIManager
-Dominio:        GameScene, SceneRegistry, EditorController, GameObject, Component, EventBus
+Aplicación:      main.cpp, MiAPP, ApplicationStateMachine, GUIManager, EditorConfig
+Dominio:         GameScene, SceneRegistry, EditorController, GameObject, Component,
+                 EventBus, FileManager, LightSystem
 Infraestructura: BulletPhysicsAdapter, OpenGL/GLFW (Ventana), Assimp (Modelos3D),
-                 Binario/SceneSerializer, Script (dl*)
-Dependencias:   ImGui, ImGuizmo, GLM (incluidos en el repo)
+                 Binario/SceneSerializer, Script (dlopen/LoadLibrary), FileSystemWatcher
+Dependencias:    ImGui, ImGuizmo, nlohmann/json, GLM (integradas o vendoriadas)
 ```
 
 Relaciones clave:
 
 ```text
 GUI → EditorController → SceneRegistry
-                      └─ PhysicsEngine → IPhysicsBackend → BulletPhysicsAdapter → Bullet
-                      └─ EventBus → suscriptores (SceneSelectedInterface, etc.)
+                       └─ PhysicsEngine → IPhysicsBackend → BulletPhysicsAdapter → Bullet
+                       └─ EventBus → suscriptores (SceneSelectedInterface, etc.)
+Vistas del explorador → FileManager → GestorDeArchivos / FileSystemWatcher
 SceneSerializer → SceneRegistry / EditorController
 GameScene → coordina todos los subsistemas del frame
 ```
 
 ---
 
-## 11. Pendientes conocidos (desde comentarios de `main.cpp`)
+## 11. Pruebas y CI
 
-- [ ] Agregar sistema de animaciones.
-- [ ] Implementar materiales y texturas.
-- [ ] Sistema de scripts dinámicos completo (`onStart`, `onUpdate`, `SerializeField`).
+- `tests/FileManagerTests.cpp`: construcción y re-resolución del árbol de archivos,
+  operaciones de dominio (crear, renombrar, copiar, eliminar, búsqueda) y
+  `FileSystemWatcher` (detección de cambios externos, en Linux via inotify).
+- `tests/EditorConfigTests.cpp`: round-trip del JSON y tolerancia a archivos
+  ausentes o corruptos.
+- Ambos targets compilan en cualquier plataforma y se ejecutan con `ctest`.
+- `.github/workflows/ci.yml` compila el engine completo en Ubuntu (Release, sin
+  ASan) y ejecuta las pruebas; además ejecuta las pruebas headless en
+  Linux/Windows/macOS con `BUILD_ENGINE=OFF`.
+
+Los bugs de la Fase 2 (cámaras/vistas previas) y sus fixes están documentados en
+[CAMARAS_VISTAS_PREVIAS.md](CAMARAS_VISTAS_PREVIAS.md).
+
+---
+
+## 12. Pendientes conocidos
+
+- [ ] Sistema de animaciones.
+- [ ] Texturas y asset manager compartido.
+- [ ] Scripts dinámicos completos: compilación en caliente, `onStart`/`onUpdate`, `SerializeField`.
 - [ ] `CommandManager` para undo/redo.
-- [ ] Cargar el árbol de jerarquía al hacer `Load Scene` (actualmente solo carga objetos planos).
 - [ ] Cuadro de log de errores en el editor.
-- [ ] Evitar crash al anidar un hijo a su propio ancestro (validar en `reparentGameObject`).
-- [ ] Limpiar binarios huérfanos (`.db`) al eliminar objetos.
-- [ ] Resolver ID duplicados al crear objetos.
-- [ ] Sistema de seguimiento de scripts asociado a git.
-- [ ] Agregar clase `Input` independiente (actualmente el input está en callbacks de `main.cpp`).
-- [ ] Terminar todos los popups del inspector.
-- [ ] Soporte para prefabs y duplicación de objetos.
-- [ ] Portabilidad de rutas de assets.
+- [ ] Resolver IDs duplicados al crear objetos; limpiar binarios huérfanos al eliminar.
+- [ ] Clase `Input` independiente (hoy el input vive en callbacks de `main.cpp`).
+- [ ] Terminar los popups del inspector.
+- [ ] Prefabs y duplicación de objetos.
+- [ ] Portabilidad de rutas de assets (centralizar `HOME` / rutas de Windows).
 - [ ] Versionado y validación de la serialización binaria.
 - [ ] Extraer `SceneRenderer`, `PhysicsSystem` y `ScriptSystem` de `GameScene`.
 - [ ] Encapsular las estructuras internas de `SceneRegistry` (eliminar getters raw de compatibilidad).
+- [ ] Vistas previas de cámara seleccionables con clic (hoy son pasivas).
+- [ ] Limpiar el `glEndList()` huérfano en `GameScene::mallaScene`.
