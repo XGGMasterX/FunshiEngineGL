@@ -9,7 +9,7 @@
 SettingsColliderMalla::SettingsColliderMalla(GameObject* objeto) {
 	myCollider = objeto->getComponent<MallaCollider>();
 	this->settingsTransform =
-	    new SettingsTransform(myCollider->getTransform());
+	    new SettingsTransform(myCollider->getTransform(), objeto);
 	this->newRadio = myCollider->getRadio();
 }
 

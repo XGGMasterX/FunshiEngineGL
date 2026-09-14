@@ -228,21 +228,15 @@ void GameScene::dibujarObjectConOjo(GameObject* object, GameObject* camaraOjo) {
     if (object->getComponent<CameraComponent>() && object != camaraOjo)
         dibujarMarcadorCamara(object);
 
-    // Gizmo visual del collider del objeto seleccionado: el wireframe del
-    // collider (p.ej. el hull de la malla) queda visible en la escena 3D,
-    // acompañando al gizmo de transform cuando se edita el componente.
-    if (isEditorActivo() && object != camaraOjo) {
-        GameObject* selected = selecteableGUI ? selecteableGUI->getReturnableEntity() : nullptr;
-        if (selected) {
-            if (object == selected) {
-                if (Collider* collider = object->getComponent<Collider>())
-                    collider->dibujarCollider();
-            } else if (editorController && editorController->hasGizmoTarget()) {
-                const GizmoTarget& t = editorController->getGizmoTarget();
-                if (t.owner == object && object->getComponent<Collider>())
-                    object->getComponent<Collider>()->dibujarCollider();
-            }
-        }
+    // Wireframe del collider en la escena 3D: SOLO cuando se esta editando el
+    // collider con el gizmo (GizmoTarget activo sobre ese objeto). Si se lo
+    // dibujara siempre sobre el objeto seleccionado, se superpondria al gizmo
+    // del transform y pareceria 'un segundo gizmo' apilado.
+    if (isEditorActivo() && object != camaraOjo && editorController &&
+        editorController->hasGizmoTarget()) {
+        const GizmoTarget& t = editorController->getGizmoTarget();
+        if (t.owner == object && object->getComponent<Collider>())
+            object->getComponent<Collider>()->dibujarCollider();
     }
 }
 
