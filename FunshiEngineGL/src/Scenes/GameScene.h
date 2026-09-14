@@ -41,6 +41,9 @@ private:
     float deltaTime = 0.0f;
     bool start = false;
     bool menuActivo = false;
+    // Sensibilidad global del mouse look, sincronizada desde MenuGUI (vista
+    // Opciones). La aplica main al offset del raton antes de updateYaw().
+    float sensibilidadCamara = 1.0f;
     int gizmoOperation = 7; // ImGuizmo::TRANSLATE
     bool gizmoReady = false;
 
@@ -98,6 +101,10 @@ public:
     void toggleEditorInterfaces();
     bool isEditorActivo() const;
     void clearSelection();
+
+    // Sensibilidad del mouse look (la setea main desde MenuGUI/Opciones).
+    float getSensibilidadCamara() const noexcept;
+    void setSensibilidadCamara(float sensibilidad) noexcept;
 };
 
 #endif

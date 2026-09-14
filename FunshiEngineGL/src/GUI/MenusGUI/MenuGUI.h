@@ -70,6 +70,11 @@ public:
     // Pide el cierre del menu (lo consume ConsultarCierre).
     void PedirCierre() noexcept;
 
+    // Configuracion global del editor configurada en la vista "Opciones"
+    // (sensibilidad del mouse look de la camara). main la propaga a la escena
+    // cuando la escena corre (el menu esta pausado mientras es visible).
+    float getSensibilidadCamara() const noexcept;
+
 private:
     // Orden de membresia = orden de construccion: el presentador se construye
     // ANTES que la vista porque la vista recibe su direccion (el presentador
