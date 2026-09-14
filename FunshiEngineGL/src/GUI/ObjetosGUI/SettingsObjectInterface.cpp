@@ -16,7 +16,7 @@
 #include "../../Objetos/Componentes/Light.h"
 #include "../../Objetos/Componentes/Material.h"
 #include "../../Objetos/Componentes/CameraComponent.h"
-#include "../../Fisicas/PhysicsEngine.h"
+#include "../../Scenes/EditorController.h"
 #include "../../Herramientas/TypeUtils.h"
 #include <imgui.h>
 #include <typeinfo>
@@ -41,8 +41,8 @@ SettingsObjectInterface::~SettingsObjectInterface() {
 	delete listaDESettingsComponent;
 }
 
-void SettingsObjectInterface::setPhysics(PhysicsEngine* phisics) {
-	this->phisics = phisics;
+void SettingsObjectInterface::setEditor(EditorController* editor) {
+	this->editor = editor;
 }
 
 void SettingsObjectInterface::loadComponents() {
@@ -193,8 +193,14 @@ void SettingsObjectInterface::contentGUI() {
 			    object->getComponent<Collider>() != nullptr) {
 				RigidBody* rb =
 				    new RigidBody(object->getComponent<Collider>(), 1.0f);
-				object->addComponent(rb);
-				phisics->addRigidBody(rb);
+				if (editor) {
+					// El controller agrega el componente y lo registra en la
+					// fisica de forma centralizada.
+					editor->addComponent(object,
+					                     std::unique_ptr<RigidBody>(rb));
+				} else {
+					object->addComponent(rb);
+				}
 				listaDESettingsComponent->addLast(new SettingsRigidBody(object));
 			}
 		}
@@ -256,13 +262,15 @@ void SettingsObjectInterface::contentGUI() {
 			if (ImGui::BeginPopupContextItem("DeleteComponent",
 			                                 ImGuiPopupFlags_MouseButtonRight)) {
 				if (ImGui::MenuItem("Eliminar Componente")) {
-					object->deleteComponent(comp->getComponent());
-					listaDESettingsComponent->remove(position);
-					RigidBody* rb = object->getComponent<RigidBody>();
-					// SI ESTA RELACIONADO QUITAR SINO SEGUIR
-					if ((rb != nullptr && rb == comp->getComponent())) {
-						phisics->removeRigidBody(rb);
+					Component* target = comp->getComponent();
+					if (editor) {
+						// Centralizado: des-registra de la fisica ANTES de
+						// liberar el componente (evita punteros colgantes).
+						editor->removeComponent(object, target);
+					} else {
+						object->deleteComponent(target);
 					}
+					listaDESettingsComponent->remove(position);
 					delete comp;
 					ImGui::EndPopup();
 					ImGui::PopID();
@@ -289,7 +297,7 @@ void SettingsObjectInterface::endGUI() {
 }
 
 void SettingsObjectInterface::printGUI() {
-	if (stateGUI && phisics != nullptr) {
+	if (stateGUI) {
 		initGUI();
 		contentGUI();
 		endGUI();

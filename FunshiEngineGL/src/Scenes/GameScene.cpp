@@ -42,7 +42,6 @@ GameScene::GameScene(GUIManager* manager)
     selecteableGUI = managerGUI->getSelecteableGUI();
     managerGUI->bindScene(sceneRegistry.get(), editorController.get(), &events);
     menuBarGUI = managerGUI->getMenuBarGUI(&start);
-    selecteableGUI->setPhysics(phisics.get());
 }
 
 GameScene::~GameScene() {
@@ -333,8 +332,7 @@ void GameScene::mallaScene(float tam) {
 void GameScene::GUI() {
     auto* gameObjects = getGameObjectsScene();
     selecteableGUI->printGUI();
-    if (gameObjects->isElement(selecteableGUI->getReturnableEntity()) && phisics) {
-        managerGUI->setPhysics(phisics.get());
+    if (gameObjects->isElement(selecteableGUI->getReturnableEntity())) {
         managerGUI->getSettingGUI(selecteableGUI->getReturnableEntity())->printGUI();
     }
     pintarViewportsGUI();
