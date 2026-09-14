@@ -1,3 +1,19 @@
+// windows.h antes de la stdlib (colision 'byte' de rpcndr.h vs std::byte en
+// MinGW cuando la stdlib ya se expandio; ver RuntimeException.cpp).
+#if defined(_WIN32)
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#include <shlobj.h>
+#elif defined(__linux__)
+#include <cstdio>
+#include <unistd.h>
+#endif
+
 #include "ContentFolderInterface.h"
 
 #include <algorithm>
@@ -10,14 +26,6 @@
 #include "../WindowNames.h"
 #include "../../Herramientas/IconosGUI/IconosGUI.h"
 #include <imgui.h>
-
-#if defined(_WIN32)
-#include <windows.h>
-#include <shlobj.h>
-#elif defined(__linux__)
-#include <cstdio>
-#include <unistd.h>
-#endif
 
 ContentFolderInterface::ContentFolderInterface(bool stateGUI, FileManager* fileManager)
     : GeneralUserInterface(WindowNames::ShowFolder, stateGUI, ImGuiWindowFlags_MenuBar),

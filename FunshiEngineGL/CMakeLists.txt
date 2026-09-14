@@ -151,9 +151,15 @@ if(USE_ASSIMP)
     target_link_libraries(${PROJECT_NAME} PRIVATE assimp::assimp)
 endif()
 
-# GLM
+# GLM: se usa el directorio embebido si existe en el repo; si no (p. ej. en CI
+# sin External/), se busca la copia del sistema (libglm-dev en Ubuntu).
 set(GLM_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/External/glm")
-target_include_directories(${PROJECT_NAME} PRIVATE ${GLM_INCLUDE_DIR})
+if(EXISTS "${GLM_INCLUDE_DIR}/glm/glm.hpp")
+    target_include_directories(${PROJECT_NAME} PRIVATE ${GLM_INCLUDE_DIR})
+else()
+    find_package(glm REQUIRED)
+    target_link_libraries(${PROJECT_NAME} PRIVATE glm::glm)
+endif()
 
 endif() # BUILD_ENGINE
 

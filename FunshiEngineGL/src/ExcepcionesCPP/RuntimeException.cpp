@@ -1,11 +1,22 @@
-#include "RuntimeException.h"
-#include <sstream>
-
+// windows.h debe ir ANTES de cualquier header de la stdlib: rpcndr.h define un
+// typedef global 'byte' que colisiona con std::byte (C++17) ya visible cuando
+// la stdlib ya se expandio (<> en MinGW: "reference to 'byte' is ambiguous").
 #ifdef _WIN32
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
 #include <windows.h>
 #include <dbghelp.h>
 #pragma comment(lib, "dbghelp.lib")
-#else
+#endif
+
+#include "RuntimeException.h"
+#include <sstream>
+
+#ifndef _WIN32
 #include <execinfo.h>
 #include <cxxabi.h>
 #include <dlfcn.h>
