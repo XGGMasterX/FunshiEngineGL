@@ -1,7 +1,9 @@
 #ifndef CONTENTFOLDERINTERFACE_H
 #define CONTENTFOLDERINTERFACE_H
 
+#include <filesystem>
 #include <string>
+#include <vector>
 
 #include "../GeneralUserInterface.h"
 
@@ -16,12 +18,34 @@ class IconosGUI;
 // Filesystem van a la fachada FileManager, nunca a system(). (R1)
 class ContentFolderInterface : public GeneralUserInterface {
 private:
+    // Entrada del grid (R5): el directorio se lee en disco SOLO cuando cambia
+    // la ruta mostrada o su mtime; el dibujo del grid usa este cache en vez de
+    // re-scanear con directory_iterator cada frame.
+    struct GridEntry {
+        std::string nombre;
+        std::string fullPath;
+        bool esCarpeta = false;
+        std::string extension;
+    };
+
     FileManager* fileManager = nullptr;
     bool abrirPopupNombre = false;
     bool creandoCarpeta = false;
     bool creandoScript = false;
     char nombreNuevo[128] = "";
     IconosGUI* iconosGUI = nullptr;
+
+    // Estado de renombrado (R6): ruta del elemento, si es carpeta (sube el
+    // contador del arbol) y el buffer con el nombre a confirmar en el modal.
+    std::string renombrarRuta;
+    bool renombrarEsCarpeta = false;
+    bool abrirPopupRenombrar = false;
+    char bufferRenombrar[128] = "";
+
+    // Cache del grid (R5).
+    std::vector<GridEntry> cacheEntradas;
+    std::string cacheCarpeta;
+    std::filesystem::file_time_type cacheMtime{};
 
     std::string seleccionarCarpetaSistema();
     std::string seleccionarArchivoSistema();

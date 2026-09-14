@@ -43,6 +43,7 @@ public:
     bool crearArchivo(const std::string& path, const std::string& contenido);
     bool copiarCarpeta(const std::string& origen, const std::string& destino);
     bool copiarArchivo(const std::string& origen, const std::string& destino);
+    bool renombrar(const std::string& ruta, const std::string& nuevoNombre);
 };
 
 #endif

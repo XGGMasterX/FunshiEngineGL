@@ -1,14 +1,15 @@
 #include "ContentFolderInterface.h"
 
+#include <algorithm>
+#include <cstring>
+#include <filesystem>
+
 #include "../../Herramientas/PathUtils.h"
 #include "../../FileManager/FileManager.h"
 #include "../../FileManager/FileSelection.h"
 #include "../WindowNames.h"
 #include "../../Herramientas/IconosGUI/IconosGUI.h"
 #include <imgui.h>
-#include <cstring>
-#include <algorithm>
-#include <filesystem>
 
 #if defined(_WIN32)
 #include <windows.h>
@@ -127,11 +128,42 @@ void ContentFolderInterface::crearNuevoElemento() {
 void ContentFolderInterface::recorrer(const std::string& path) {
     FileSelection* sel = fileManager->getSelection();
 
+    // R5: re-scanear solo si cambio la ruta mostrada o el mtime del directorio
+    // (mtime de un directorio sube al agregar/quitar entradas, justo lo que
+    // pinta este panel; crear/renombrar/borrar dentro lo actualiza).
     std::error_code ec;
-    std::filesystem::directory_iterator dirIt(path, ec);
-    if (ec) return;
-    const std::filesystem::directory_iterator fin;
+    const std::filesystem::file_time_type mtime =
+        std::filesystem::last_write_time(path, ec);
+    if (ec || path != cacheCarpeta || mtime != cacheMtime) {
+        cacheCarpeta = path;
+        cacheMtime = mtime;
+        cacheEntradas.clear();
 
+        std::filesystem::directory_iterator dirIt(path, ec);
+        if (ec) return;
+        const std::filesystem::directory_iterator fin;
+        for (; dirIt != fin;) {
+            const std::filesystem::directory_entry entrada = *dirIt;
+            dirIt.increment(ec);
+            if (ec) { ec.clear(); continue; } // entrada con errores: la saltamos
+
+            const std::string nombre = entrada.path().filename().string();
+            if (nombre == "." || nombre == "..") continue;
+            const std::string fullPath = entrada.path().string();
+            // No seguir symlinks: pueden apuntar a carpetas del sistema.
+            if (std::filesystem::is_symlink(entrada.symlink_status())) continue;
+            const bool esCarpeta = entrada.is_directory();
+
+            size_t dot = nombre.find_last_of('.');
+            std::string extension;
+            if (!esCarpeta && dot != std::string::npos && dot != 0)
+                extension = nombre.substr(dot);
+
+            cacheEntradas.push_back({nombre, fullPath, esCarpeta, extension});
+        }
+    }
+
+    // Dibujo del grid desde el cache (mismo layout del grid de iconos).
     const float iconSize = 87.0f;
     const float spacing = 16.0f;
     const float stepX = iconSize + spacing;
@@ -142,29 +174,19 @@ void ContentFolderInterface::recorrer(const std::string& path) {
     float availX = ImGui::GetContentRegionAvail().x;
     int columnas = std::max(1, (int)((availX + spacing) / stepX));
     float yInicio = ImGui::GetCursorPosY();
-    int indice = 0;
 
-    for (; dirIt != fin;) {
-        const std::filesystem::directory_entry entrada = *dirIt;
-        dirIt.increment(ec);
-        if (ec) { ec.clear(); continue; } // entrada con errores: la saltamos
-
-        const std::string nombre = entrada.path().filename().string();
-        if (nombre == "." || nombre == "..") continue;
-        const std::string fullPath = entrada.path().string();
-        // No seguir symlinks: pueden apuntar a carpetas del sistema.
-        if (std::filesystem::is_symlink(entrada.symlink_status())) continue;
-        const bool esCarpeta = entrada.is_directory();
-
+    for (size_t i = 0; i < cacheEntradas.size(); ++i) {
+        const GridEntry& entrada = cacheEntradas[i];
+        const std::string& nombre = entrada.nombre;
+        const std::string& fullPath = entrada.fullPath;
+        const bool esCarpeta = entrada.esCarpeta;
+        const std::string& extension = entrada.extension;
         size_t dot = nombre.find_last_of('.');
-        std::string extension = "";
-        if (!esCarpeta && dot != std::string::npos && dot != 0)
-            extension = nombre.substr(dot);
 
         std::string uniqueID = "##" + fullPath;
 
-        int fila = indice / columnas;
-        int col = indice % columnas;
+        int fila = (int)(i / (size_t)columnas);
+        int col = (int)(i % (size_t)columnas);
         ImGui::SetCursorPosY(yInicio + fila * altoCelda);
         ImGui::SetCursorPosX(xBase + col * stepX);
 
@@ -189,6 +211,19 @@ void ContentFolderInterface::recorrer(const std::string& path) {
         } else {
             const char* icon = esCarpeta ? "F" : "A";
             ImGui::Button(icon, ImVec2(iconSize, iconSize));
+        }
+
+        // R6: menu contextual de la celda -> Renombrar (archivo o carpeta).
+        if (ImGui::BeginPopupContextItem("PopRenombrar")) {
+            if (ImGui::MenuItem("Renombrar")) {
+                renombrarRuta = fullPath;
+                renombrarEsCarpeta = esCarpeta;
+                memset(bufferRenombrar, 0, sizeof(bufferRenombrar));
+                strncpy(bufferRenombrar, nombre.c_str(), sizeof(bufferRenombrar) - 1);
+                abrirPopupRenombrar = true;
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::EndPopup();
         }
 
         // --- DETECCION DE DOBLE CLIC (solo sobre el item bajo el cursor) ---
@@ -244,7 +279,6 @@ void ContentFolderInterface::recorrer(const std::string& path) {
 
         ImGui::PopID();
         ImGui::EndGroup();
-        indice++;
     }
 }
 
@@ -320,6 +354,38 @@ void ContentFolderInterface::initGUI() {
         }
         ImGui::SameLine();
         if (ImGui::Button("Cancelar", ImVec2(120, 0))) {
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndPopup();
+    }
+
+    // R6: modal de renombrado de un elemento del grid.
+    if (abrirPopupRenombrar) {
+        ImGui::OpenPopup("Renombrar");
+        abrirPopupRenombrar = false;
+    }
+    if (!renombrarRuta.empty() &&
+        ImGui::BeginPopupModal("Renombrar", NULL, ImGuiWindowFlags_AlwaysAutoResize)) {
+        ImGui::Text("Nuevo nombre del %s:",
+                    renombrarEsCarpeta ? "folder" : "archivo");
+        ImGui::InputText("##renombrarElemento", bufferRenombrar, IM_ARRAYSIZE(bufferRenombrar));
+        const bool confirmado = ImGui::Button("Renombrar", ImVec2(120, 0)) ||
+                                (ImGui::IsItemFocused() &&
+                                 ImGui::IsKeyPressed(ImGuiKey_Enter));
+        if (confirmado) {
+            const std::string nuevo = bufferRenombrar;
+            if (!nuevo.empty() &&
+                fileManager->renombrar(renombrarRuta, nuevo)) {
+                // Si es carpeta, el arbol se rescancea; el cache del grid se
+                // invalida solo por mtime en el proximo recorrer().
+                if (renombrarEsCarpeta) sel->contadorCambios++;
+            }
+            renombrarRuta.clear();
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Cancelar", ImVec2(120, 0))) {
+            renombrarRuta.clear();
             ImGui::CloseCurrentPopup();
         }
         ImGui::EndPopup();
