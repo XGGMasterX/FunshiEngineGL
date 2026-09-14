@@ -5,8 +5,9 @@
 #include <memory>
 #include <btBulletDynamicsCommon.h>
 
-EsfereCollider::EsfereCollider(float radio, Transform* transformOfDadObject)
-    : Collider(radio, transformOfDadObject) {}
+EsfereCollider::EsfereCollider(float radio, Transform* transformOfDadObject,
+                               GameObject* owner)
+    : Collider(radio, transformOfDadObject, owner) {}
 
 std::unique_ptr<btCollisionShape> EsfereCollider::createCollisionShape() {
     return std::make_unique<btSphereShape>(radio);
@@ -14,12 +15,14 @@ std::unique_ptr<btCollisionShape> EsfereCollider::createCollisionShape() {
 
 void EsfereCollider::dibujarCollider() {
     Transform globalT = getGlobalTransform();
-    float* pos = globalT.getTranslatef();
 
     const float PI = 3.14159265358979323846f;
 
     glPushMatrix();
-    glTranslatef(pos[0], pos[1], pos[2]);
+    float modelArr[16];
+    buildMatrixFromTransform(&globalT, modelArr);
+    glMultMatrixf(modelArr);
+    glDisable(GL_LIGHTING);
 
     const int meridians = 8;
     const int parallels = 4;
@@ -58,5 +61,6 @@ void EsfereCollider::dibujarCollider() {
         glEnd();
     }
 
+    glEnable(GL_LIGHTING);
     glPopMatrix();
 }

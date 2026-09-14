@@ -4,7 +4,8 @@
 
 class EsfereCollider : public Collider {
 public:
-	EsfereCollider(float radio, Transform* transformOfDadObject);
+	EsfereCollider(float radio, Transform* transformOfDadObject,
+	               GameObject* owner = nullptr);
 
 	std::unique_ptr<btCollisionShape> createCollisionShape() override;
 	void dibujarCollider() override;
