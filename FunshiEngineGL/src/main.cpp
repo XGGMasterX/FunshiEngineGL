@@ -315,10 +315,10 @@ int main(void)
 
             if (scene->isEditorActivo()) {
                 treeFilesInterface->printGUI();
-                if (treeFilesInterface->getFolderContent() != nullptr){
-                    managerOfGUI->setContentFolderGUI();
-                    contentFolderInterface->printGUI();
-                }
+                // R3: el panel de contenido se gobierna solo (lee la seleccion
+                // compartida del FileManager) y ya no depende de que main le
+                // sincronice la carpeta con setContentFolderGUI().
+                contentFolderInterface->printGUI();
             }
 
         ImGui::Render();

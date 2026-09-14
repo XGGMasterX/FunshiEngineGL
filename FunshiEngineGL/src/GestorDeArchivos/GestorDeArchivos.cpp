@@ -1,17 +1,8 @@
 #include "GestorDeArchivos.h"
 
-#include <cstring>
-#include <iostream>
+#include <filesystem>
+#include <fstream>
 #include <utility>
-#if defined(_WIN32)
-#define _WIN32_WINNT 0x0601
-#include <windows.h>
-#include <shlobj.h>
-#elif defined(__linux__)
-#include <cerrno>
-#include <dirent.h>
-#include <sys/stat.h>
-#endif
 
 GestorDeArchivos::GestorDeArchivos(std::string pathProyect)
     : treeFilePath(new ArbolEnlazado<File*>()), folderActual(nullptr) {
@@ -28,49 +19,32 @@ GestorDeArchivos::~GestorDeArchivos() {
 
 ArbolEnlazado<File*>* GestorDeArchivos::getTreeFilePath() { return treeFilePath; }
 
-#if defined(_WIN32)
 void GestorDeArchivos::recorrerDir(const std::string& path, Position<File*>* parent) {
-    WIN32_FIND_DATAA data;
-    HANDLE handle = FindFirstFileA((path + "\\*").c_str(), &data);
-    if (handle == INVALID_HANDLE_VALUE) return;
-    do {
-        const char* name = data.cFileName;
-        if (!std::strcmp(name, ".") && !std::strcmp(name, "..")) continue;
-        if (!std::strcmp(name, ".") || !std::strcmp(name, "..")) continue;
-        const std::string fullPath = path + "\\" + name;
-        File* item = (data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
-            ? static_cast<File*>(new Carpeta(name)) : new File(name);
-        item->setPathRoot(path);
-        Position<File*>* child = treeFilePath->addNodeChildOf(parent, item);
-        if (data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) recorrerDir(fullPath, child);
-    } while (FindNextFileA(handle, &data));
-    FindClose(handle);
-}
-#elif defined(__linux__)
-void GestorDeArchivos::recorrerDir(const std::string& path, Position<File*>* parent) {
-    DIR* dir = opendir(path.c_str());
-    if (!dir) return;
-    dirent* entry;
-    while ((entry = readdir(dir)) != nullptr) {
-        if (std::strcmp(entry->d_name, ".") == 0 || std::strcmp(entry->d_name, "..") == 0) continue;
-        const std::string fullPath = path + "/" + entry->d_name;
-        struct stat info;
-        if (stat(fullPath.c_str(), &info) != 0) continue;
+    std::error_code ec;
+    std::filesystem::directory_iterator it(path, ec);
+    if (ec) return;
+    const std::filesystem::directory_iterator fin;
+    for (; it != fin;) {
+        const std::filesystem::directory_entry entrada = *it;
+        it.increment(ec);
+        if (ec) { ec.clear(); continue; } // entrada con errores: la saltamos
+
+        const std::string nombre = entrada.path().filename().string();
+        if (nombre == "." || nombre == "..") continue;
+        const std::string fullPath = entrada.path().string();
+
         // No seguir enlaces simbolicos: pueden apuntar a carpetas del sistema
         // o a si mismos (recursion infinita -> arbol gigante / stack overflow).
-        struct stat linkInfo;
-        if (lstat(fullPath.c_str(), &linkInfo) == 0 &&
-            S_ISLNK(linkInfo.st_mode))
-            continue;
-        File* item = S_ISDIR(info.st_mode)
-            ? static_cast<File*>(new Carpeta(entry->d_name)) : new File(entry->d_name);
+        if (std::filesystem::is_symlink(entrada.symlink_status())) continue;
+        const bool esCarpeta = entrada.is_directory();
+
+        File* item = esCarpeta
+            ? static_cast<File*>(new Carpeta(nombre)) : new File(nombre);
         item->setPathRoot(path);
         Position<File*>* child = treeFilePath->addNodeChildOf(parent, item);
-        if (S_ISDIR(info.st_mode)) recorrerDir(fullPath, child);
+        if (esCarpeta) recorrerDir(fullPath, child);
     }
-    closedir(dir);
 }
-#endif
 
 bool GestorDeArchivos::setTreeFilePath(const std::string& path, std::string name) {
     auto* newTree = new ArbolEnlazado<File*>();
@@ -151,50 +125,52 @@ bool GestorDeArchivos::preOrdenNoExaustivo(ArbolEnlazado<File*>* first,
     return true;
 }
 
-#if defined(_WIN32)
-bool GestorDeArchivos::eliminarCarpetaWindows(const std::string& path) {
-    if (path.empty()) return false;
-    std::string doubleNull = path + '\0';
-    doubleNull.push_back('\0');
-    SHFILEOPSTRUCTA operation{};
-    operation.wFunc = FO_DELETE;
-    operation.pFrom = doubleNull.c_str();
-    operation.fFlags = FOF_NOCONFIRMATION | FOF_SILENT | FOF_NOERRORUI;
-    const int result = SHFileOperationA(&operation);
-    return result == 0 && !operation.fAnyOperationsAborted;
-}
-bool GestorDeArchivos::crearCarpetaWindows(const std::string& path) {
-    if (path.empty()) return false;
-    if (CreateDirectoryA(path.c_str(), nullptr)) return true;
-    return GetLastError() == ERROR_ALREADY_EXISTS;
-}
-#elif defined(__linux__)
-bool GestorDeArchivos::eliminarCarpetaLinux(const std::string& path) {
-    return !path.empty() && std::system(("rm -rf \"" + path + "\"").c_str()) == 0;
-}
-bool GestorDeArchivos::crearCarpetaLinux(const std::string& path) {
-    if (path.empty()) return false;
-    if (mkdir(path.c_str(), 0777) == 0 || errno == EEXIST) return true;
-    return false;
-}
-#endif
-
+// std::filesystem no lanza excepciones usados con error_code. crearArchivo
+// usa ofstream (sin excepciones de FS configuradas).
 bool GestorDeArchivos::eliminarCarpeta(const std::string& path) {
-#if defined(_WIN32)
-    return eliminarCarpetaWindows(path);
-#elif defined(__linux__)
-    return eliminarCarpetaLinux(path);
-#else
-    return false;
-#endif
+    if (path.empty()) return false;
+    std::error_code ec;
+    const std::uintmax_t removidos = std::filesystem::remove_all(path, ec);
+    return !ec && removidos > 0;
 }
 
 bool GestorDeArchivos::crearCarpeta(const std::string& path) {
-#if defined(_WIN32)
-    return crearCarpetaWindows(path);
-#elif defined(__linux__)
-    return crearCarpetaLinux(path);
-#else
-    return false;
-#endif
+    if (path.empty()) return false;
+    std::error_code ec;
+    if (std::filesystem::create_directory(path, ec)) return true;
+    // create_directory devuelve false si ya existe (sin error): es exitoso.
+    return std::filesystem::is_directory(path, ec);
+}
+
+bool GestorDeArchivos::crearArchivo(const std::string& path,
+                                    const std::string& contenido) {
+    if (path.empty()) return false;
+    std::ofstream archivo(path, std::ios::out | std::ios::binary | std::ios::trunc);
+    if (!archivo) return false;
+    if (!contenido.empty()) archivo << contenido;
+    archivo.close();
+    return !archivo.fail();
+}
+
+bool GestorDeArchivos::copiarCarpeta(const std::string& origen,
+                                     const std::string& destino) {
+    if (origen.empty() || destino.empty()) return false;
+    std::error_code ec;
+    // Si destino no existe, copy() lo crea y vuelca el contenido de origen
+    // dentro (con dotfiles, a diferencia del "cp -r src/* dst" anterior).
+    std::filesystem::copy(origen, destino,
+                          std::filesystem::copy_options::recursive |
+                          std::filesystem::copy_options::overwrite_existing,
+                          ec);
+    return !ec && std::filesystem::is_directory(destino, ec);
+}
+
+bool GestorDeArchivos::copiarArchivo(const std::string& origen,
+                                     const std::string& destino) {
+    if (origen.empty() || destino.empty()) return false;
+    std::error_code ec;
+    std::filesystem::copy_file(origen, destino,
+                               std::filesystem::copy_options::overwrite_existing,
+                               ec);
+    return !ec;
 }

@@ -3,20 +3,17 @@
 
 #include <string>
 
-#if defined(_WIN32)
-#ifndef _WIN32_WINNT
-#define _WIN32_WINNT 0x0601
-#endif
-#include <windows.h>
-#include <shlobj.h>
-#elif defined(__linux__)
-#include <dirent.h>
-#include <sys/stat.h>
-#endif
-
 #include "../Estructuras/Trees/ArbolesEnlazados/ArbolEnlazado.h"
 #include "Carpeta.h"
 
+// Infraestructura de acceso al Filesystem del explorador de archivos:
+// construye el arbol de carpetas de un proyecto y ejecuta las operaciones de
+// dominio (crear/eliminar/copiar). R2: todo el acceso a disco usa
+// std::filesystem (ambas plataformas) en lugar de APIS por #ifdef
+// (dirent.h / WinAPI) y de system("rm -rf ...").
+//
+// Nunca es dueno del ArbolEnlazado salvo del arbol que construye: libera los
+// File* que crea (los nodos del arbol no son duenos de sus elementos).
 class GestorDeArchivos {
 private:
     ArbolEnlazado<File*>* treeFilePath;
@@ -32,14 +29,6 @@ private:
                              ArbolEnlazado<File*>* second,
                              Position<File*>* left, Position<File*>* right);
 
-#if defined(_WIN32)
-    bool eliminarCarpetaWindows(const std::string& path);
-    bool crearCarpetaWindows(const std::string& path);
-#elif defined(__linux__)
-    bool eliminarCarpetaLinux(const std::string& path);
-    bool crearCarpetaLinux(const std::string& path);
-#endif
-
 public:
     explicit GestorDeArchivos(std::string pathProyect);
     ~GestorDeArchivos();
@@ -51,6 +40,9 @@ public:
     bool setTreeFilePath(const std::string& path, std::string name);
     bool eliminarCarpeta(const std::string& path);
     bool crearCarpeta(const std::string& path);
+    bool crearArchivo(const std::string& path, const std::string& contenido);
+    bool copiarCarpeta(const std::string& origen, const std::string& destino);
+    bool copiarArchivo(const std::string& origen, const std::string& destino);
 };
 
 #endif

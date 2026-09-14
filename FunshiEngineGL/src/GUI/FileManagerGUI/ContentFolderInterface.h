@@ -1,45 +1,37 @@
 #ifndef CONTENTFOLDERINTERFACE_H
 #define CONTENTFOLDERINTERFACE_H
 
-#include "../GeneralUserInterface.h"
-#include "../../GestorDeArchivos/Carpeta.h"
 #include <string>
 
-class IconosGUI;
-class TreeFilesInterface; // Forward declaration
+#include "../GeneralUserInterface.h"
 
+class FileManager;
+class IconosGUI;
+
+// Panel "ShowFolder": muestra el contenido de la carpeta seleccionada en el
+// arbol. Ya no se enlaza al arbol por puntero ni le pide el contenido: lee
+// cada frame la seleccion compartida (FileSelection), se muestra a si mismo
+// cuando hay carpeta (y se oculta si no) y notifica su navegacion por doble
+// clic dejando la ruta pendiente en la seleccion (R3). Las operaciones de
+// Filesystem van a la fachada FileManager, nunca a system(). (R1)
 class ContentFolderInterface : public GeneralUserInterface {
 private:
-    Carpeta* thisFolderContent = nullptr;
-    bool modificado = false;
+    FileManager* fileManager = nullptr;
     bool abrirPopupNombre = false;
     bool creandoCarpeta = false;
     bool creandoScript = false;
     char nombreNuevo[128] = "";
     IconosGUI* iconosGUI = nullptr;
 
-    TreeFilesInterface* treeFilesInterface = nullptr; // Puntero para notificar doble clic
-
-    bool copiarArchivo(const std::string& origen, const std::string& destino);
     std::string seleccionarCarpetaSistema();
     std::string seleccionarArchivoSistema();
-    bool crearCarpetaEnSistema(const std::string& path);
-    bool crearArchivoEnSistema(const std::string& path, const std::string& contenido);
     void crearNuevoElemento();
+    void recorrer(const std::string& path);
 
 public:
-    ContentFolderInterface(bool stateGUI);
+    ContentFolderInterface(bool stateGUI, FileManager* fileManager);
 
-    void setFolderRoot(Carpeta* folder);
     void setIconosGUI(IconosGUI* iconosG);
-    void setTreeFilesInterface(TreeFilesInterface* tree); // Nuevo setter
-
-    bool getModificado();
-    void setModificado(bool mod);
-
-    void recorrer(const std::string& path);
-    void setTreeFilePath(const std::string& path);
-    Carpeta* getFolderContent();
 
     virtual void initGUI() override;
     virtual void contentGUI() override;
