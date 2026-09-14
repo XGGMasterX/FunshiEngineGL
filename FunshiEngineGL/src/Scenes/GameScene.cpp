@@ -507,6 +507,20 @@ void GameScene::pintarVentanaCamaras() {
 void GameScene::update(float value) {
     deltaTime = value;
     if (phisics) phisics->stepSimulation(value);
+
+    // Sincronizar la fisica de vuelta a los GameObjects del mundo
+    // (GameObject::update escribe en los Transforms via RigidBody).
+    if (start) {
+        auto* gameObjects = getGameObjectsScene();
+        if (!gameObjects->isEmpty()) {
+            Position<GameObject*>* pos = gameObjects->first();
+            while (pos && pos->getElement()) {
+                pos->getElement()->update(value);
+                pos = (pos != gameObjects->last()) ? gameObjects->next(pos)
+                                                   : nullptr;
+            }
+        }
+    }
 }
 
 static bool intersectRayAABB(const glm::vec3& rayOrigin, const glm::vec3& rayDir,
