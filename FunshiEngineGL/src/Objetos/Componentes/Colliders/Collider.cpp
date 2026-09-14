@@ -1,6 +1,5 @@
 #include "Collider.h"
 
-#include <cfloat>
 #include <cmath>
 #include <btBulletDynamicsCommon.h>
 
@@ -18,11 +17,12 @@ void Collider::deserializeComponent(std::ifstream* fileNamePathContentObject) {
     myTransform->loadComponent(fileNamePathContentObject);
 }
 
-Collider::Collider(float radio, Transform* transformOfDadObject) {
-    this->radio = radio;
-    this->transformOfDadObject = transformOfDadObject;
-    this->myTransform = new Transform();
-}
+Collider::Collider(float radio, Transform* transformOfDadObject)
+    : radio(radio),
+      transformOfDadObject(transformOfDadObject),
+      myTransform(std::make_unique<Transform>()) {}
+
+Collider::~Collider() = default;
 
 void Collider::saveComponent(std::ofstream* fileNamePathContentObject) {
     serializeComponent(fileNamePathContentObject);
@@ -40,8 +40,8 @@ void Collider::setRadio(float radio) {
 
 float Collider::getRadio() { return radio; }
 
-Transform* Collider::getGlobalTransform() {
-    Transform* resultado = new Transform();
+Transform Collider::getGlobalTransform() const {
+    Transform resultado;
     float* myPos = myTransform->getTranslatef();
     float* dadPos = transformOfDadObject->getTranslatef();
 
@@ -49,22 +49,33 @@ Transform* Collider::getGlobalTransform() {
     float dx = myPos[0] + dadPos[0];
     float dy = myPos[1] + dadPos[1];
     float dz = myPos[2] + dadPos[2];
-    resultado->setTranslatef(dx, dy, dz);
+    resultado.setTranslatef(dx, dy, dz);
     float* myRots = myTransform->getRotatef();
-    resultado->setRotatef(myRots[0], myRots[1], myRots[2], myRots[3]);
+    resultado.setRotatef(myRots[0], myRots[1], myRots[2], myRots[3]);
     float* myScales = myTransform->getScalef();
-    resultado->setScalef(myScales[0], myScales[1], myScales[2]);
+    resultado.setScalef(myScales[0], myScales[1], myScales[2]);
     return resultado;
 }
 
+btCollisionShape* Collider::getCollisionShape() {
+    if (!collisionShape) {
+        collisionShape = createCollisionShape();
+        // Respaldo defensivo: nunca devolver nullptr a RigidBody/Bullet.
+        if (!collisionShape) {
+            collisionShape = std::make_unique<btSphereShape>(radio);
+        }
+    }
+    return collisionShape.get();
+}
+
 bool Collider::isCollision(Collider* other) {
-    Transform* myTransform = this->getGlobalTransform();
-    Transform* otherTransform = other->getGlobalTransform();
+    if (!other) return false;
 
-    if (!myTransform || !otherTransform) return FLT_MAX;
+    Transform myT = this->getGlobalTransform();
+    Transform otherT = other->getGlobalTransform();
 
-    float* myPos = myTransform->getTranslatef();
-    float* otherPos = otherTransform->getTranslatef();
+    float* myPos = myT.getTranslatef();
+    float* otherPos = otherT.getTranslatef();
 
     float dxmyTransform = myPos[0];
     float dymyTransform = myPos[1];

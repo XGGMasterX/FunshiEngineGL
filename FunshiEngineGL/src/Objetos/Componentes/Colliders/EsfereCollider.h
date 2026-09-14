@@ -6,7 +6,7 @@ class EsfereCollider : public Collider {
 public:
 	EsfereCollider(float radio, Transform* transformOfDadObject);
 
-	btCollisionShape* createCollisionShape() override;
+	std::unique_ptr<btCollisionShape> createCollisionShape() override;
 	void dibujarCollider() override;
 };
 #endif

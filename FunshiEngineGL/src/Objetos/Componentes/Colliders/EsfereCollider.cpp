@@ -2,18 +2,19 @@
 
 #include <cmath>
 #include <GL/gl.h>
+#include <memory>
 #include <btBulletDynamicsCommon.h>
 
 EsfereCollider::EsfereCollider(float radio, Transform* transformOfDadObject)
     : Collider(radio, transformOfDadObject) {}
 
-btCollisionShape* EsfereCollider::createCollisionShape() {
-    return new btSphereShape(radio);
+std::unique_ptr<btCollisionShape> EsfereCollider::createCollisionShape() {
+    return std::make_unique<btSphereShape>(radio);
 }
 
 void EsfereCollider::dibujarCollider() {
-    Transform* globalT = getGlobalTransform();
-    float* pos = globalT->getTranslatef();
+    Transform globalT = getGlobalTransform();
+    float* pos = globalT.getTranslatef();
 
     const float PI = 3.14159265358979323846f;
 
@@ -58,6 +59,4 @@ void EsfereCollider::dibujarCollider() {
     }
 
     glPopMatrix();
-
-    delete globalT;
 }
