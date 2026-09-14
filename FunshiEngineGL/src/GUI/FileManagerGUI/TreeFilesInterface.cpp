@@ -1,7 +1,11 @@
 #include "TreeFilesInterface.h"
 
+#include <cstring>
+#include <vector>
+
 #include "../../Herramientas/PathUtils.h"
 #include "../../FileManager/FileManager.h"
+#include "../../FileManager/FileSelection.h"
 #include "../../GestorDeArchivos/Carpeta.h"
 #include "../../Herramientas/IconosGUI/IconosGUI.h"
 #include <imgui.h>
@@ -11,22 +15,29 @@ std::string rutaDe(Carpeta* c) {
     return c->getPathRoot() + PATH_SEP + c->getPathName();
 }
 
+// Ruta completa de un elemento del arbol (la raiz se trata como contenedor y
+// no se dibuja, por eso su pathRoot+pathName nunca se indexa).
+std::string rutaDeElemento(File* elemento) {
+    return elemento->getPathRoot() + PATH_SEP + elemento->getPathName();
+}
+
 // Elimina un nodo y TODO su subarbol del ArbolEnlazado (que nunca es dueno de
-// sus File*): limpia openNodes, libera cada elemento y desvincula los nodos.
-// Sin esto, deleteNodeInternalNode() promovia el primer hijo al lugar del padre
-// y quedaban "carpetas fantasma" inexistentes en disco (B3).
+// sus File*): limpia el estado de colapso por ruta, libera cada elemento y
+// desvincula los nodos. Sin esto, deleteNodeInternalNode() promovia el primer
+// hijo al lugar del padre y quedaban "carpetas fantasma" inexistentes en disco
+// (B3).
 void limpiarYLiberarSubarbol(ArbolEnlazado<File*>* arbol,
                              Position<File*>* p,
-                             TreeIG::OpenState& openNodes) {
+                             std::set<std::string>& openPaths) {
     if (!arbol || !p) return;
     if (p->getElement())
-        openNodes.erase(static_cast<const void*>(p->getElement()));
+        openPaths.erase(rutaDeElemento(p->getElement()));
     if (arbol->isInternal(p)) {
         auto* hijos = arbol->childsOf(p);
         auto* it = hijos->first();
         while (it) {
             Position<File*>* hijo = it->getElement();
-            limpiarYLiberarSubarbol(arbol, hijo, openNodes);
+            limpiarYLiberarSubarbol(arbol, hijo, openPaths);
             it = (it != hijos->last()) ? hijos->next(it) : nullptr;
         }
         delete hijos;
@@ -34,6 +45,28 @@ void limpiarYLiberarSubarbol(ArbolEnlazado<File*>* arbol,
     // Ya sin hijos, el nodo es hoja: deleteNode la desvincula y devuelve el
     // File*, que liberamos.
     delete arbol->deleteNode(p);
+}
+
+// Se conserva la expansion de la rama renombrada: todos los paths que empiezan
+// con el prefijo viejo pasan al prefijo nuevo (el nodo y sus descendientes).
+void trasladarPrefijoEnPaths(std::set<std::string>& paths,
+                             const std::string& prefixViejo,
+                             const std::string& prefixNuevo) {
+    std::vector<std::string> aEliminar;
+    std::vector<std::string> aInsertar;
+    for (const auto& p : paths) {
+        if (p == prefixViejo) {
+            aEliminar.push_back(p);
+            aInsertar.push_back(prefixNuevo);
+        } else if (p.size() > prefixViejo.size() &&
+                   p.compare(0, prefixViejo.size(), prefixViejo) == 0 &&
+                   p[prefixViejo.size()] == PATH_SEP) {
+            aEliminar.push_back(p);
+            aInsertar.push_back(prefixNuevo + p.substr(prefixViejo.size()));
+        }
+    }
+    for (const auto& e : aEliminar) paths.erase(e);
+    for (const auto& i : aInsertar) paths.insert(i);
 }
 } // namespace
 
@@ -61,34 +94,88 @@ TreeIG::RowResult TreeFilesInterface::drawFolderRow(File* element, bool wasOpen)
         ImGui::SameLine();
     }
 
-    const bool nodeOpen = ImGui::TreeNodeEx(
-        folderRoot->getPathName().c_str(), nodeFlags, "%s",
-        folderRoot->getPathName().c_str());
-    const bool toggled = ImGui::IsItemToggledOpen();
+    bool nodeOpen;
+    bool toggled;
+    if (renombrandoInline && carpetaRenombrando == folderRoot) {
+        // R6: fila en modo rename -> InputText inline en lugar del nombre.
+        nodeOpen = ImGui::TreeNodeEx("##renombrar_carpeta", nodeFlags, " ");
+        toggled = ImGui::IsItemToggledOpen();
 
-    if (ImGui::IsItemClicked()) {
-        sel->carpetaActual = folderRoot;
-        sel->rutaVisible = rutaDe(folderRoot);
-        sel->navegacionPendiente.clear();
-    }
+        ImGui::SameLine();
+        const bool confirmado =
+            ImGui::InputText("##input_renombrar", bufferRenombrar,
+                             IM_ARRAYSIZE(bufferRenombrar),
+                             ImGuiInputTextFlags_AutoSelectAll |
+                             ImGuiInputTextFlags_EnterReturnsTrue);
+        const bool cancelado = ImGui::IsKeyPressed(ImGuiKey_Escape);
 
-    if (ImGui::BeginPopupContextItem("MenuContextualCarpeta")) {
-        ImGui::Text("Carpeta: %s", folderRoot->getPathName().c_str());
-        ImGui::Separator();
-        if (ImGui::MenuItem("Nueva Carpeta")) {
-            const std::string rutaNuevaCarpeta =
-                rutaDe(folderRoot) + PATH_SEP + "Nueva Carpeta";
-            if (fileManager->crearCarpeta(rutaNuevaCarpeta)) {
-                // No mutamos el arbol durante el recorrido (invalidaba
-                // iteradores, B4): el rescaneo del proximo frame lo agrega.
-                sel->contadorCambios++;
+        if (confirmado || cancelado || !renombrandoInline) {
+            if (confirmado) {
+                const std::string nuevoNombre = bufferRenombrar;
+                if (!nuevoNombre.empty() &&
+                    nuevoNombre != folderRoot->getPathName()) {
+                    const std::string rutaVieja = rutaDe(folderRoot);
+                    const std::string rutaNueva =
+                        folderRoot->getPathRoot() + PATH_SEP + nuevoNombre;
+                    if (fileManager->renombrar(rutaVieja, nuevoNombre)) {
+                        // La ruta visible (si es esta carpeta o un descendiente)
+                        // se actualiza ANTES del rescaneo para que refrescar()
+                        // la re-resuelva con el nombre nuevo (R6).
+                        if (sel->rutaVisible == rutaVieja) {
+                            sel->rutaVisible = rutaNueva;
+                        } else if (sel->rutaVisible.size() > rutaVieja.size() &&
+                                   sel->rutaVisible.compare(0, rutaVieja.size(), rutaVieja) == 0 &&
+                                   sel->rutaVisible[rutaVieja.size()] == PATH_SEP) {
+                            sel->rutaVisible =
+                                rutaNueva + sel->rutaVisible.substr(rutaVieja.size());
+                        }
+                        trasladarPrefijoEnPaths(openPaths, rutaVieja, rutaNueva);
+                        // Rescaneo del arbol (refleja el nombre nuevo).
+                        sel->contadorCambios++;
+                    }
+                }
             }
+            carpetaRenombrando = nullptr;
+            renombrandoInline = false;
         }
-        if (ImGui::MenuItem("Eliminar Carpeta")) {
-            carpetaAConfirmar = folderRoot;
-            confirmarEliminar = true;
+    } else {
+        nodeOpen = ImGui::TreeNodeEx(
+            folderRoot->getPathName().c_str(), nodeFlags, "%s",
+            folderRoot->getPathName().c_str());
+        toggled = ImGui::IsItemToggledOpen();
+
+        if (ImGui::IsItemClicked()) {
+            sel->carpetaActual = folderRoot;
+            sel->rutaVisible = rutaDe(folderRoot);
+            sel->navegacionPendiente.clear();
         }
-        ImGui::EndPopup();
+
+        if (ImGui::BeginPopupContextItem("MenuContextualCarpeta")) {
+            ImGui::Text("Carpeta: %s", folderRoot->getPathName().c_str());
+            ImGui::Separator();
+            if (ImGui::MenuItem("Renombrar Carpeta")) {
+                carpetaRenombrando = folderRoot;
+                renombrandoInline = true;
+                std::memset(bufferRenombrar, 0, sizeof(bufferRenombrar));
+                std::strncpy(bufferRenombrar,
+                             folderRoot->getPathName().c_str(),
+                             sizeof(bufferRenombrar) - 1);
+            }
+            if (ImGui::MenuItem("Nueva Carpeta")) {
+                const std::string rutaNuevaCarpeta =
+                    rutaDe(folderRoot) + PATH_SEP + "Nueva Carpeta";
+                if (fileManager->crearCarpeta(rutaNuevaCarpeta)) {
+                    // No mutamos el arbol durante el recorrido (invalidaba
+                    // iteradores, B4): el rescaneo del proximo frame lo agrega.
+                    sel->contadorCambios++;
+                }
+            }
+            if (ImGui::MenuItem("Eliminar Carpeta")) {
+                carpetaAConfirmar = folderRoot;
+                confirmarEliminar = true;
+            }
+            ImGui::EndPopup();
+        }
     }
     return {nodeOpen, toggled};
 }
@@ -121,7 +208,9 @@ void TreeFilesInterface::initGUI() {
 void TreeFilesInterface::refrescarArbol() {
     fileManager->refrescar();
     arbolDeArchivos = fileManager->getArbol();
-    openNodes.clear();
+    // R4: openPaths se indexa por RUTA y sobrevive a la reconstruccion del
+    // arbol; ya no se limpia aqui (las ramas borradas quedan como entradas
+    // hueso que nunca se dibujan, inofensivas).
     carpetaAEliminar = nullptr;
     ultimoContadorVisto = fileManager->getSelection()->contadorCambios;
     // navegacionPendiente NO se limpia: es una ruta y debe aplicarse (FASE 2)
@@ -139,11 +228,13 @@ void TreeFilesInterface::aplicarNavegacionPendiente() {
     sel->carpetaActual = objetivo;
     sel->rutaVisible = ruta;
 
-    // Expandir la jerarquia de padres para que sea visible.
+    // Expandir la jerarquia de padres para que sea visible: como openPaths
+    // se indexa por ruta y sobrevive a los rescaneos, la expansion persiste.
     Position<File*>* currentPos = arbolDeArchivos->whatIsPositionOf(objetivo);
     while (currentPos) {
         File* currentElement = currentPos->getElement();
-        openNodes.insert(static_cast<const void*>(currentElement));
+        if (currentElement && currentPos != arbolDeArchivos->rootOfTree())
+            openPaths.insert(rutaDeElemento(currentElement));
         if (arbolDeArchivos->isRoot(currentPos)) break;
         currentPos = arbolDeArchivos->dadOf(currentPos);
     }
@@ -165,10 +256,13 @@ void TreeFilesInterface::contentGUI() {
     aplicarNavegacionPendiente();
 
     if (!arbolDeArchivos->isEmpty()) {
-        TreeIG::drawTree(
-            arbolDeArchivos, arbolDeArchivos->rootOfTree(), openNodes,
+        TreeIG::drawTreeKeyed(
+            arbolDeArchivos, arbolDeArchivos->rootOfTree(), openPaths,
             [this](File* element, bool wasOpen) {
                 return drawFolderRow(element, wasOpen);
+            },
+            [](File* element) -> std::string {
+                return rutaDeElemento(element);
             });
     }
 
@@ -183,7 +277,7 @@ void TreeFilesInterface::contentGUI() {
         Position<File*>* posicion = arbolDeArchivos->whatIsPositionOf(doomed);
         if (posicion && posicion != arbolDeArchivos->rootOfTree() &&
             fileManager->eliminarCarpeta(rutaDe(doomed))) {
-            limpiarYLiberarSubarbol(arbolDeArchivos, posicion, openNodes);
+            limpiarYLiberarSubarbol(arbolDeArchivos, posicion, openPaths);
         }
     }
 }

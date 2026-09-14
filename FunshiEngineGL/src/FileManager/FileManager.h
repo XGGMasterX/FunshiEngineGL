@@ -34,6 +34,7 @@ public:
     bool crearArchivo(const std::string& ruta, const std::string& contenido);
     bool copiarCarpeta(const std::string& origen, const std::string& destino);
     bool copiarArchivo(const std::string& origen, const std::string& destino);
+    bool renombrar(const std::string& ruta, const std::string& nuevoNombre);
 
     // Busca por ruta completa en el arbol vigente (navegacion diferida del
     // doble clic). Devuelve nullptr si la ruta ya no existe (carpeta borrada

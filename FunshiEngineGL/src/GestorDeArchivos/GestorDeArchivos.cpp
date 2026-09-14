@@ -174,3 +174,15 @@ bool GestorDeArchivos::copiarArchivo(const std::string& origen,
                                ec);
     return !ec;
 }
+
+bool GestorDeArchivos::renombrar(const std::string& ruta,
+                                 const std::string& nuevoNombre) {
+    if (ruta.empty() || nuevoNombre.empty()) return false;
+    const std::filesystem::path objetivo(ruta);
+    // Cualquier separador / \ es invalido en un nombre de salida; no dejar
+    // que un nombre malicioso cree una ruta nueva por accidente.
+    if (nuevoNombre.find_first_of("/\\") != std::string::npos) return false;
+    std::error_code ec;
+    std::filesystem::rename(objetivo, objetivo.parent_path() / nuevoNombre, ec);
+    return !ec;
+}

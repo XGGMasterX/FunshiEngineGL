@@ -64,6 +64,10 @@ bool FileManager::copiarArchivo(const std::string& origen, const std::string& de
     return gestor->copiarArchivo(origen, destino);
 }
 
+bool FileManager::renombrar(const std::string& ruta, const std::string& nuevoNombre) {
+    return gestor->renombrar(ruta, nuevoNombre);
+}
+
 Carpeta* FileManager::buscarCarpetaPorRuta(const std::string& ruta) {
     ArbolEnlazado<File*>* arbol = gestor->getTreeFilePath();
     if (!arbol || arbol->isEmpty()) return nullptr;

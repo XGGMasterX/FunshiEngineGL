@@ -42,15 +42,15 @@ void forEachChild(TNodo<T>* node, Fn&& fn) {
         child = (child != children->last()) ? children->next(child) : nullptr;
     }
 }
-template <typename T, typename Row>
-void drawTree(ArbolEnlazado<T>* tree, Position<T>* pos, OpenState& openNodes,
-              Row&& drawRow) {
+template <typename T, typename Row, typename OpenSet, typename KeyOf>
+void drawTreeKeyed(ArbolEnlazado<T>* tree, Position<T>* pos,
+                   OpenSet& openState, Row&& drawRow, KeyOf&& keyOf) {
     if (!tree || !pos) return;
 
     if (pos == tree->rootOfTree()) {
         if (!((TNodo<T>*)pos)->getChilds()->isEmpty()) {
             forEachChild((TNodo<T>*)pos, [&](Position<T>* child) {
-                drawTree(tree, child, openNodes, drawRow);
+                drawTreeKeyed(tree, child, openState, drawRow, keyOf);
             });
         }
         return;
@@ -63,17 +63,20 @@ void drawTree(ArbolEnlazado<T>* tree, Position<T>* pos, OpenState& openNodes,
 
     // PushID por nodo: mientras el elemento viva, su puntero es una clave
     // estable y unica (evita IDs de ImGui compartidos entre nodos iguales).
-    const void* key = element;
-    ImGui::PushID(key);
+    ImGui::PushID((const void*)element);
 
-    const bool wasOpen = openNodes.count(key) != 0;
+    // La clave de colapso NO tiene que ser el puntero del elemento: clave =
+    // keyOf(element) admite claves que sobreviven a una reconstruccion del
+    // arbol (p.ej. la ruta de un archivo, R4) o punteros (como antes).
+    const auto key = keyOf(element);
+    const bool wasOpen = openState.count(key) != 0;
     const RowResult result = drawRow(element, wasOpen);
 
     if (result.toggled) {
         if (wasOpen)
-            openNodes.erase(key);
+            openState.erase(key);
         else
-            openNodes.insert(key);
+            openState.insert(key);
     }
 
     // Contrato de ImGui: si TreeNodeEx devolvio true (nodo abierto) SE DEBE
@@ -83,13 +86,23 @@ void drawTree(ArbolEnlazado<T>* tree, Position<T>* pos, OpenState& openNodes,
     if (result.open) {
         if (!node->getChilds()->isEmpty()) {
             forEachChild(node, [&](Position<T>* child) {
-                drawTree(tree, child, openNodes, drawRow);
+                drawTreeKeyed(tree, child, openState, drawRow, keyOf);
             });
         }
         ImGui::TreePop();
     }
 
     ImGui::PopID();
+}
+
+// Version clasica: el estado de colapso se indexa con el puntero del elemento.
+template <typename T, typename Row>
+void drawTree(ArbolEnlazado<T>* tree, Position<T>* pos, OpenState& openNodes,
+              Row&& drawRow) {
+    drawTreeKeyed(tree, pos, openNodes, drawRow,
+                  [](T element) -> const void* {
+                      return static_cast<const void*>(element);
+                  });
 }
 
 } // namespace TreeIG

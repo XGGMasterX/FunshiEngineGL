@@ -1,6 +1,7 @@
 #ifndef TREEFILESINTERFACE_H
 #define TREEFILESINTERFACE_H
 
+#include <set>
 #include <string>
 
 #include "../GeneralUserInterface.h"
@@ -22,7 +23,10 @@ protected:
     FileManager* fileManager = nullptr;
     ArbolEnlazado<File*>* arbolDeArchivos = nullptr;
     IconosGUI* iconosGUI = nullptr;
-    TreeIG::OpenState openNodes;
+    // Estado de colapso por RUTA (R4): sobrevive a la reconstruccion del arbol
+    // (los punteros a File* quedan colgando tras un rescaneo). La clave es la
+    // ruta completa de la carpeta, igual que FileSelection::rutaVisible.
+    std::set<std::string> openPaths;
     // Eliminacion recursiva diferida: el menu contextual solo la encola y el
     // borrado del nodo se aplica al final del frame (fuera del recorrido), para
     // no invalidar iteradores (B4).
@@ -30,6 +34,10 @@ protected:
     // Confirmacion modal de "Eliminar Carpeta" (R7).
     bool confirmarEliminar = false;
     Carpeta* carpetaAConfirmar = nullptr;
+    // Renombrado inline de una carpeta en el arbol (R6).
+    Carpeta* carpetaRenombrando = nullptr;
+    bool renombrandoInline = false;
+    char bufferRenombrar[256] = "";
     // Ultimo contador de cambios que este panel ya rescaneco.
     unsigned long ultimoContadorVisto = 0;
 
