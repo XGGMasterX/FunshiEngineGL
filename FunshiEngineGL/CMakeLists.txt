@@ -13,29 +13,38 @@ set(SRC_DIR ${CMAKE_SOURCE_DIR}/src)
 file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS ${SRC_DIR}/*.cpp ${SRC_DIR}/*.c)
 file(GLOB_RECURSE HEADERS CONFIGURE_DEPENDS ${SRC_DIR}/*.h ${SRC_DIR}/*.hpp)
 
-# El engine es opcional: CI puede compilar SOLO las pruebas headless del
-# subsistema FileManager (sin la pila grafica) en cualquier plataforma, con
-# BUILD_ENGINE=OFF. Por defecto se construye igual que siempre.
-option(BUILD_ENGINE "Build engine executable" ON)
+# El motor se compila como libreria estatica (funshi_engine) y el ejecutable
+# solo aporta el punto de entrada (main.cpp). Asi el engine es reutilizable
+# (tests, herramientas, otros front-ends) sin recompilar todo. CI puede compilar
+# SOLO las pruebas headless con BUILD_ENGINE=OFF.
+option(BUILD_ENGINE "Build engine library and executable" ON)
 
 if(BUILD_ENGINE)
-    # Ejecutable principal
-    add_executable(${PROJECT_NAME} ${SOURCES} ${HEADERS})
+    # main.cpp es el punto de entrada del ejecutable, no parte de la libreria.
+    list(REMOVE_ITEM SOURCES ${SRC_DIR}/main.cpp)
 
-target_compile_definitions(${PROJECT_NAME} PRIVATE GLM_ENABLE_EXPERIMENTAL)
+    add_library(funshi_engine STATIC ${SOURCES} ${HEADERS})
+
+    # Ejecutable principal (solo el entry point).
+    add_executable(${PROJECT_NAME} ${SRC_DIR}/main.cpp)
+    target_link_libraries(${PROJECT_NAME} PRIVATE funshi_engine)
+
+    # Cabeceras del engine y definiciones que expone a sus consumidores.
+    target_include_directories(funshi_engine PUBLIC ${SRC_DIR})
+    target_compile_definitions(funshi_engine PUBLIC GLM_ENABLE_EXPERIMENTAL)
 
 # 1. Configuración de GLFW
 find_package(glfw3 REQUIRED)
-target_link_libraries(${PROJECT_NAME} PRIVATE glfw)
+target_link_libraries(funshi_engine PRIVATE glfw)
 
 # 2. Configuración de OpenGL y GLU (VERSIÓN CORREGIDA)
 find_package(OpenGL REQUIRED)
 
 # Primero enlazamos OpenGL básico
 if(TARGET OpenGL::OpenGL)
-    target_link_libraries(${PROJECT_NAME} PRIVATE OpenGL::OpenGL)
+    target_link_libraries(funshi_engine PRIVATE OpenGL::OpenGL)
 else()
-    target_link_libraries(${PROJECT_NAME} PRIVATE ${OPENGL_LIBRARIES})
+    target_link_libraries(funshi_engine PRIVATE ${OPENGL_LIBRARIES})
 endif()
 
 # Configuración ESPECÍFICA para GLU (requerido en tu caso)
@@ -45,7 +54,7 @@ if(UNIX AND NOT APPLE)
 
     if(TARGET OpenGL::GLU)
         message(STATUS "Found GLU via OpenGL components")
-        target_link_libraries(${PROJECT_NAME} PRIVATE OpenGL::GLU)
+        target_link_libraries(funshi_engine PRIVATE OpenGL::GLU)
     else()
         # Método 2: Búsqueda manual de GLU
         find_library(GLU_LIBRARY
@@ -55,11 +64,11 @@ if(UNIX AND NOT APPLE)
 
         if(GLU_LIBRARY)
             message(STATUS "Found GLU library: ${GLU_LIBRARY}")
-            target_link_libraries(${PROJECT_NAME} PRIVATE ${GLU_LIBRARY})
+            target_link_libraries(funshi_engine PRIVATE ${GLU_LIBRARY})
         else()
             # Método 3: Enlazar directamente si todo falla
             message(STATUS "Trying direct GLU linking")
-            target_link_libraries(${PROJECT_NAME} PRIVATE GLU)
+            target_link_libraries(funshi_engine PRIVATE GLU)
         endif()
     endif()
 endif()
@@ -69,15 +78,15 @@ find_package(Bullet REQUIRED)
 
 # Si Bullet define targets modernos
 if(TARGET Bullet::BulletDynamics)
-    target_link_libraries(${PROJECT_NAME} PRIVATE
+    target_link_libraries(funshi_engine PRIVATE
         Bullet::BulletDynamics
         Bullet::BulletCollision
         Bullet::LinearMath
     )
 else()
     # Método clásico: uso de variables
-    target_include_directories(${PROJECT_NAME} PRIVATE ${BULLET_INCLUDE_DIRS})
-    target_link_libraries(${PROJECT_NAME} PRIVATE
+    target_include_directories(funshi_engine PUBLIC ${BULLET_INCLUDE_DIRS})
+    target_link_libraries(funshi_engine PRIVATE
         ${BULLET_LIBRARIES}
     )
 endif()
@@ -90,25 +99,30 @@ if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Debug CACHE STRING "" FORCE)
 endif()
 
+# Los flags viven en un target INTERFACE para no duplicarlos: se aplican a la
+# libreria y, por propagacion de usage requirements, tambien al ejecutable que
+# la enlaza (los link options deben llegar al binario final, no al .a).
+add_library(funshi_sanitizers INTERFACE)
 if(ENABLE_ASAN AND (CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang"))
   message(STATUS "Building with AddressSanitizer (ASan)")
   # Compilación: ASan + mejores stack traces + símbolos + optimización ligera
-  target_compile_options(${PROJECT_NAME} PRIVATE
+  target_compile_options(funshi_sanitizers INTERFACE
     -fsanitize=address
     -fno-omit-frame-pointer
     -O1
     -g
   )
   # Enlace: ASan (importante agregar también al linkeo)
-  target_link_options(${PROJECT_NAME} PRIVATE
+  target_link_options(funshi_sanitizers INTERFACE
     -fsanitize=address
   )
 
   # Opcional pero útil: UndefinedBehaviorSanitizer (UBSan)
   # (si molesta en 3rd-party libs, desactivalo)
-  target_compile_options(${PROJECT_NAME} PRIVATE -fsanitize=undefined)
-  target_link_options(${PROJECT_NAME} PRIVATE -fsanitize=undefined)
+  target_compile_options(funshi_sanitizers INTERFACE -fsanitize=undefined)
+  target_link_options(funshi_sanitizers INTERFACE -fsanitize=undefined)
 endif()
+target_link_libraries(funshi_engine PUBLIC funshi_sanitizers)
 # ---------------------------------------------------------------------------
 
 
@@ -116,12 +130,12 @@ endif()
 if(WIN32)
     # dbghelp: CapturaBackTrace/SymFromAddr/SymInitialize (RuntimeException).
     # En MinGW los #pragma comment(lib) de MSVC se ignoran, hay que enlazarla.
-    target_link_libraries(${PROJECT_NAME} PRIVATE opengl32 glu32 dbghelp)
+    target_link_libraries(funshi_engine PRIVATE opengl32 glu32 dbghelp)
 endif()
 
 # Dependencias específicas de Linux
 if(UNIX AND NOT APPLE)
-    target_link_libraries(${PROJECT_NAME} PRIVATE
+    target_link_libraries(funshi_engine PRIVATE
         dl
         X11
         pthread
@@ -131,40 +145,40 @@ if(UNIX AND NOT APPLE)
 
     # Ncurses
     find_package(Curses REQUIRED)
-    target_include_directories(${PROJECT_NAME} PRIVATE ${CURSES_INCLUDE_DIRS})
-    target_link_libraries(${PROJECT_NAME} PRIVATE ${CURSES_LIBRARIES})
+    target_include_directories(funshi_engine PUBLIC ${CURSES_INCLUDE_DIRS})
+    target_link_libraries(funshi_engine PRIVATE ${CURSES_LIBRARIES})
 endif()
 
 # ImGui
 file(GLOB IMGUI_SRC ${SRC_DIR}/ImGui/*.cpp ${SRC_DIR}/ImGui/backends/*.cpp)
-target_sources(${PROJECT_NAME} PRIVATE ${IMGUI_SRC})
-target_include_directories(${PROJECT_NAME} PRIVATE ${SRC_DIR}/ImGui ${SRC_DIR}/ImGui/backends)
+target_sources(funshi_engine PRIVATE ${IMGUI_SRC})
+target_include_directories(funshi_engine PUBLIC ${SRC_DIR}/ImGui ${SRC_DIR}/ImGui/backends)
 
 # ImGuizmo (fuera de src)
 file(GLOB IMGUZIMO_SRC ${CMAKE_SOURCE_DIR}/ImGuizmo/*.cpp)
-target_sources(${PROJECT_NAME} PRIVATE ${IMGUZIMO_SRC})
-target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/ImGuizmo)
+target_sources(funshi_engine PRIVATE ${IMGUZIMO_SRC})
+target_include_directories(funshi_engine PUBLIC ${CMAKE_SOURCE_DIR}/ImGuizmo)
 
 # nlohmann/json (vendoriado en External/nlohmann) para la configuracion del
 # editor (EditorConfig). Mismamente el nombre .hpp cuelga de External/.
-target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/External)
+target_include_directories(funshi_engine PUBLIC ${CMAKE_SOURCE_DIR}/External)
 
 # Assimp
 option(USE_ASSIMP "Enable Assimp model loading" ON)
 if(USE_ASSIMP)
     find_package(assimp REQUIRED)
-    target_include_directories(${PROJECT_NAME} PRIVATE ${ASSIMP_INCLUDE_DIRS})
-    target_link_libraries(${PROJECT_NAME} PRIVATE assimp::assimp)
+    target_include_directories(funshi_engine PUBLIC ${ASSIMP_INCLUDE_DIRS})
+    target_link_libraries(funshi_engine PRIVATE assimp::assimp)
 endif()
 
 # GLM: se usa el directorio embebido si existe en el repo; si no (p. ej. en CI
 # sin External/), se busca la copia del sistema (libglm-dev en Ubuntu).
 set(GLM_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/External/glm")
 if(EXISTS "${GLM_INCLUDE_DIR}/glm/glm.hpp")
-    target_include_directories(${PROJECT_NAME} PRIVATE ${GLM_INCLUDE_DIR})
+    target_include_directories(funshi_engine PUBLIC ${GLM_INCLUDE_DIR})
 else()
     find_package(glm REQUIRED)
-    target_link_libraries(${PROJECT_NAME} PRIVATE glm::glm)
+    target_link_libraries(funshi_engine PRIVATE glm::glm)
 endif()
 
 endif() # BUILD_ENGINE
