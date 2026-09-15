@@ -34,7 +34,7 @@ jobs:
         run: cmake --build build --target FunshiEngineGL
 
       - name: Compilar pruebas
-        run: cmake --build build --target filemanager-tests configuracion-tests
+        run: cmake --build build --target filemanager-tests configuracion-tests assetmanager-tests
 
       - name: Ejecutar pruebas
         run: ctest --test-dir build --output-on-failure
@@ -55,7 +55,7 @@ jobs:
         run: cmake -B build -S FunshiEngineGL -G Ninja -DBUILD_ENGINE=OFF -DENABLE_ASAN=OFF
 
       - name: Compilar pruebas
-        run: cmake --build build --target filemanager-tests configuracion-tests
+        run: cmake --build build --target filemanager-tests configuracion-tests assetmanager-tests
 
       - name: Ejecutar pruebas
         run: ctest --test-dir build --output-on-failure
