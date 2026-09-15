@@ -44,29 +44,36 @@ void MeshGPU::destroy() {
         GLFuncs::pfnDeleteVertexArrays(1, &vao_);
         vao_ = 0;
     }
-    if (GLFuncs::pfnDeleteBuffers && (vboPos_ || vboNormal_ || vboUv_ || ebo_)) {
-        const GLuint buffers[4] = {vboPos_, vboNormal_, vboUv_, ebo_};
-        GLFuncs::pfnDeleteBuffers(4, buffers);
+    if (GLFuncs::pfnDeleteBuffers &&
+        (vboPos_ || vboNormal_ || vboTangent_ || vboBitangent_ || vboUv_ ||
+         ebo_)) {
+        const GLuint buffers[6] = {vboPos_, vboNormal_, vboTangent_,
+                                   vboBitangent_, vboUv_, ebo_};
+        GLFuncs::pfnDeleteBuffers(6, buffers);
     }
-    vboPos_ = vboNormal_ = vboUv_ = ebo_ = 0;
+    vboPos_ = vboNormal_ = vboTangent_ = vboBitangent_ = vboUv_ = ebo_ = 0;
     indexCount_ = 0;
     hasNormal_ = false;
     hasUv_ = false;
+    hasTangent_ = false;
 }
 
 MeshGPU::MeshGPU(MeshGPU&& other) noexcept {
     vao_ = other.vao_;
     vboPos_ = other.vboPos_;
     vboNormal_ = other.vboNormal_;
+    vboTangent_ = other.vboTangent_;
+    vboBitangent_ = other.vboBitangent_;
     vboUv_ = other.vboUv_;
     ebo_ = other.ebo_;
     indexCount_ = other.indexCount_;
     hasNormal_ = other.hasNormal_;
     hasUv_ = other.hasUv_;
-    other.vao_ = other.vboPos_ = other.vboNormal_ = other.vboUv_ = other.ebo_ =
-        0;
+    hasTangent_ = other.hasTangent_;
+    other.vao_ = other.vboPos_ = other.vboNormal_ = other.vboTangent_ =
+        other.vboBitangent_ = other.vboUv_ = other.ebo_ = 0;
     other.indexCount_ = 0;
-    other.hasNormal_ = other.hasUv_ = false;
+    other.hasNormal_ = other.hasUv_ = other.hasTangent_ = false;
 }
 
 MeshGPU& MeshGPU::operator=(MeshGPU&& other) noexcept {
@@ -75,15 +82,18 @@ MeshGPU& MeshGPU::operator=(MeshGPU&& other) noexcept {
         vao_ = other.vao_;
         vboPos_ = other.vboPos_;
         vboNormal_ = other.vboNormal_;
+        vboTangent_ = other.vboTangent_;
+        vboBitangent_ = other.vboBitangent_;
         vboUv_ = other.vboUv_;
         ebo_ = other.ebo_;
         indexCount_ = other.indexCount_;
         hasNormal_ = other.hasNormal_;
         hasUv_ = other.hasUv_;
-        other.vao_ = other.vboPos_ = other.vboNormal_ = other.vboUv_ =
-            other.ebo_ = 0;
+        hasTangent_ = other.hasTangent_;
+        other.vao_ = other.vboPos_ = other.vboNormal_ = other.vboTangent_ =
+            other.vboBitangent_ = other.vboUv_ = other.ebo_ = 0;
         other.indexCount_ = 0;
-        other.hasNormal_ = other.hasUv_ = false;
+        other.hasNormal_ = other.hasUv_ = other.hasTangent_ = false;
     }
     return *this;
 }
@@ -91,6 +101,8 @@ MeshGPU& MeshGPU::operator=(MeshGPU&& other) noexcept {
 void MeshGPU::upload(const GLfloat* vertices, std::size_t vertexCount,
                      const GLfloat* normals, std::size_t normalCount,
                      const GLfloat* uvs, std::size_t uvCount,
+                     const GLfloat* tangents, std::size_t tangentCount,
+                     const GLfloat* bitangents, std::size_t bitangentCount,
                      const GLuint* indices, std::size_t indexCount) {
     if (indexCount == 0 || !vertices || vertexCount == 0) return;
 
@@ -99,7 +111,7 @@ void MeshGPU::upload(const GLfloat* vertices, std::size_t vertexCount,
     GLFuncs::pfnGenVertexArrays(1, &vao_);
     GLFuncs::pfnBindVertexArray(vao_);
 
-    GLFuncs::pfnGenBuffers(4, &vboPos_);
+    GLFuncs::pfnGenBuffers(6, &vboPos_);
 
     // Posición -> atributo 0.
     if (subirBuffer(GL_ARRAY_BUFFER, vboPos_, vertices, vertexCount * 3)) {
@@ -117,7 +129,25 @@ void MeshGPU::upload(const GLfloat* vertices, std::size_t vertexCount,
         hasNormal_ = true;
     }
 
-    // UV -> atributo 2 (opcional, reservado para la rama de texturas).
+    // Tangente/Bitangente -> atributos 3/4 (normal mapping, opcionales).
+    if (tangents && tangentCount == vertexCount && bitangents &&
+        bitangentCount == vertexCount) {
+        if (subirBuffer(GL_ARRAY_BUFFER, vboTangent_, tangents,
+                        tangentCount * 3)) {
+            GLFuncs::pfnEnableVertexAttribArray(3);
+            GLFuncs::pfnVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, 0,
+                                            (const void*)nullptr);
+        }
+        if (subirBuffer(GL_ARRAY_BUFFER, vboBitangent_, bitangents,
+                        bitangentCount * 3)) {
+            GLFuncs::pfnEnableVertexAttribArray(4);
+            GLFuncs::pfnVertexAttribPointer(4, 3, GL_FLOAT, GL_FALSE, 0,
+                                            (const void*)nullptr);
+        }
+        hasTangent_ = true;
+    }
+
+    // UV -> atributo 2 (opcional, si hay una por vértice).
     if (uvs && uvCount == vertexCount &&
         subirBuffer(GL_ARRAY_BUFFER, vboUv_, uvs, uvCount * 2)) {
         GLFuncs::pfnEnableVertexAttribArray(2);

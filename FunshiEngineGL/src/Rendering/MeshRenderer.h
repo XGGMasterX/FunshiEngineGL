@@ -90,7 +90,13 @@ private:
     bool inicializar();
     void aplicarLuces();
     void aplicarMaterial(Modelos3D* objeto);
-    void aplicarTextura(Modelos3D* objeto, bool meshHasUvs);
+    // Resuelve los 4 slots de textura del Material (difusa/especular/emision/
+    // normal) contra el TextureManager inyectado y enlaza las unidades de
+    // sampleo correspondientes. La normal exige que la malla tenga tangentes.
+    void aplicarTexturas(Modelos3D* objeto, const Mesh* mesh);
+    // Enlaza un slot: devuelve true si quedo bindeado en la unidad indicada.
+    bool enlazarSlotTextura(const std::string& path, int unit,
+                            const char* samplerUniform);
 };
 
 #endif

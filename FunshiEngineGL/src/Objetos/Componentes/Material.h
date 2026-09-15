@@ -23,10 +23,11 @@
 #include "Component.h"
 
 // Componente de material: datos del modelo de iluminacion de un objeto
-// (AMBIENT/DIFFUSE/SPECULAR/EMISSION/SHININESS) mas el path de la textura
-// difusa (opcional, descriptor). Solo data + aplicar(); el dibujado real lo
-// decide Modelos3D::dibujar al consultar el componente, y el renderer moderno
-// resuelve el path a una imagen compartida via TextureManager.
+// (AMBIENT/DIFFUSE/SPECULAR/EMISSION/SHININESS) mas los paths de las texturas
+// (descriptores, todos opcionales): difusa, especular, normal y emision. Solo
+// data + aplicar(); el dibujado real lo decide Modelos3D::dibujar al consultar
+// el componente, y el renderer moderno resuelve cada path a una imagen
+// compartida via TextureManager.
 class Material : public Component {
 private:
     float ambient[4];
@@ -34,7 +35,14 @@ private:
     float specular[4];
     float emission[4];
     float shininess;
-    std::string texturePath_;
+
+    std::string diffuseMapPath_;
+    std::string specularMapPath_;
+    std::string normalMapPath_;
+    std::string emissionMapPath_;
+
+    // Lee un path de textura del stream con tope de longitud (formato v2).
+    void leerPathTextura(std::ifstream* file, std::string& out);
 
 protected:
     void serializeComponent(std::ofstream* file) override;
@@ -58,9 +66,22 @@ public:
     const float* getEmission() const { return emission; }
     float getShininess() const { return shininess; }
 
-    void setTexturePath(const std::string& path) { texturePath_ = path; }
-    const std::string& getTexturePath() const { return texturePath_; }
-    bool hasTexture() const { return !texturePath_.empty(); }
+    // Slots de textura (descriptores): path a la imagen compartida por el
+    // TextureManager. Vacio = slot sin textura.
+    void setDiffuseMapPath(const std::string& path) { diffuseMapPath_ = path; }
+    void setSpecularMapPath(const std::string& path) { specularMapPath_ = path; }
+    void setNormalMapPath(const std::string& path) { normalMapPath_ = path; }
+    void setEmissionMapPath(const std::string& path) { emissionMapPath_ = path; }
+
+    const std::string& getDiffuseMapPath() const { return diffuseMapPath_; }
+    const std::string& getSpecularMapPath() const { return specularMapPath_; }
+    const std::string& getNormalMapPath() const { return normalMapPath_; }
+    const std::string& getEmissionMapPath() const { return emissionMapPath_; }
+
+    bool hasDiffuseMap() const { return !diffuseMapPath_.empty(); }
+    bool hasSpecularMap() const { return !specularMapPath_.empty(); }
+    bool hasNormalMap() const { return !normalMapPath_.empty(); }
+    bool hasEmissionMap() const { return !emissionMapPath_.empty(); }
 
     // Aplica el material al pipeline GL del objeto actual.
     void aplicar();

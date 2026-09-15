@@ -21,21 +21,25 @@
 
 #include "GLFuncs.h"
 
-// Representación GPU de una Mesh CPU: VAO + VBOs (posición/normal/UV) + EBO,
-// con RAII (los buffers se borran en el destructor). La malla Mesh viene de
-// AssetManager (compartida); el MeshGPU es un recurso GL del renderer y se
-// cachea por identidad de la malla para no re-subir geometría redundante.
-// Atributos: 0 = posición (vec3), 1 = normal (vec3), 2 = UV (vec2).
+// Representación GPU de una Mesh CPU: VAO + VBOs (posición/normal/tangente/
+// bitangente/UV) + EBO, con RAII (los buffers se borran en el destructor). La
+// malla Mesh viene de AssetManager (compartida); el MeshGPU es un recurso GL
+// del renderer y se cachea por identidad de la malla para no re-subir
+// geometría redundante. Atributos: 0 = posición (vec3), 1 = normal (vec3),
+// 2 = UV (vec2), 3 = tangente (vec3), 4 = bitangente (vec3).
 class MeshGPU {
 private:
     GLuint vao_ = 0;
     GLuint vboPos_ = 0;
     GLuint vboNormal_ = 0;
+    GLuint vboTangent_ = 0;
+    GLuint vboBitangent_ = 0;
     GLuint vboUv_ = 0;
     GLuint ebo_ = 0;
     GLsizei indexCount_ = 0;
     bool hasNormal_ = false;
     bool hasUv_ = false;
+    bool hasTangent_ = false;
 
     void destroy();
 
@@ -51,6 +55,8 @@ public:
     void upload(const GLfloat* vertices, std::size_t vertexCount,
                 const GLfloat* normals, std::size_t normalCount,
                 const GLfloat* uvs, std::size_t uvCount,
+                const GLfloat* tangents, std::size_t tangentCount,
+                const GLfloat* bitangents, std::size_t bitangentCount,
                 const GLuint* indices, std::size_t indexCount);
 
     bool isUploaded() const { return vao_ != 0; }
