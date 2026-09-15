@@ -84,6 +84,7 @@ GameScene::GameScene(GUIManager* manager)
                                              assetManager.get())) {
     selecteableGUI = managerGUI->getSelecteableGUI();
     managerGUI->bindScene(sceneRegistry.get(), editorController.get(), &events);
+    if (selecteableGUI) selecteableGUI->setGridToggle(&showGrid_);
     menuBarGUI = managerGUI->getMenuBarGUI(&start);
     // El renderer resuelve la textura de cada Material con el cache de imagenes
     // de la escena (un solo decode por archivo, imagen compartida).
@@ -454,7 +455,7 @@ void GameScene::dibujarEscena(const float view[16], const float projection[16],
 
     lightSystem.beginFrame(getGameObjectsScene());
     prepararLucesFrame();
-    mallaScene(70.0f);
+    if (showGrid_) mallaScene(70.0f);
     dibujarGameObjectsConOjo(camaraOjo, view, projection);
 }
 
