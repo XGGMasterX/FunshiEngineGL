@@ -18,8 +18,25 @@
 */
 #include "Material.h"
 
-#include <GL/gl.h>
+#include <cstdint>
+#include <cstring>
 #include <iostream>
+
+#include <GL/gl.h>
+
+namespace {
+// Longitud maxima de path de textura en disco. El deserializador descarta
+// paths por encima (cota estilo Modelos3D) para no leer buffers gigantes de
+// un archivo corrupto, omitiendo la misma cantidad de bytes para que los
+// siguientes componentes sigan alineados.
+const std::size_t kMaxTexturePathLength = 4096;
+// Marcador binario al inicio del payload Material que las escenas viejas no
+// tienen (el formato legacy es solo los 5 campos float, sin magic). Al leer,
+// si los primeros 4 bytes no son este magic se rebobina y se lee el formato
+// antiguo: la textura queda vacia para no romper escenas guardadas antes de
+// la rama de texturas.
+const char kMaterialMagic[4] = {'F', 'M', 't', 'A'};
+} // namespace
 
 Material::Material() {
     ambient[0] = 0.25f; ambient[1] = 0.25f; ambient[2] = 0.25f; ambient[3] = 1.f;
@@ -31,11 +48,16 @@ Material::Material() {
 
 void Material::serializeComponent(std::ofstream* file) {
     if (!file || !file->is_open()) return;
+    // Magic primero: distingue este formato del viejo (ver abajo).
+    file->write(kMaterialMagic, sizeof(kMaterialMagic));
     file->write(reinterpret_cast<const char*>(ambient), sizeof(ambient));
     file->write(reinterpret_cast<const char*>(diffuse), sizeof(diffuse));
     file->write(reinterpret_cast<const char*>(specular), sizeof(specular));
     file->write(reinterpret_cast<const char*>(emission), sizeof(emission));
     file->write(reinterpret_cast<const char*>(&shininess), sizeof(float));
+    std::uint32_t len = static_cast<std::uint32_t>(texturePath_.size());
+    file->write(reinterpret_cast<const char*>(&len), sizeof(len));
+    file->write(texturePath_.data(), static_cast<std::streamsize>(len));
 }
 
 void Material::deserializeComponent(std::ifstream* file) {
@@ -43,11 +65,42 @@ void Material::deserializeComponent(std::ifstream* file) {
         std::cerr << "Error: archivo invalido o no abierto para lectura (Material).\n";
         return;
     }
+    char magic[4];
+    file->read(magic, sizeof(magic));
+    const bool formatoNuevo =
+        file->gcount() == static_cast<std::streamsize>(sizeof(magic)) &&
+        std::memcmp(magic, kMaterialMagic, sizeof(kMaterialMagic)) == 0;
+    if (!formatoNuevo) {
+        // Formato legacy (escenas viejas sin textura): rebobinar los 4 bytes
+        // leidos y leer los 5 campos como antes.
+        file->seekg(-static_cast<std::streamoff>(sizeof(magic)),
+                    std::ios::cur);
+    }
+    texturePath_.clear();
+
     file->read(reinterpret_cast<char*>(ambient), sizeof(ambient));
     file->read(reinterpret_cast<char*>(diffuse), sizeof(diffuse));
     file->read(reinterpret_cast<char*>(specular), sizeof(specular));
     file->read(reinterpret_cast<char*>(emission), sizeof(emission));
     file->read(reinterpret_cast<char*>(&shininess), sizeof(float));
+
+    // Solo en formato nuevo hay path de textura al final del payload.
+    if (formatoNuevo) {
+        std::uint32_t len = 0;
+        file->read(reinterpret_cast<char*>(&len), sizeof(len));
+        const std::size_t pathLen = len;
+        if (pathLen <= kMaxTexturePathLength) {
+            texturePath_.assign(static_cast<std::size_t>(pathLen), '\0');
+            if (pathLen > 0) {
+                file->read(&texturePath_[0],
+                           static_cast<std::streamsize>(pathLen));
+            }
+        } else {
+            // Path demasiado largo: descartar los bytes para no desalinear a
+            // los componentes siguientes y dejar la textura vacia.
+            file->seekg(static_cast<std::streamoff>(pathLen), std::ios::cur);
+        }
+    }
 }
 
 void Material::saveComponent(std::ofstream* file) { serializeComponent(file); }

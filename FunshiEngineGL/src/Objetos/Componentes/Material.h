@@ -18,11 +18,15 @@
 */
 #ifndef MATERIAL_H
 #define MATERIAL_H
+#include <string>
+
 #include "Component.h"
 
 // Componente de material: datos del modelo de iluminacion de un objeto
-// (AMBIENT/DIFFUSE/SPECULAR/EMISSION/SHININESS). Solo data + aplicar();
-// el dibujado real lo decide Modelos3D::dibujar al consultar el componente.
+// (AMBIENT/DIFFUSE/SPECULAR/EMISSION/SHININESS) mas el path de la textura
+// difusa (opcional, descriptor). Solo data + aplicar(); el dibujado real lo
+// decide Modelos3D::dibujar al consultar el componente, y el renderer moderno
+// resuelve el path a una imagen compartida via TextureManager.
 class Material : public Component {
 private:
     float ambient[4];
@@ -30,6 +34,7 @@ private:
     float specular[4];
     float emission[4];
     float shininess;
+    std::string texturePath_;
 
 protected:
     void serializeComponent(std::ofstream* file) override;
@@ -52,6 +57,10 @@ public:
     const float* getSpecular() const { return specular; }
     const float* getEmission() const { return emission; }
     float getShininess() const { return shininess; }
+
+    void setTexturePath(const std::string& path) { texturePath_ = path; }
+    const std::string& getTexturePath() const { return texturePath_; }
+    bool hasTexture() const { return !texturePath_.empty(); }
 
     // Aplica el material al pipeline GL del objeto actual.
     void aplicar();
