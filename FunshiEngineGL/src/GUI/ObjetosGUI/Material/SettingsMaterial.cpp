@@ -18,6 +18,8 @@
 */
 #include "SettingsMaterial.h"
 
+#include <cstring>
+
 #include "../../../Objetos/GameObject.h"
 #include "../../../Objetos/Componentes/Material.h"
 #include <imgui.h>
@@ -55,6 +57,15 @@ void SettingsMaterial::showDataComponent() {
 	float shin = material->getShininess();
 	if (ImGui::SliderFloat("Shininess", &shin, 0.f, 128.f))
 		material->setShininess(shin);
+
+	// Textura difusa (descriptor): path a la imagen compartida por el
+	// TextureManager de la escena. El renderer moderno la sube a GPU y la
+	// multipla por el diffuse (GL_MODULATE); el inmediato la ignora.
+	char buf[1024];
+	std::strncpy(buf, material->getTexturePath().c_str(), sizeof(buf) - 1);
+	buf[sizeof(buf) - 1] = '\0';
+	if (ImGui::InputText("Textura", buf, sizeof(buf)))
+		material->setTexturePath(buf);
 }
 
 Component* SettingsMaterial::getComponent() {

@@ -25,8 +25,8 @@
 // visual. El renderer sube luces/material/camara como uniforms; la grilla y
 // los gizmos siguen siendo modo inmediato.
 
-// Atributos: 0 = posicion (vec3), 1 = normal (vec3), 2 = uv (vec2, reservado
-// para la rama de texturas).
+// Atributos: 0 = posicion (vec3), 1 = normal (vec3), 2 = uv (vec2). La UV
+// alimenta vUv y la textura difusa cuando el Material define una imagen.
 static const char* const kDefaultVertexShader = R"(#version 330 core
 layout(location = 0) in vec3 aPosition;
 layout(location = 1) in vec3 aNormal;
@@ -39,11 +39,13 @@ uniform mat3 uNormalMatrix;
 
 out vec3 vNormalWorld;
 out vec3 vWorldPos;
+out vec2 vUv;
 
 void main() {
     vec4 world = uModel * vec4(aPosition, 1.0);
     vWorldPos = world.xyz;
     vNormalWorld = uNormalMatrix * aNormal;
+    vUv = aUv;
     gl_Position = uProjection * uView * world;
 }
 )";
@@ -51,6 +53,7 @@ void main() {
 static const char* const kDefaultFragmentShader = R"(#version 330 core
 in vec3 vNormalWorld;
 in vec3 vWorldPos;
+in vec2 vUv;
 out vec4 FragColor;
 
 uniform vec3 uCameraPosition;
@@ -74,12 +77,18 @@ uniform vec4 uMaterialSpecular;
 uniform vec4 uMaterialEmission;
 uniform float uMaterialShininess;
 
+// Textura difusa opcional: con uUseTexture == 0 el material se colorea solo
+// con los uniforms. Cuando hay textura, su texel multiplica (MODULA) al
+// diffuse del material, replicando el modo GL_MODULATE de la GL antigua.
+uniform sampler2D uDiffuseTex;
+uniform int uUseTexture;
+
 vec3 normalizarSeguro(vec3 v) {
     float len = length(v);
     return (len < 1e-8) ? vec3(0.0) : v / len;
 }
 
-vec3 contribucionLuz(int i, vec3 N, vec3 V, vec3 fragPos) {
+vec3 contribucionLuz(int i, vec3 N, vec3 V, vec3 fragPos, vec3 baseDiffuse) {
     int type = uLightTypes[i];
 
     vec3 L;
@@ -110,7 +119,7 @@ vec3 contribucionLuz(int i, vec3 N, vec3 V, vec3 fragPos) {
     }
 
     float ndotl = max(dot(N, L), 0.0);
-    vec3 difuso = ndotl * uLightDiffuse[i] * uMaterialDiffuse.rgb;
+    vec3 difuso = ndotl * uLightDiffuse[i] * baseDiffuse;
 
     vec3 especular = vec3(0.0);
     if (ndotl > 0.0 && uMaterialShininess > 0.0) {
@@ -128,11 +137,14 @@ void main() {
     vec3 N = normalizarSeguro(vNormalWorld);
     vec3 V = normalizarSeguro(uCameraPosition - vWorldPos);
 
-    // GL_LIGHT_MODEL_AMBIENT * material ambiente + emision, una sola vez.
+    // El diffuse modulado que ven las luces: texel de textura por diffuse del
+    // material (GL_MODULATE). Sin textura (o con la malla sin UVs) queda igual.
     vec3 color = uGlobalAmbient * uMaterialAmbient.rgb;
+    vec3 baseDiffuse = uMaterialDiffuse.rgb;
+    if (uUseTexture == 1) baseDiffuse *= texture(uDiffuseTex, vUv).rgb;
     for (int i = 0; i < MAX_LIGHTS; ++i) {
         if (i >= uLightCount) break;
-        color += contribucionLuz(i, N, V, vWorldPos);
+        color += contribucionLuz(i, N, V, vWorldPos, baseDiffuse);
     }
     color += uMaterialEmission.rgb;
 
