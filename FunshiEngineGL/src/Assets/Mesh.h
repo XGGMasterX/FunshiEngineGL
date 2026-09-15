@@ -1,0 +1,55 @@
+/*
+    FunshiEngineGL - Motor de juegos 3D con OpenGL e ImGui
+    Copyright 2026 Gianfranco Ivan Enrique
+
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+    SPDX-License-Identifier: Apache-2.0
+*/
+#ifndef MESH_H
+#define MESH_H
+
+#include <string>
+#include <vector>
+
+#include "../Matematicas/StructVec3.h"
+
+// Geometria de una malla en CPU, independiente de OpenGL. Es el asset que
+// comparte AssetManager entre objetos: lo genera el loader (Assimp en la
+// integracion con Modelos3D) o procedimentalmente, y el renderer moderno lo
+// sube a VBO/VAO en la rama de shaders. Ya trae UVs preparadas para cuando
+// llegue el soporte de texturas.
+struct Mesh {
+    std::string name;
+    std::vector<vec3> vertices;
+    std::vector<vec3> normals;
+    std::vector<vec2> uvs;
+    std::vector<unsigned int> indices;
+
+    bool isEmpty() const { return vertices.empty(); }
+
+    // Las normales valen solo si hay una por vertice.
+    bool hasNormals() const {
+        return !normals.empty() && normals.size() == vertices.size();
+    }
+
+    // Las UVs valen solo si hay una por vertice.
+    bool hasUvs() const {
+        return !uvs.empty() && uvs.size() == vertices.size();
+    }
+
+    // AABB en espacio local. Devuelve false si la malla no tiene vertices.
+    bool computeBounds(vec3& outMin, vec3& outMax) const;
+};
+
+#endif

@@ -29,9 +29,11 @@
 
 
 SceneSerializer::SceneSerializer(SceneRegistry* value,
-                                 EditorController* controller)
+                                 EditorController* controller,
+                                 AssetManager* assetsManager)
     : scene(value),
-      editor(controller) {
+      editor(controller),
+      assets(assetsManager) {
 }
 
 
@@ -257,6 +259,11 @@ void SceneSerializer::loadPreOrder(
          */
         auto object =
             std::make_unique<Modelos3D>();
+
+        // Inyectar la fuente de mallas ANTES de loadEntity(): la
+        // deserializacion lee el path del modelo y carga la geometria; con el
+        // manager ya asignado se comparte el asset cacheado.
+        object->setAssetManager(assets);
 
         /*
          * ========================================================
