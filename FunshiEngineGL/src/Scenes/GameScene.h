@@ -37,6 +37,7 @@ class SceneMenuBarInterface;
 class SceneRegistry;
 class SceneSelectedInterface;
 class SceneSerializer;
+class AssetManager;
 
 class GameScene {
 private:
@@ -54,6 +55,10 @@ private:
     std::unique_ptr<PhysicsEngine> phisics;
     std::unique_ptr<EditorController> editorController;
     std::unique_ptr<SceneSerializer> sceneSerializer;
+    // Registro central de assets (meshes CPU compartidos). Se inyecta a
+    // EditorController y SceneSerializer para que cada Modelos3D pida su
+    // geometria al cache (Flyweight) en lugar de parsear Assimp por objeto.
+    std::unique_ptr<AssetManager> assetManager;
     EventBus events;
     LightSystem lightSystem;
     float deltaTime = 0.0f;

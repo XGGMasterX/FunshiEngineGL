@@ -25,6 +25,7 @@
 class EditorController;
 class SceneRegistry;
 class GameObject;
+class AssetManager;
 
 template <typename T>
 class Position;
@@ -33,6 +34,10 @@ class SceneSerializer {
 private:
     SceneRegistry* scene;
     EditorController* editor;
+    // Fuente de mallas compartidas: se inyecta a cada Modelos3D antes de
+    // deserializar su path, para que la geometria se cachee en el
+    // AssetManager en lugar de re-parsear Assimp por objeto.
+    AssetManager* assets;
 
     void savePreOrder(Position<GameObject*>* root,
                        std::ofstream& archive,
@@ -44,7 +49,8 @@ private:
 
 public:
     SceneSerializer(SceneRegistry* value,
-                    EditorController* controller);
+                    EditorController* controller,
+                    AssetManager* assetsManager = nullptr);
 
     void save(const std::string& filename);
 

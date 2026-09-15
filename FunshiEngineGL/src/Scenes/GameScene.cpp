@@ -36,6 +36,8 @@
 #include "EditorController.h"
 #include "SceneRegistry.h"
 #include "SceneSerializer.h"
+#include "../Assets/AssetManager.h"
+#include "../Assets/AssimpMeshLoader.h"
 #include "../Rendering/RenderTarget.h"
 #include "ImGuizmo.h"
 #include <GL/gl.h>
@@ -65,12 +67,15 @@ GameScene::GameScene(GUIManager* manager)
     : managerGUI(manager),
       sceneRegistry(std::make_unique<SceneRegistry>()),
       phisics(std::make_unique<PhysicsEngine>()),
+      assetManager(
+          std::make_unique<AssetManager>(std::make_unique<AssimpMeshLoader>())),
       editorController(
           std::make_unique<EditorController>(sceneRegistry.get(), phisics.get(),
-                                              &events)),
+                                              &events, assetManager.get())),
       sceneSerializer(
           std::make_unique<SceneSerializer>(sceneRegistry.get(),
-                                             editorController.get())) {
+                                             editorController.get(),
+                                             assetManager.get())) {
     selecteableGUI = managerGUI->getSelecteableGUI();
     managerGUI->bindScene(sceneRegistry.get(), editorController.get(), &events);
     menuBarGUI = managerGUI->getMenuBarGUI(&start);

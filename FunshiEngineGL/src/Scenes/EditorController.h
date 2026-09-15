@@ -27,6 +27,7 @@ class PhysicsEngine;
 class SceneRegistry;
 class EventBus;
 class Transform;
+class AssetManager;
 
 // Objetivo generico del gizmo: el Transform LOCAL a editar mas el Transform
 // GLOBAL del contexto padre (para recomponer/mover en espacio local). Con
@@ -50,6 +51,9 @@ private:
     SceneRegistry* scene = nullptr;
     PhysicsEngine* physics = nullptr;
     EventBus* events = nullptr;
+    // Proveedor de assets de malla inyectado: se propaga a los Modelos3D que
+    // crea el controlador para que compartan meshes (Flyweight).
+    AssetManager* assets = nullptr;
 
     // Unica fuente de verdad de la seleccion del editor. GUI, gizmo e
     // inspectores leen de aqui y publican cambios con selectObject() para que
@@ -63,11 +67,13 @@ private:
 
 public:
     EditorController(SceneRegistry* scene, PhysicsEngine* physics = nullptr,
-                     EventBus* events = nullptr);
+                     EventBus* events = nullptr,
+                     AssetManager* assetsManager = nullptr);
 
     void setScene(SceneRegistry* scene) noexcept;
     void setPhysics(PhysicsEngine* physics) noexcept;
     void setEventBus(EventBus* events) noexcept;
+    void setAssetManager(AssetManager* assetsManager) noexcept;
 
     // Raw pointers are non-owning scene views.
     GameObject* createGameObject(std::unique_ptr<GameObject> object,

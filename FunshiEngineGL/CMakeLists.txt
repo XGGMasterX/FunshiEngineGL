@@ -205,8 +205,27 @@ set_target_properties(configuracion-tests PROPERTIES
 )
 add_test(NAME configuracion-tests COMMAND configuracion-tests)
 
+# AssetManager (cache Flyweight de meshes CPU) tambien headless y portatil:
+# rutas (AssetPath), geometria (Mesh) y el registro compartido con un loader
+# artificial, sin Assimp ni pila grafica.
+add_executable(assetmanager-tests
+    ${SRC_DIR}/Assets/AssetManager.cpp
+    ${SRC_DIR}/Assets/Mesh.cpp
+    ${SRC_DIR}/Matematicas/Vector.cpp
+    ${SRC_DIR}/ExcepcionesCPP/RuntimeException.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../tests/AssetManagerTests.cpp
+)
+target_include_directories(assetmanager-tests PRIVATE ${SRC_DIR})
+set_target_properties(assetmanager-tests PROPERTIES
+    CXX_STANDARD 17
+    CXX_STANDARD_REQUIRED ON
+    CXX_EXTENSIONS OFF
+)
+add_test(NAME assetmanager-tests COMMAND assetmanager-tests)
+
 if(WIN32)
     # dbghelp: CapturaBackTrace/SymFromAddr/SymInitialize (RuntimeException).
     # En MinGW los #pragma comment(lib) de MSVC se ignoran, hay que enlazarla.
     target_link_libraries(filemanager-tests PRIVATE dbghelp)
+    target_link_libraries(assetmanager-tests PRIVATE dbghelp)
 endif()
