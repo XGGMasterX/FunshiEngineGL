@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Package>
+    <DisplayName>FunshiEngineGL</DisplayName>
+
+    <Description>
+        Motor gráfico 3D desarrollado en C++ con OpenGL, ImGui, Bullet Physics y Assimp.
+    </Description>
+
+    <Name>com.funshi.engine</Name>
+    <Version>0.5.0</Version>
+    <ReleaseDate>2026-09-15</ReleaseDate>
+
+    <Default>true</Default>
+    <Essential>true</Essential>
+
+    <License>
+        <Name>Licencia de FunshiEngineGL</Name>
+        <File>license.txt</File>
+    </License>
+</Package>
