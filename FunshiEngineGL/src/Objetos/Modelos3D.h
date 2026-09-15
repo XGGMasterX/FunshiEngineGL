@@ -19,18 +19,28 @@
 #ifndef MODELOS3D_H
 #define MODELOS3D_H
 
+#include <memory>
 #include <string>
 #include <vector>
 
+#include "../Assets/Mesh.h"
 #include "../Matematicas/StructVec3.h"
 #include "../Objetos/GameObject.h"
 
+class AssetManager;
+
 class Modelos3D : public GameObject {
 private:
-    std::vector<vec3> vertices;
-    std::vector<vec3> normals;
-    std::vector<unsigned int> indices;
-    char filePath[100];
+    // Malla del modelo: se pide al AssetManager (compartida entre objetos
+    // con el mismo archivo) o se carga localmente en el fallback. El objeto
+    // conserva su Transform/Material/Color propios; lo compartido es la
+    // geometria.
+    std::shared_ptr<const Mesh> mesh_;
+    std::string filePath_;
+    // Proveedor de mallas (inyectado por GameScene via EditorController/
+    // SceneSerializer). Con nullptr se usa el AssimpMeshLoader local como
+    // respaldo (caso del inspector por defecto, que nunca dibuja).
+    AssetManager* assets_ = nullptr;
 
     void setObject();
 
@@ -38,12 +48,20 @@ public:
     explicit Modelos3D(Entity* origin);
     Modelos3D();
 
+    // Conecta el asset manager inyectado: los proximos setPath()/carga de
+    // escena comparten mallas via el cache en lugar de parsear Assimp por
+    // objeto.
+    void setAssetManager(AssetManager* assets) noexcept { assets_ = assets; }
+
     void setPath(std::string path);
     std::string getPath();
     void dibujar(float deltaTime) override;
     bool getBoundingBox(vec3& outMin, vec3& outMax) const;
     // Vertices en espacio local del modelo (para construir shapes de colision).
-    const std::vector<vec3>& getVertices() const { return vertices; }
+    const std::vector<vec3>& getVertices() const;
+
+    // La malla compartida (nullptr si aun no se cargo o fallo).
+    const Mesh* getMesh() const { return mesh_.get(); }
 
 protected:
     void serializeEntity() override;
