@@ -1,0 +1,57 @@
+/*
+    FunshiEngineGL - Motor de juegos 3D con OpenGL e ImGui
+    Copyright 2026 Gianfranco Ivan Enrique
+
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+    SPDX-License-Identifier: Apache-2.0
+*/
+#ifndef TEXTUREGL_H
+#define TEXTUREGL_H
+
+#include "../Assets/Image.h"
+#include "GLFuncs.h"
+
+// Textura 2D en GPU: objeto GL_TEXTURE_2D con RAII (glDeleteTextures en el
+// destructor) y formato estandarizado RGBA8 + LINEAR/REPEAT. Es la contraparte
+// GPU de una Image CPU compartida; el renderer la cachea por identidad de la
+// imagen (al igual que MeshGPU se cachea por identidad de Mesh) para no
+// re-subir pixels redundantes en cada frame.
+class TextureGL {
+private:
+    GLuint texture_ = 0;
+    int width_ = 0;
+    int height_ = 0;
+
+    void destroy();
+
+public:
+    TextureGL() = default;
+    ~TextureGL();
+    TextureGL(const TextureGL&) = delete;
+    TextureGL& operator=(const TextureGL&) = delete;
+    TextureGL(TextureGL&& other) noexcept;
+    TextureGL& operator=(TextureGL&& other) noexcept;
+
+    // Sube la imagen CPU a GPU (reemplaza cualquier textura previa).
+    void upload(const Image& image);
+
+    bool isUploaded() const { return texture_ != 0; }
+    int getWidth() const { return width_; }
+    int getHeight() const { return height_; }
+
+    // Activa la unidad GL_TEXTURE0 + unit y la bindea como objetivo de sampleo.
+    void bindUnit(int unit) const;
+};
+
+#endif

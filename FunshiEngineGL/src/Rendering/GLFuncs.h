@@ -56,6 +56,7 @@ typedef void (GLAPIENTRY* FN_Uniform3fv)(GLint, GLsizei, const GLfloat*);
 typedef void (GLAPIENTRY* FN_Uniform4fv)(GLint, GLsizei, const GLfloat*);
 typedef void (GLAPIENTRY* FN_Uniform1f)(GLint, GLfloat);
 typedef void (GLAPIENTRY* FN_Uniform1i)(GLint, GLint);
+typedef void (GLAPIENTRY* FN_ActiveTexture)(GLenum);
 typedef void (GLAPIENTRY* FN_GenVertexArrays)(GLsizei, GLuint*);
 typedef void (GLAPIENTRY* FN_DeleteVertexArrays)(GLsizei, const GLuint*);
 typedef void (GLAPIENTRY* FN_BindVertexArray)(GLuint);
@@ -90,6 +91,7 @@ inline FN_Uniform3fv pfnUniform3fv = nullptr;
 inline FN_Uniform4fv pfnUniform4fv = nullptr;
 inline FN_Uniform1f pfnUniform1f = nullptr;
 inline FN_Uniform1i pfnUniform1i = nullptr;
+inline FN_ActiveTexture pfnActiveTexture = nullptr;
 inline FN_GenVertexArrays pfnGenVertexArrays = nullptr;
 inline FN_DeleteVertexArrays pfnDeleteVertexArrays = nullptr;
 inline FN_BindVertexArray pfnBindVertexArray = nullptr;
@@ -127,6 +129,7 @@ inline bool init() {
     cargarFuncion("glUniform4fv", pfnUniform4fv);
     cargarFuncion("glUniform1f", pfnUniform1f);
     cargarFuncion("glUniform1i", pfnUniform1i);
+    cargarFuncion("glActiveTexture", pfnActiveTexture);
     cargarFuncion("glGenVertexArrays", pfnGenVertexArrays);
     cargarFuncion("glDeleteVertexArrays", pfnDeleteVertexArrays);
     cargarFuncion("glBindVertexArray", pfnBindVertexArray);
@@ -143,7 +146,8 @@ inline bool init() {
            pfnGetProgramiv && pfnGetProgramInfoLog && pfnDeleteProgram &&
            pfnUseProgram && pfnGetUniformLocation && pfnGetAttribLocation &&
            pfnUniformMatrix4fv && pfnUniformMatrix3fv && pfnUniform3fv &&
-           pfnUniform4fv && pfnUniform1f && pfnUniform1i && pfnGenVertexArrays &&
+           pfnUniform4fv && pfnUniform1f && pfnUniform1i && pfnActiveTexture &&
+           pfnGenVertexArrays &&
            pfnDeleteVertexArrays && pfnBindVertexArray &&
            pfnEnableVertexAttribArray && pfnVertexAttribPointer &&
            pfnGenBuffers && pfnDeleteBuffers && pfnBindBuffer && pfnBufferData;

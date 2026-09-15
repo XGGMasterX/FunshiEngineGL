@@ -39,6 +39,7 @@ class SceneRegistry;
 class SceneSelectedInterface;
 class SceneSerializer;
 class AssetManager;
+class TextureManager;
 
 class GameScene {
 private:
@@ -65,6 +66,11 @@ private:
     // el pipeline moderno no esta disponible, cada objeto degrada al modo
     // inmediato (fallback preservado).
     std::unique_ptr<MeshRenderer> meshRenderer;
+    // Registro central de imagenes CPU compartidas (flyweight). Igual que el
+    // AssetManager de meshes, se inyecta a quien resuelve recursos: aqui lo
+    // usa el MeshRenderer para convertir el path de textura de cada Material
+    // en una imagen subida una sola vez a GPU.
+    std::unique_ptr<TextureManager> textureManager;
     EventBus events;
     LightSystem lightSystem;
     float deltaTime = 0.0f;

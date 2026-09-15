@@ -38,6 +38,8 @@
 #include "SceneSerializer.h"
 #include "../Assets/AssetManager.h"
 #include "../Assets/AssimpMeshLoader.h"
+#include "../Assets/StbImageLoader.h"
+#include "../Assets/TextureManager.h"
 #include "../Rendering/MeshRenderer.h"
 #include "../Rendering/RenderTarget.h"
 #include "ImGuizmo.h"
@@ -71,6 +73,8 @@ GameScene::GameScene(GUIManager* manager)
       assetManager(
           std::make_unique<AssetManager>(std::make_unique<AssimpMeshLoader>())),
       meshRenderer(std::make_unique<MeshRenderer>()),
+      textureManager(std::make_unique<TextureManager>(
+          std::make_unique<StbImageLoader>())),
       editorController(
           std::make_unique<EditorController>(sceneRegistry.get(), phisics.get(),
                                               &events, assetManager.get())),
@@ -81,6 +85,9 @@ GameScene::GameScene(GUIManager* manager)
     selecteableGUI = managerGUI->getSelecteableGUI();
     managerGUI->bindScene(sceneRegistry.get(), editorController.get(), &events);
     menuBarGUI = managerGUI->getMenuBarGUI(&start);
+    // El renderer resuelve la textura de cada Material con el cache de imagenes
+    // de la escena (un solo decode por archivo, imagen compartida).
+    meshRenderer->setTextureManager(textureManager.get());
 }
 
 GameScene::~GameScene() {
