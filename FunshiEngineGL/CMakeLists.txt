@@ -223,9 +223,26 @@ set_target_properties(assetmanager-tests PROPERTIES
 )
 add_test(NAME assetmanager-tests COMMAND assetmanager-tests)
 
+# TextureManager (cache Flyweight de imagenes CPU) headless y portatil al
+# igual que assetmanager-tests: registro compartido + loader artificial, sin
+# stb_image (StbImageLoader es del engine, aqui no entra la pila grafica).
+add_executable(texturemanager-tests
+    ${SRC_DIR}/Assets/TextureManager.cpp
+    ${SRC_DIR}/ExcepcionesCPP/RuntimeException.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../tests/TextureManagerTests.cpp
+)
+target_include_directories(texturemanager-tests PRIVATE ${SRC_DIR})
+set_target_properties(texturemanager-tests PROPERTIES
+    CXX_STANDARD 17
+    CXX_STANDARD_REQUIRED ON
+    CXX_EXTENSIONS OFF
+)
+add_test(NAME texturemanager-tests COMMAND texturemanager-tests)
+
 if(WIN32)
     # dbghelp: CapturaBackTrace/SymFromAddr/SymInitialize (RuntimeException).
     # En MinGW los #pragma comment(lib) de MSVC se ignoran, hay que enlazarla.
     target_link_libraries(filemanager-tests PRIVATE dbghelp)
     target_link_libraries(assetmanager-tests PRIVATE dbghelp)
+    target_link_libraries(texturemanager-tests PRIVATE dbghelp)
 endif()
