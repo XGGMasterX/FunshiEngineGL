@@ -30,12 +30,21 @@ namespace {
 // un archivo corrupto, omitiendo la misma cantidad de bytes para que los
 // siguientes componentes sigan alineados.
 const std::size_t kMaxTexturePathLength = 4096;
-// Marcador binario al inicio del payload Material que las escenas viejas no
-// tienen (el formato legacy es solo los 5 campos float, sin magic). Al leer,
-// si los primeros 4 bytes no son este magic se rebobina y se lee el formato
-// antiguo: la textura queda vacia para no romper escenas guardadas antes de
-// la rama de texturas.
-const char kMaterialMagic[4] = {'F', 'M', 't', 'A'};
+// Marcadores binarios al inicio del payload Material. Las escenas viejas no
+// tienen ninguno (el formato legacy es solo los 5 campos float sin paths).
+// v1 (FMtA) = rama de texturas original: 1 path (difusa). v2 (FMtB) = esta
+// rama: los 4 slots en orden difusa/especular/normal/emision. Al leer, la
+// ausencia de magic o un v1 mas antiguo se rebobina y se lee el formato
+// respectivo; los slots sin datos quedan vacios para no romper escenas
+// guardadas con versiones anteriores.
+const char kMaterialMagicV1[4] = {'F', 'M', 't', 'A'};
+const char kMaterialMagicV2[4] = {'F', 'M', 't', 'B'};
+
+void escribirPath(std::ofstream* file, const std::string& path) {
+    const std::uint32_t len = static_cast<std::uint32_t>(path.size());
+    file->write(reinterpret_cast<const char*>(&len), sizeof(len));
+    file->write(path.data(), static_cast<std::streamsize>(len));
+}
 } // namespace
 
 Material::Material() {
@@ -46,18 +55,36 @@ Material::Material() {
     shininess = 32.f;
 }
 
+void Material::leerPathTextura(std::ifstream* file, std::string& out) {
+    out.clear();
+    std::uint32_t len = 0;
+    file->read(reinterpret_cast<char*>(&len), sizeof(len));
+    if (file->gcount() != static_cast<std::streamsize>(sizeof(len))) return;
+    const std::size_t pathLen = len;
+    if (pathLen > kMaxTexturePathLength) {
+        // Path demasiado largo: descartar los bytes para no desalinear a los
+        // componentes siguientes y dejar el slot vacio.
+        file->seekg(static_cast<std::streamoff>(pathLen), std::ios::cur);
+        return;
+    }
+    if (pathLen == 0) return;
+    out.assign(pathLen, '\0');
+    file->read(&out[0], static_cast<std::streamsize>(pathLen));
+}
+
 void Material::serializeComponent(std::ofstream* file) {
     if (!file || !file->is_open()) return;
-    // Magic primero: distingue este formato del viejo (ver abajo).
-    file->write(kMaterialMagic, sizeof(kMaterialMagic));
+    // Magic v2: distingue este formato del v1 y del legacy (ver arriba).
+    file->write(kMaterialMagicV2, sizeof(kMaterialMagicV2));
     file->write(reinterpret_cast<const char*>(ambient), sizeof(ambient));
     file->write(reinterpret_cast<const char*>(diffuse), sizeof(diffuse));
     file->write(reinterpret_cast<const char*>(specular), sizeof(specular));
     file->write(reinterpret_cast<const char*>(emission), sizeof(emission));
     file->write(reinterpret_cast<const char*>(&shininess), sizeof(float));
-    std::uint32_t len = static_cast<std::uint32_t>(texturePath_.size());
-    file->write(reinterpret_cast<const char*>(&len), sizeof(len));
-    file->write(texturePath_.data(), static_cast<std::streamsize>(len));
+    escribirPath(file, diffuseMapPath_);
+    escribirPath(file, specularMapPath_);
+    escribirPath(file, normalMapPath_);
+    escribirPath(file, emissionMapPath_);
 }
 
 void Material::deserializeComponent(std::ifstream* file) {
@@ -67,16 +94,18 @@ void Material::deserializeComponent(std::ifstream* file) {
     }
     char magic[4];
     file->read(magic, sizeof(magic));
-    const bool formatoNuevo =
+    const bool esV2 =
         file->gcount() == static_cast<std::streamsize>(sizeof(magic)) &&
-        std::memcmp(magic, kMaterialMagic, sizeof(kMaterialMagic)) == 0;
-    if (!formatoNuevo) {
-        // Formato legacy (escenas viejas sin textura): rebobinar los 4 bytes
-        // leidos y leer los 5 campos como antes.
+        std::memcmp(magic, kMaterialMagicV2, sizeof(kMaterialMagicV2)) == 0;
+    const bool esV1 =
+        !esV2 && file->gcount() == static_cast<std::streamsize>(sizeof(magic)) &&
+        std::memcmp(magic, kMaterialMagicV1, sizeof(kMaterialMagicV1)) == 0;
+    if (!esV2 && !esV1) {
+        // Formato legacy (escenas viejas, sin texturas): rebobinar los 4
+        // bytes leidos y leer los 5 campos como siempre.
         file->seekg(-static_cast<std::streamoff>(sizeof(magic)),
                     std::ios::cur);
     }
-    texturePath_.clear();
 
     file->read(reinterpret_cast<char*>(ambient), sizeof(ambient));
     file->read(reinterpret_cast<char*>(diffuse), sizeof(diffuse));
@@ -84,22 +113,19 @@ void Material::deserializeComponent(std::ifstream* file) {
     file->read(reinterpret_cast<char*>(emission), sizeof(emission));
     file->read(reinterpret_cast<char*>(&shininess), sizeof(float));
 
-    // Solo en formato nuevo hay path de textura al final del payload.
-    if (formatoNuevo) {
-        std::uint32_t len = 0;
-        file->read(reinterpret_cast<char*>(&len), sizeof(len));
-        const std::size_t pathLen = len;
-        if (pathLen <= kMaxTexturePathLength) {
-            texturePath_.assign(static_cast<std::size_t>(pathLen), '\0');
-            if (pathLen > 0) {
-                file->read(&texturePath_[0],
-                           static_cast<std::streamsize>(pathLen));
-            }
-        } else {
-            // Path demasiado largo: descartar los bytes para no desalinear a
-            // los componentes siguientes y dejar la textura vacia.
-            file->seekg(static_cast<std::streamoff>(pathLen), std::ios::cur);
-        }
+    diffuseMapPath_.clear();
+    specularMapPath_.clear();
+    normalMapPath_.clear();
+    emissionMapPath_.clear();
+
+    if (esV2) {
+        leerPathTextura(file, diffuseMapPath_);
+        leerPathTextura(file, specularMapPath_);
+        leerPathTextura(file, normalMapPath_);
+        leerPathTextura(file, emissionMapPath_);
+    } else if (esV1) {
+        // v1: solo difusa al final del payload; el resto de slots vacio.
+        leerPathTextura(file, diffuseMapPath_);
     }
 }
 
