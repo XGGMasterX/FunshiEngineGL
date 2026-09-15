@@ -25,12 +25,16 @@
 // visual. El renderer sube luces/material/camara como uniforms; la grilla y
 // los gizmos siguen siendo modo inmediato.
 
-// Atributos: 0 = posicion (vec3), 1 = normal (vec3), 2 = uv (vec2). La UV
-// alimenta vUv y la textura difusa cuando el Material define una imagen.
+// Atributos: 0 = posicion (vec3), 1 = normal (vec3), 2 = uv (vec2),
+// 3 = tangente (vec3), 4 = bitangente (vec3). Las UVs alimentan vUv y el muestreo
+// de texturas; tangente/bitangente arman el marco TBN para el normal mapping
+// cuando el Material define una mapa de normales.
 static const char* const kDefaultVertexShader = R"(#version 330 core
 layout(location = 0) in vec3 aPosition;
 layout(location = 1) in vec3 aNormal;
 layout(location = 2) in vec2 aUv;
+layout(location = 3) in vec3 aTangent;
+layout(location = 4) in vec3 aBitangent;
 
 uniform mat4 uModel;
 uniform mat4 uView;
@@ -40,12 +44,25 @@ uniform mat3 uNormalMatrix;
 out vec3 vNormalWorld;
 out vec3 vWorldPos;
 out vec2 vUv;
+out mat3 vTbn;
 
 void main() {
     vec4 world = uModel * vec4(aPosition, 1.0);
     vWorldPos = world.xyz;
     vNormalWorld = uNormalMatrix * aNormal;
     vUv = aUv;
+
+    // Marco TBN en espacio mundo: la tangente se re-ortogonaliza contra la
+    // normal (Gram-Schmidt) y la bitangente compensa la orientacion (handedness)
+    // con el signo del producto mixto para que las caras espejadas no se
+    // quiebren. Sin normal map el shader no lo usa (todo es muestreo).
+    vec3 t = normalize(uNormalMatrix * aTangent);
+    vec3 n = normalize(vNormalWorld);
+    t = normalize(t - dot(t, n) * n);
+    vec3 b = cross(n, t);
+    if (dot(cross(n, t), uNormalMatrix * aBitangent) < 0.0) b = -b;
+    vTbn = mat3(t, b, n);
+
     gl_Position = uProjection * uView * world;
 }
 )";
@@ -54,6 +71,7 @@ static const char* const kDefaultFragmentShader = R"(#version 330 core
 in vec3 vNormalWorld;
 in vec3 vWorldPos;
 in vec2 vUv;
+in mat3 vTbn;
 out vec4 FragColor;
 
 uniform vec3 uCameraPosition;
@@ -77,18 +95,26 @@ uniform vec4 uMaterialSpecular;
 uniform vec4 uMaterialEmission;
 uniform float uMaterialShininess;
 
-// Textura difusa opcional: con uUseTexture == 0 el material se colorea solo
-// con los uniforms. Cuando hay textura, su texel multiplica (MODULA) al
-// diffuse del material, replicando el modo GL_MODULATE de la GL antigua.
+// Texturas opcionales del Material. Con su flag en 0 el material se colorea
+// solo con los uniforms; cuando la textura esta, su texel multiplica
+// (MODULA) al canal correspondiente, replicando el modo GL_MODULATE de la GL
+// antigua. La normal map perturba la normal en espacio tangente (vTbn).
 uniform sampler2D uDiffuseTex;
 uniform int uUseTexture;
+uniform sampler2D uSpecularTex;
+uniform int uUseSpecularMap;
+uniform sampler2D uEmissionTex;
+uniform int uUseEmissionMap;
+uniform sampler2D uNormalTex;
+uniform int uUseNormalMap;
 
 vec3 normalizarSeguro(vec3 v) {
     float len = length(v);
     return (len < 1e-8) ? vec3(0.0) : v / len;
 }
 
-vec3 contribucionLuz(int i, vec3 N, vec3 V, vec3 fragPos, vec3 baseDiffuse) {
+vec3 contribucionLuz(int i, vec3 N, vec3 V, vec3 fragPos, vec3 baseDiffuse,
+                     vec3 baseSpecular) {
     int type = uLightTypes[i];
 
     vec3 L;
@@ -126,7 +152,7 @@ vec3 contribucionLuz(int i, vec3 N, vec3 V, vec3 fragPos, vec3 baseDiffuse) {
         vec3 H = normalizarSeguro(L + V);
         float ndoth = max(dot(N, H), 0.0);
         especular = pow(ndoth, uMaterialShininess) *
-                    uLightSpecular[i] * uMaterialSpecular.rgb;
+                    uLightSpecular[i] * baseSpecular;
     }
 
     resultado += (difuso + especular) * (atenuacion * factorSpot);
@@ -134,19 +160,31 @@ vec3 contribucionLuz(int i, vec3 N, vec3 V, vec3 fragPos, vec3 baseDiffuse) {
 }
 
 void main() {
+    // Normal del fragmento: con normal map se perturba en espacio tangente
+    // (vTbn); sin el, es la normal interpolada de la geometria.
     vec3 N = normalizarSeguro(vNormalWorld);
+    if (uUseNormalMap == 1) {
+        vec3 tn = normalize(texture(uNormalTex, vUv).rgb * 2.0 - 1.0);
+        N = normalizarSeguro(vTbn * tn);
+    }
     vec3 V = normalizarSeguro(uCameraPosition - vWorldPos);
 
     // El diffuse modulado que ven las luces: texel de textura por diffuse del
     // material (GL_MODULATE). Sin textura (o con la malla sin UVs) queda igual.
-    vec3 color = uGlobalAmbient * uMaterialAmbient.rgb;
     vec3 baseDiffuse = uMaterialDiffuse.rgb;
     if (uUseTexture == 1) baseDiffuse *= texture(uDiffuseTex, vUv).rgb;
+    vec3 baseSpecular = uMaterialSpecular.rgb;
+    if (uUseSpecularMap == 1) baseSpecular *= texture(uSpecularTex, vUv).rgb;
+
+    // GL_LIGHT_MODEL_AMBIENT * material ambiente + emision, una sola vez.
+    vec3 color = uGlobalAmbient * uMaterialAmbient.rgb;
     for (int i = 0; i < MAX_LIGHTS; ++i) {
         if (i >= uLightCount) break;
-        color += contribucionLuz(i, N, V, vWorldPos, baseDiffuse);
+        color += contribucionLuz(i, N, V, vWorldPos, baseDiffuse, baseSpecular);
     }
-    color += uMaterialEmission.rgb;
+    vec3 emision = uMaterialEmission.rgb;
+    if (uUseEmissionMap == 1) emision *= texture(uEmissionTex, vUv).rgb;
+    color += emision;
 
     FragColor = vec4(color, uMaterialDiffuse.a);
 }

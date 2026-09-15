@@ -24,6 +24,9 @@ class Material;
 
 class SettingsMaterial : public SettingsComponent {
 	GameObject* gameObject;
+	// Indice del preset aplicado (MaterialPresets): -1 = Personalizado, 0..5
+	// = ultimo preset elegido. Cualquier edicion manual lo vuelve a -1.
+	int presetAplicado = -1;
 public:
 	SettingsMaterial(GameObject* gameObject);
 

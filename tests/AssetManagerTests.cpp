@@ -30,6 +30,8 @@
 #include "../FunshiEngineGL/src/Assets/AssetPath.h"
 #include "../FunshiEngineGL/src/Assets/Mesh.h"
 
+#include <cmath>
+
 namespace fs = std::filesystem;
 
 namespace {
@@ -122,6 +124,44 @@ void testMesh() {
     CHECK(!vacio.computeBounds(mn, mx), "computeBounds con mesh vacia es false");
 }
 
+// Cuadrilatero en el plano XY con normales +Z y UVs canonicas: su marco
+// tangente debe resultar T = +X, B = +Y (arriba = +Y en UV).
+std::shared_ptr<Mesh> cuadrilatero() {
+    auto mesh = std::make_shared<Mesh>();
+    mesh->name = "cuadrilatero";
+    const float pos[][3] = {{0, 0, 0}, {1, 0, 0}, {1, 1, 0}, {0, 1, 0}};
+    for (int v = 0; v < 4; ++v) {
+        mesh->vertices.emplace_back(pos[v][0], pos[v][1], pos[v][2]);
+        mesh->normals.emplace_back(0.f, 0.f, 1.f);
+    }
+    mesh->uvs = {vec2(0, 0), vec2(1, 0), vec2(1, 1), vec2(0, 1)};
+    mesh->indices = {0, 1, 2, 0, 2, 3};
+    return mesh;
+}
+
+void testMeshTangents() {
+    auto mesh = cuadrilatero();
+    CHECK(!mesh->hasTangents(), "sin calcular no hay tangentes");
+    CHECK(mesh->computeTangents(), "computeTangents sobre cuadrilatero");
+    CHECK(mesh->hasTangents(), "hasTangents() true tras computeTangents");
+    for (std::size_t v = 0; v < mesh->tangents.size(); ++v) {
+        CHECK(std::fabs(mesh->tangents[v].x - 1.f) < 1e-5f &&
+                  std::fabs(mesh->tangents[v].y) < 1e-5f,
+              "tangente del cuadrilatero apunta a +X");
+        CHECK(std::fabs(mesh->bitangents[v].y - 1.f) < 1e-5f &&
+                  std::fabs(mesh->bitangents[v].x) < 1e-5f,
+              "bitangente del cuadrilatero apunta a +Y");
+    }
+
+    // Sin UVs no hay de donde calcular: no debe lanzar ni mentir.
+    auto sinUvs = std::make_shared<Mesh>();
+    sinUvs->vertices.emplace_back(0.f, 0.f, 0.f);
+    sinUvs->vertices.emplace_back(1.f, 0.f, 0.f);
+    sinUvs->vertices.emplace_back(0.f, 1.f, 0.f);
+    sinUvs->indices = {0, 1, 2};
+    CHECK(!sinUvs->computeTangents(), "computeTangents sin UVs es false");
+}
+
 void testAssetManager() {
     AssetManager sinLoader;
     CHECK(sinLoader.meshCount() == 0, "manager nuevo vacio");
@@ -206,6 +246,7 @@ void testAssetManager() {
 int main() {
     testAssetPath();
     testMesh();
+    testMeshTangents();
     testAssetManager();
 
     std::cout << "Resultado: " << (total - fallos) << "/" << total

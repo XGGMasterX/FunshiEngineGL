@@ -30,7 +30,7 @@ std::shared_ptr<Mesh> AssimpMeshLoader::load(const std::string& path) {
     const aiScene* scene = importer.ReadFile(
         path, aiProcess_Triangulate | aiProcess_JoinIdenticalVertices |
                   aiProcess_GenSmoothNormals | aiProcess_PreTransformVertices |
-                  aiProcess_GenUVCoords);
+                  aiProcess_GenUVCoords | aiProcess_CalcTangentSpace);
 
     if (!scene || (scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE) ||
         !scene->mRootNode) {
@@ -54,6 +54,13 @@ std::shared_ptr<Mesh> AssimpMeshLoader::load(const std::string& path) {
 
         const bool hasNormals = src->HasNormals();
         const bool hasUvs = src->HasTextureCoords(0);
+        const bool hasTangentes = src->HasTangentsAndBitangents();
+        if (hasTangentes) {
+            // El marco tangente se copia en paralelo a vertices (una fila por
+            // vertice); sin el, la malla no tiene normal mapping.
+            mesh->tangents.reserve(mesh->tangents.size() + src->mNumVertices);
+            mesh->bitangents.reserve(mesh->bitangents.size() + src->mNumVertices);
+        }
 
         for (unsigned int v = 0; v < src->mNumVertices; ++v) {
             const aiVector3D& p = src->mVertices[v];
@@ -65,6 +72,15 @@ std::shared_ptr<Mesh> AssimpMeshLoader::load(const std::string& path) {
                 // Sin normales: ceros para mantener una por vertice (el
                 // renderer las regenera si hace falta).
                 mesh->normals.emplace_back(0.f, 0.f, 0.f);
+            }
+            if (hasTangentes) {
+                const aiVector3D& t = src->mTangents[v];
+                const aiVector3D& b = src->mBitangents[v];
+                mesh->tangents.emplace_back(t.x, t.y, t.z);
+                mesh->bitangents.emplace_back(b.x, b.y, b.z);
+            } else {
+                mesh->tangents.emplace_back(0.f, 0.f, 0.f);
+                mesh->bitangents.emplace_back(0.f, 0.f, 0.f);
             }
             if (hasUvs) {
                 const aiVector3D& uv = src->mTextureCoords[0][v];
