@@ -95,7 +95,12 @@ install_manifest.txt
 # Build directories
 FunshiEngineGL/build/
 FunshiEngineGL/build_temp/
+FunshiEngineGL/build-win/
 FunshiEngineGL_BACKUP/
+
+# Empaquetado Windows (montaje y setup generados por HacerInstalador.bat / CI)
+FunshiEngineGL/packaging/dist/
+FunshiEngineGL/packaging/instalador/
 
 # Temporary refactoring/build scripts
 FunshiEngineGL/fix_build.py
