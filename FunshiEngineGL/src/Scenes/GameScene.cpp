@@ -38,6 +38,7 @@
 #include "SceneSerializer.h"
 #include "../Assets/AssetManager.h"
 #include "../Assets/AssimpMeshLoader.h"
+#include "../Rendering/MeshRenderer.h"
 #include "../Rendering/RenderTarget.h"
 #include "ImGuizmo.h"
 #include <GL/gl.h>
@@ -69,6 +70,7 @@ GameScene::GameScene(GUIManager* manager)
       phisics(std::make_unique<PhysicsEngine>()),
       assetManager(
           std::make_unique<AssetManager>(std::make_unique<AssimpMeshLoader>())),
+      meshRenderer(std::make_unique<MeshRenderer>()),
       editorController(
           std::make_unique<EditorController>(sceneRegistry.get(), phisics.get(),
                                               &events, assetManager.get())),
@@ -238,27 +240,62 @@ GameObject* GameScene::agregarCamaraEnVistaActiva() {
 }
 
 void GameScene::dibujarGameObjects() {
-    dibujarGameObjectsConOjo(activeCameraObject);
+    CameraComponent* camara = getActiveCamera();
+    if (!camara) return;
+    ImGuiIO& io = ImGui::GetIO();
+    const float aspect = (io.DisplaySize.x > 0.f && io.DisplaySize.y > 0.f)
+                             ? io.DisplaySize.x / io.DisplaySize.y
+                             : 1.77f;
+    float view[16], projection[16];
+    camara->getViewMatrix(view);
+    camara->getProjectionMatrix(projection, aspect);
+    prepararLucesFrame();
+    dibujarGameObjectsConOjo(activeCameraObject, view, projection);
 }
 
-void GameScene::dibujarGameObjectsConOjo(GameObject* camaraOjo) {
+void GameScene::dibujarGameObjectsConOjo(GameObject* camaraOjo,
+                                         const float view[16],
+                                         const float projection[16]) {
     auto* gameObjects = getGameObjectsScene();
     if (gameObjects->isEmpty()) return;
     Position<GameObject*>* pos = gameObjects->first();
     while (pos && pos->getElement()) {
-        dibujarObjectConOjo(pos->getElement(), camaraOjo);
+        dibujarObjectConOjo(pos->getElement(), camaraOjo, view, projection);
         pos = (pos != gameObjects->last()) ? gameObjects->next(pos) : nullptr;
     }
 }
 
 void GameScene::dibujarObject(GameObject* object) {
-    dibujarObjectConOjo(object, activeCameraObject);
+    CameraComponent* camara = getActiveCamera();
+    if (!camara) return;
+    ImGuiIO& io = ImGui::GetIO();
+    const float aspect = (io.DisplaySize.x > 0.f && io.DisplaySize.y > 0.f)
+                             ? io.DisplaySize.x / io.DisplaySize.y
+                             : 1.77f;
+    float view[16], projection[16];
+    camara->getViewMatrix(view);
+    camara->getProjectionMatrix(projection, aspect);
+    prepararLucesFrame();
+    dibujarObjectConOjo(object, activeCameraObject, view, projection);
 }
 
-void GameScene::dibujarObjectConOjo(GameObject* object, GameObject* camaraOjo) {
+void GameScene::dibujarObjectConOjo(GameObject* object, GameObject* camaraOjo,
+                                    const float view[16],
+                                    const float projection[16]) {
     object->setTam(10);
     object->setColor(object->auxColor);
-    if (object->getComponent<Transform>()) object->dibujar(deltaTime);
+    if (object->getComponent<Transform>()) {
+        // Los objetos intentan el pipeline moderno (VBO/VAO + shader); si no
+        // esta disponible o la malla no tiene normales, degradan al modo
+        // inmediato para no perder la visibilidad que habia hasta ahora.
+        auto* modelo = dynamic_cast<Modelos3D*>(object);
+        if (modelo && meshRenderer &&
+            meshRenderer->intentarRender(modelo, view, projection, deltaTime)) {
+            // Render moderno (update + material + geometria) ya hecho.
+        } else {
+            object->dibujar(deltaTime);
+        }
+    }
     if (object->getComponent<Light>()) dibujarMarcadorLuz(object);
     if (object->getComponent<CameraComponent>() && object != camaraOjo)
         dibujarMarcadorCamara(object);
@@ -409,8 +446,17 @@ void GameScene::dibujarEscena(const float view[16], const float projection[16],
     glLoadMatrixf(view);
 
     lightSystem.beginFrame(getGameObjectsScene());
+    prepararLucesFrame();
     mallaScene(70.0f);
-    dibujarGameObjectsConOjo(camaraOjo);
+    dibujarGameObjectsConOjo(camaraOjo, view, projection);
+}
+
+void GameScene::prepararLucesFrame() {
+    if (!meshRenderer) return;
+    LightData luces[LightSystem::kMaxLights];
+    int numLuces = 0;
+    lightSystem.collectLights(getGameObjectsScene(), luces, numLuces);
+    meshRenderer->setLuces(luces, numLuces, lightSystem.getGlobalAmbient());
 }
 
 // Pasada de vista previa (Fase 2): por cada camara con "Vista previa" activo
