@@ -31,6 +31,7 @@ class CameraComponent;
 class EditorController;
 class GUIManager;
 class GameObject;
+class MeshRenderer;
 class PhysicsEngine;
 class RenderTarget;
 class SceneMenuBarInterface;
@@ -59,6 +60,11 @@ private:
     // EditorController y SceneSerializer para que cada Modelos3D pida su
     // geometria al cache (Flyweight) en lugar de parsear Assimp por objeto.
     std::unique_ptr<AssetManager> assetManager;
+    // Renderer moderno (VBO/VAO + shader) de los objetos de la escena. Vive
+    // aqui porque necesita las matrices de camara y las luces de la pasada; si
+    // el pipeline moderno no esta disponible, cada objeto degrada al modo
+    // inmediato (fallback preservado).
+    std::unique_ptr<MeshRenderer> meshRenderer;
     EventBus events;
     LightSystem lightSystem;
     float deltaTime = 0.0f;
@@ -83,10 +89,16 @@ private:
 
     void dibujarEscena(const float view[16], const float projection[16],
                        GameObject* camaraOjo);
-    void dibujarGameObjectsConOjo(GameObject* camaraOjo);
-    void dibujarObjectConOjo(GameObject* object, GameObject* camaraOjo);
+    void dibujarGameObjectsConOjo(GameObject* camaraOjo,
+                                  const float view[16],
+                                  const float projection[16]);
+    void dibujarObjectConOjo(GameObject* object, GameObject* camaraOjo,
+                             const float view[16], const float projection[16]);
     void dibujarViewportsPrevios();
     void pintarViewportsGUI();
+    // Recoge las luces de la escena (LightSystem::collectLights) y se las
+    // pasa al MeshRenderer como uniforms de la pasada en curso.
+    void prepararLucesFrame();
 
 public:
     GameScene(GUIManager* managerGUI);
