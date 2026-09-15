@@ -1,0 +1,70 @@
+name: Windows (instalador)
+
+# Publica el setup.exe de Windows como artefacto.
+#   - Manual: Actions -> "Windows (instalador)" -> Run workflow
+#   - Automatico: crear un tag v* (ej: git tag v0.5.0-alpha && git push --tags)
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  instalador:
+    name: Build + setup.exe (Windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Los runners de GitHub traen vcpkg preinstalado en C:\vcpkg y en PATH.
+      # La cache acelera builds posteriores (Assimp/Bullet tardan ~10 min la
+      # primera vez desde cero).
+      - name: Cache dependencias vcpkg
+        uses: actions/cache@v4
+        with:
+          path: C:\vcpkg\installed
+          key: vcpkg-x64-windows-v1
+
+      - name: Instalar dependencias (vcpkg)
+        shell: pwsh
+        run: vcpkg install glfw3 assimp bullet3 glm --triplet x64-windows
+
+      - name: Configurar CMake
+        run: >
+          cmake -B build -S FunshiEngineGL
+          -DCMAKE_TOOLCHAIN_FILE=C:\vcpkg\scripts\buildsystems\vcpkg.cmake
+          -DVCPKG_TARGET_TRIPLET=x64-windows
+          -DCMAKE_BUILD_TYPE=Release
+          -DENABLE_ASAN=OFF
+
+      - name: Compilar engine
+        run: cmake --build build --config Release --target FunshiEngineGL
+
+      - name: Ejecutar pruebas
+        run: ctest --test-dir build -C Release --output-on-failure
+
+      - name: Montar dist (exe + dlls + Imagenes)
+        shell: pwsh
+        run: |
+          & "$env:GITHUB_WORKSPACE\FunshiEngineGL\packaging\stage_dist_win.ps1" `
+            -ProjectDir "$env:GITHUB_WORKSPACE\FunshiEngineGL" `
+            -BuildDir "$env:GITHUB_WORKSPACE\build\Release" `
+            -VcpkgInstalled "C:\vcpkg\installed\x64-windows"
+
+      - name: Instalar Inno Setup y compilar setup.exe
+        shell: pwsh
+        run: |
+          choco install innosetup -y --no-progress
+          $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) {
+            $iscc = (Get-ChildItem "C:\Program Files*\Inno Setup*\ISCC.exe" -Recurse -ErrorAction SilentlyContinue |
+                     Select-Object -First 1 -ExpandProperty FullName)
+          }
+          & $iscc "$env:GITHUB_WORKSPACE\FunshiEngineGL\packaging\FunshiEngineGL_setup.iss"
+
+      - name: Subir instalador como artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: FunshiEngineGL-setup
+          path: FunshiEngineGL\packaging\instalador\*.exe
