@@ -20,7 +20,9 @@
 #define MESHRENDERER_H
 
 #include <memory>
+#include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #include <glm/glm.hpp>
@@ -29,7 +31,10 @@
 
 class ShaderProgram;
 class MeshGPU;
+class TextureGL;
 class Mesh;
+class Image;
+class TextureManager;
 class Modelos3D;
 
 // Renderer de objetos con el pipeline moderno (VBO/VAO + shader): reemplaza el
@@ -37,13 +42,23 @@ class Modelos3D;
 // fixed-function (LightSystem + Material) con uniforms para que el pasaje no
 // sea una regresion visual; la grilla y los gizmos siguen en modo inmediato.
 // El MeshGPU se cachea por identidad de la Mesh CPU (que ya es compartida por
-// AssetManager), asi dos objetos con la misma malla no re-suben geometria.
+// AssetManager), asi dos objetos con la misma malla no re-suben geometria. La
+// textura difusa del Material (path -> Image compartida via TextureManager)
+// se sube a GPU una sola vez por imagen y se cachea por identidad igual que la
+// geometria; si la malla no tiene UVs o el archivo no carga, el objeto se
+// dibuja sin textura (se registra el fallo para no reintentar cada frame).
 class MeshRenderer {
 public:
     MeshRenderer();
     ~MeshRenderer();
 
     bool available() const noexcept { return shader_ != nullptr; }
+
+    // Manager de imagenes compartidas (flyweight): si no se inyecta, los
+    // materiales con textura se dibujan sin ellas (no hay loader de imagenes).
+    void setTextureManager(TextureManager* textureManager) noexcept {
+        textureManager_ = textureManager;
+    }
 
     // Luces de la pasada actual (1 vez por pasada, desde LightSystem: la misma
     // semantica de GL_LIGHT0..7 pero en CPU). globalAmbient = modelo de luz.
@@ -56,12 +71,17 @@ public:
     bool intentarRender(Modelos3D* objeto, const float view[16],
                         const float projection[16], float deltaTime);
 
-    // Libera los MeshGPU cacheados (por ejemplo tras recargar mallas).
+    // Libera los MeshGPU/TextureGL cacheados (por ejemplo tras recargar
+    // mallas o texturas).
     void clearCache();
 
 private:
     std::unique_ptr<ShaderProgram> shader_;
+    TextureManager* textureManager_ = nullptr;
     std::unordered_map<const Mesh*, std::unique_ptr<MeshGPU>> gpu_;
+    std::unordered_map<const Image*, std::unique_ptr<TextureGL>> gpuTexturas_;
+    // Paths de textura que ya fallaron al cargar: no se reintentan por frame.
+    std::unordered_set<std::string> texturasFallidas_;
     std::vector<LightData> luces_;
     float globalAmbient_[3] = {0.15f, 0.15f, 0.15f};
 
@@ -70,6 +90,7 @@ private:
     bool inicializar();
     void aplicarLuces();
     void aplicarMaterial(Modelos3D* objeto);
+    void aplicarTextura(Modelos3D* objeto, bool meshHasUvs);
 };
 
 #endif

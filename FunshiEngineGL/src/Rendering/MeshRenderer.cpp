@@ -27,6 +27,7 @@
 #include <iostream>
 
 #include "../Assets/Mesh.h"
+#include "../Assets/TextureManager.h"
 #include "../Iluminacion/LightSystem.h"
 #include "../Objetos/Componentes/Color.h"
 #include "../Objetos/Componentes/Material.h"
@@ -35,6 +36,7 @@
 #include "MeshGPU.h"
 #include "Shaders/ShaderProgram.h"
 #include "Shaders/ShaderSources.h"
+#include "TextureGL.h"
 
 namespace {
 
@@ -68,7 +70,11 @@ bool MeshRenderer::inicializar() {
     return shader_ != nullptr;
 }
 
-void MeshRenderer::clearCache() { gpu_.clear(); }
+void MeshRenderer::clearCache() {
+    gpu_.clear();
+    gpuTexturas_.clear();
+    texturasFallidas_.clear();
+}
 
 void MeshRenderer::setLuces(const LightData* luces, int lucesCount,
                             const float* globalAmbient) {
@@ -159,6 +165,44 @@ void MeshRenderer::aplicarMaterial(Modelos3D* objeto) {
     shader_->setFloat("uMaterialShininess", defaults.getShininess());
 }
 
+void MeshRenderer::aplicarTextura(Modelos3D* objeto, bool meshHasUvs) {
+    auto desactivar = [this]() { shader_->setInt("uUseTexture", 0); };
+
+    // Sin manager no hay forma de resolver el path a una imagen; y sin UVs la
+    // malla no tiene con que coser la textura (el shader igual funcionaria con
+    // vUv = (0,0) pero eso no muestra la imagen, solo un pixel repetido).
+    Material* material = objeto->getComponent<Material>();
+    if (!textureManager_ || !meshHasUvs || !material ||
+        !material->hasTexture()) {
+        desactivar();
+        return;
+    }
+
+    const std::string& path = material->getTexturePath();
+    if (texturasFallidas_.count(path) != 0) {
+        desactivar(); // archivo que ya fallo: no reintentar por frame
+        return;
+    }
+
+    try {
+        std::shared_ptr<const Image> image = textureManager_->getTexture(path);
+        auto it = gpuTexturas_.find(image.get());
+        if (it == gpuTexturas_.end()) {
+            auto gpu = std::make_unique<TextureGL>();
+            gpu->upload(*image);
+            it = gpuTexturas_.emplace(image.get(), std::move(gpu)).first;
+        }
+        it->second->bindUnit(0);
+        shader_->setInt("uDiffuseTex", 0);
+        shader_->setInt("uUseTexture", 1);
+    } catch (const std::exception& e) {
+        texturasFallidas_.insert(path);
+        std::cerr << "[MeshRenderer] Textura '" << path << "': " << e.what()
+                  << '\n';
+        desactivar();
+    }
+}
+
 bool MeshRenderer::intentarRender(Modelos3D* objeto, const float view[16],
                                   const float projection[16],
                                   float deltaTime) {
@@ -201,6 +245,7 @@ bool MeshRenderer::intentarRender(Modelos3D* objeto, const float view[16],
                      glm::vec3(invView[3][0], invView[3][1], invView[3][2]));
 
     aplicarMaterial(objeto);
+    aplicarTextura(objeto, mesh->hasUvs());
 
     auto it = gpu_.find(mesh);
     if (it == gpu_.end()) {
