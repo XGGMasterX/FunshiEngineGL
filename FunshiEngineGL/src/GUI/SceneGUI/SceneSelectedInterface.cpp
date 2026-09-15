@@ -23,6 +23,7 @@
 #include "../../Scenes/EditorController.h"
 #include "../../Scenes/SceneRegistry.h"
 #include "../../Events/EventBus.h"
+#include "../../Herramientas/IconosGUI/IconosGUI.h"
 #include <memory>
 
 SceneSelectedInterface::SceneSelectedInterface(bool state)
@@ -60,7 +61,19 @@ void SceneSelectedInterface::initGUI() {
 }
 
 void SceneSelectedInterface::contentGUI() {
-    auto* entitys = getEntitysTree();
+	// Entrada sintetica "Grilla" como objeto unico en la jerarquia.
+	if (gridVisible_) {
+		ImGui::PushID("Grilla");
+		if (iconosGUI && iconosGUI->getIconoGameObject() != ImTextureID_Invalid) {
+			ImGui::Image(iconosGUI->getIconoGameObject(), ImVec2(22, 22));
+			ImGui::SameLine();
+		}
+		ImGui::Checkbox("Grilla", gridVisible_);
+		ImGui::PopID();
+		ImGui::Separator();
+	}
+
+	auto* entitys = getEntitysTree();
     if (!entitys) return;
 
     // Sin deseleccion por clic en area vacia: la interface se conserva al
