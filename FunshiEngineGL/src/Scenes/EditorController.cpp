@@ -21,19 +21,28 @@
 #include "SceneRegistry.h"
 #include "../Fisicas/PhysicsEngine.h"
 #include "../Objetos/GameObject.h"
+#include "../Objetos/Modelos3D.h"
 #include "../Objetos/Componentes/RigidBody/RigidBody.h"
 #include "../Events/EventBus.h"
 
 EditorController::EditorController(SceneRegistry* value, PhysicsEngine* world,
-                                   EventBus* bus)
-    : scene(value), physics(world), events(bus) {}
+                                   EventBus* bus, AssetManager* assetsManager)
+    : scene(value), physics(world), events(bus), assets(assetsManager) {}
 
 void EditorController::setScene(SceneRegistry* value) noexcept { scene = value; }
 void EditorController::setPhysics(PhysicsEngine* value) noexcept { physics = value; }
 void EditorController::setEventBus(EventBus* value) noexcept { events = value; }
+void EditorController::setAssetManager(AssetManager* value) noexcept {
+    assets = value;
+}
 
 GameObject* EditorController::createGameObject(std::unique_ptr<GameObject> object,
                                                GameObject* parent) {
+    // Propagar el AssetManager a los modelos creados desde la GUI: el objeto
+    // recien construido todavia es nuestro (antes del std::move) y es el unico
+    // momento en que podemos inyectarle la fuente de mallas compartidas.
+    if (Modelos3D* modelo = dynamic_cast<Modelos3D*>(object.get()))
+        modelo->setAssetManager(assets);
     GameObject* created = scene ? scene->createObject(std::move(object), parent) : nullptr;
     if (created && events)
         events->publish({SceneEventType::ObjectCreated, created, parent});
