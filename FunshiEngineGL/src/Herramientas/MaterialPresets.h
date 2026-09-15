@@ -57,8 +57,8 @@ static inline void jade(Material& m) {
     m.setShininess(0.1f);
 }
 static inline void luz(Material& m) {
-    m.setAmbient(1.f, 1.f, 0.f);
-    m.setDiffuse(1.f, 1.f, 0.f);
+    m.setAmbient(0.f, 0.f, 0.f);
+    m.setDiffuse(0.f, 0.f, 0.f);
     m.setSpecular(0.f, 0.f, 0.f);
     m.setShininess(0.f);
     m.setEmission(1.f, 1.f, 0.f);

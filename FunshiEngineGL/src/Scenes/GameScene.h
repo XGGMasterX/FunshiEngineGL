@@ -89,6 +89,7 @@ private:
     float sensibilidadCamara = 1.0f;
     int gizmoOperation = 7; // ImGuizmo::TRANSLATE
     bool gizmoReady = false;
+    bool showGrid_ = true;
 
     // Vista previa viva por camara con el checkbox "Vista previa" (Fase 2).
     // Se reconstruye cada frame: texturas FBO + el objeto que las genera.
@@ -132,6 +133,9 @@ public:
     bool isGizmoCapturingInput() const;
     bool gizmoInUse() const;
     GameObject* pickObject(float mouseX, float mouseY);
+
+    bool isGridVisible() const { return showGrid_; }
+    void setGridVisible(bool v) { showGrid_ = v; }
 
     // Camara de la escena como Component: devuelve el primer objeto que tenga
     // una CameraComponent (crea "CamaraPrincipal" si la escena no tiene).

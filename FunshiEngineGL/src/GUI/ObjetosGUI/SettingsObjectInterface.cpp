@@ -148,6 +148,16 @@ void SettingsObjectInterface::contentGUI() {
 
 	ImGui::Separator();
 
+	ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.6f, 0.1f, 0.1f, 1.f));
+	if (ImGui::Button("Eliminar Objeto", ImVec2(-1, 0)) && editor) {
+		GameObject* target = object;
+		editor->deleteGameObject(target);
+		stateGUI = false;
+		ImGui::PopStyleColor();
+		return;
+	}
+	ImGui::PopStyleColor();
+
 	if (ImGui::BeginPopupContextWindow("AddComponentPopup",
 	                                   ImGuiPopupFlags_MouseButtonRight)) {
 		if (ImGui::MenuItem("Agregar Transform") &&

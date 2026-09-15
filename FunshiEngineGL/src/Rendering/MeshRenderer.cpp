@@ -90,6 +90,10 @@ void MeshRenderer::setLuces(const LightData* luces, int lucesCount,
 }
 
 void MeshRenderer::aplicarLuces() {
+    // Los seters de ShaderProgram no hacen glUseProgram: sin este use() los
+    // uniforms de luz se descartarian (no hay programa activo al venir desde
+    // setLuces/prepararLucesFrame antes de dibujar).
+    if (shader_) shader_->use();
     const int count =
         std::min(LightSystem::kMaxLights, static_cast<int>(luces_.size()));
 
@@ -194,7 +198,9 @@ void MeshRenderer::aplicarTexturas(Modelos3D* objeto, const Mesh* mesh) {
     shader_->setInt("uUseEmissionMap", 0);
     shader_->setInt("uUseNormalMap", 0);
 
-    if (!textureManager_ || !mesh || !mesh->hasUvs()) return;
+    if (!textureManager_ || !mesh || !mesh->hasUvs()) {
+        return;
+    }
 
     Material* material = objeto->getComponent<Material>();
     if (!material) return;
