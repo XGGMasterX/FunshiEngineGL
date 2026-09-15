@@ -27,12 +27,14 @@
 // Geometria de una malla en CPU, independiente de OpenGL. Es el asset que
 // comparte AssetManager entre objetos: lo genera el loader (Assimp en la
 // integracion con Modelos3D) o procedimentalmente, y el renderer moderno lo
-// sube a VBO/VAO en la rama de shaders. Ya trae UVs preparadas para cuando
-// llegue el soporte de texturas.
+// sube a VBO/VAO. Ademas de vertices/normales/UVs, guarda el marco tangente
+// (tangente + bitangente por vertice) para normal mapping en el shader.
 struct Mesh {
     std::string name;
     std::vector<vec3> vertices;
     std::vector<vec3> normals;
+    std::vector<vec3> tangents;
+    std::vector<vec3> bitangents;
     std::vector<vec2> uvs;
     std::vector<unsigned int> indices;
 
@@ -43,10 +45,22 @@ struct Mesh {
         return !normals.empty() && normals.size() == vertices.size();
     }
 
+    // El marco tangente vale solo si hay tangente Y bitangente por vertice.
+    bool hasTangents() const {
+        return !tangents.empty() && tangents.size() == vertices.size() &&
+               !bitangents.empty() && bitangents.size() == vertices.size();
+    }
+
     // Las UVs valen solo si hay una por vertice.
     bool hasUvs() const {
         return !uvs.empty() && uvs.size() == vertices.size();
     }
+
+    // Calcula tangente/bitangente por vertice a partir de vertices+UVs
+    // (algoritmo de cara estandar de Lengyel/iMDesmarais), acumulando por
+    // vertice y normalizando. Requiere hasUvs() y hasNormals(). Las caras con
+    // area de UV degenerada se omiten. Devuelve false si no hay UVs/normales.
+    bool computeTangents();
 
     // AABB en espacio local. Devuelve false si la malla no tiene vertices.
     bool computeBounds(vec3& outMin, vec3& outMax) const;

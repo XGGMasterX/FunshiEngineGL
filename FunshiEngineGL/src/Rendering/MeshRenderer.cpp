@@ -165,25 +165,9 @@ void MeshRenderer::aplicarMaterial(Modelos3D* objeto) {
     shader_->setFloat("uMaterialShininess", defaults.getShininess());
 }
 
-void MeshRenderer::aplicarTextura(Modelos3D* objeto, bool meshHasUvs) {
-    auto desactivar = [this]() { shader_->setInt("uUseTexture", 0); };
-
-    // Sin manager no hay forma de resolver el path a una imagen; y sin UVs la
-    // malla no tiene con que coser la textura (el shader igual funcionaria con
-    // vUv = (0,0) pero eso no muestra la imagen, solo un pixel repetido).
-    Material* material = objeto->getComponent<Material>();
-    if (!textureManager_ || !meshHasUvs || !material ||
-        !material->hasTexture()) {
-        desactivar();
-        return;
-    }
-
-    const std::string& path = material->getTexturePath();
-    if (texturasFallidas_.count(path) != 0) {
-        desactivar(); // archivo que ya fallo: no reintentar por frame
-        return;
-    }
-
+bool MeshRenderer::enlazarSlotTextura(const std::string& path, int unit,
+                                      const char* samplerUniform) {
+    if (path.empty() || texturasFallidas_.count(path) != 0) return false;
     try {
         std::shared_ptr<const Image> image = textureManager_->getTexture(path);
         auto it = gpuTexturas_.find(image.get());
@@ -192,15 +176,53 @@ void MeshRenderer::aplicarTextura(Modelos3D* objeto, bool meshHasUvs) {
             gpu->upload(*image);
             it = gpuTexturas_.emplace(image.get(), std::move(gpu)).first;
         }
-        it->second->bindUnit(0);
-        shader_->setInt("uDiffuseTex", 0);
-        shader_->setInt("uUseTexture", 1);
+        it->second->bindUnit(unit);
+        shader_->setInt(samplerUniform, unit);
+        return true;
     } catch (const std::exception& e) {
-        texturasFallidas_.insert(path);
+        texturasFallidas_.insert(path); // no reintentar por frame
         std::cerr << "[MeshRenderer] Textura '" << path << "': " << e.what()
                   << '\n';
-        desactivar();
+        return false;
     }
+}
+
+void MeshRenderer::aplicarTexturas(Modelos3D* objeto, const Mesh* mesh) {
+    // Por defecto: sin texturas en ningun slot.
+    shader_->setInt("uUseTexture", 0);
+    shader_->setInt("uUseSpecularMap", 0);
+    shader_->setInt("uUseEmissionMap", 0);
+    shader_->setInt("uUseNormalMap", 0);
+
+    if (!textureManager_ || !mesh || !mesh->hasUvs()) return;
+
+    Material* material = objeto->getComponent<Material>();
+    if (!material) return;
+
+    shader_->setInt("uUseTexture",
+                    enlazarSlotTextura(material->getDiffuseMapPath(), 0,
+                                       "uDiffuseTex")
+                        ? 1
+                        : 0);
+    shader_->setInt("uUseSpecularMap",
+                    enlazarSlotTextura(material->getSpecularMapPath(), 1,
+                                       "uSpecularTex")
+                        ? 1
+                        : 0);
+    shader_->setInt("uUseEmissionMap",
+                    enlazarSlotTextura(material->getEmissionMapPath(), 2,
+                                       "uEmissionTex")
+                        ? 1
+                        : 0);
+
+    // El normal map ademas exige el marco tangente de la malla.
+    shader_->setInt("uUseNormalMap",
+                    mesh->hasTangents()
+                        ? (enlazarSlotTextura(material->getNormalMapPath(), 3,
+                                              "uNormalTex")
+                               ? 1
+                               : 0)
+                        : 0);
 }
 
 bool MeshRenderer::intentarRender(Modelos3D* objeto, const float view[16],
@@ -245,7 +267,7 @@ bool MeshRenderer::intentarRender(Modelos3D* objeto, const float view[16],
                      glm::vec3(invView[3][0], invView[3][1], invView[3][2]));
 
     aplicarMaterial(objeto);
-    aplicarTextura(objeto, mesh->hasUvs());
+    aplicarTexturas(objeto, mesh);
 
     auto it = gpu_.find(mesh);
     if (it == gpu_.end()) {
@@ -255,6 +277,10 @@ bool MeshRenderer::intentarRender(Modelos3D* objeto, const float view[16],
                     mesh->normals.size(),
                     mesh->hasUvs() ? &mesh->uvs[0].x : nullptr,
                     mesh->uvs.size(),
+                    mesh->hasTangents() ? &mesh->tangents[0].x : nullptr,
+                    mesh->tangents.size(),
+                    mesh->hasTangents() ? &mesh->bitangents[0].x : nullptr,
+                    mesh->bitangents.size(),
                     mesh->indices.empty() ? nullptr : &mesh->indices[0],
                     mesh->indices.size());
         it = gpu_.emplace(mesh, std::move(gpu)).first;
