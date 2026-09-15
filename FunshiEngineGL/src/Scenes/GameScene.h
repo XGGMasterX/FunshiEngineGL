@@ -55,8 +55,6 @@ private:
     bool ventanaCamarasAbierta = true;
     std::unique_ptr<SceneRegistry> sceneRegistry;
     std::unique_ptr<PhysicsEngine> phisics;
-    std::unique_ptr<EditorController> editorController;
-    std::unique_ptr<SceneSerializer> sceneSerializer;
     // Registro central de assets (meshes CPU compartidos). Se inyecta a
     // EditorController y SceneSerializer para que cada Modelos3D pida su
     // geometria al cache (Flyweight) en lugar de parsear Assimp por objeto.
@@ -72,6 +70,12 @@ private:
     // en una imagen subida una sola vez a GPU.
     std::unique_ptr<TextureManager> textureManager;
     EventBus events;
+    // Los constructores de EditorController y SceneSerializer reciben
+    // pointers a los miembros anteriores (assetManager/events): deben estar
+    // declarados ANTES de ellos, porque C++ inicializa los miembros en orden
+    // de declaracion (no de la lista de iniciadores).
+    std::unique_ptr<EditorController> editorController;
+    std::unique_ptr<SceneSerializer> sceneSerializer;
     LightSystem lightSystem;
     float deltaTime = 0.0f;
     bool start = false;
