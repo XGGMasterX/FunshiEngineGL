@@ -82,6 +82,9 @@ install_manifest.txt
 *.idea/
 *.vscode/
 *.code-workspace
+# KDevelop project files
+.kdev4/
+*.kdev4
 
 # Backup files
 *~
