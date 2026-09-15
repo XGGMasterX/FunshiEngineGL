@@ -61,37 +61,70 @@ void rotarAdelante(float anguloGrados, const float* eje, float out[3]) {
     out[2] = v[2] * c + cross[2] * s + k[2] * dot * (1.f - c);
 }
 
-// Parametriza un slot GL con los datos del componente Light y el Transform
-// global del objeto que lo lleva.
-void aplicarLightComponent(GLenum lightID, Light* light, Transform* transform) {
+// Extrae los datos de una luz a un LightData (semantica actual de GL) a partir
+// del componente Light y del Transform global del objeto que lo lleva. Es la
+// unica fuente de la derivacion posicion/direccion: la usan tanto el pipeline
+// inmediato (parametrizar GL_LIGHT0..7) como el shader (uniforms), asi las dos
+// pasadas iluminan igual.
+void extraerDatosLuz(Light* light, Transform* transform, LightData& out) {
     const LightType type = light->getType();
+    out.type = static_cast<int>(type);
 
-    float px = 0.f, py = 0.f, pz = 0.f;
-    float dir[3] = {0.f, 0.f, -1.f};
+    out.worldPos[0] = out.ambient[0] = out.diffuse[0] = out.specular[0] = 0.f;
+    out.worldPos[1] = out.ambient[1] = out.diffuse[1] = out.specular[1] = 0.f;
+    out.worldPos[2] = out.ambient[2] = out.diffuse[2] = out.specular[2] = 0.f;
+    out.direction[0] = 0.f;
+    out.direction[1] = 0.f;
+    out.direction[2] = -1.f;
+
+    out.ambient[0] = light->getAmbient()[0];
+    out.ambient[1] = light->getAmbient()[1];
+    out.ambient[2] = light->getAmbient()[2];
+    out.diffuse[0] = light->getDiffuse()[0];
+    out.diffuse[1] = light->getDiffuse()[1];
+    out.diffuse[2] = light->getDiffuse()[2];
+    out.specular[0] = light->getSpecular()[0];
+    out.specular[1] = light->getSpecular()[1];
+    out.specular[2] = light->getSpecular()[2];
+
+    out.constant = light->getConstant();
+    out.linear = light->getLinear();
+    out.quadratic = light->getQuadratic();
+    out.spotCutoffDegrees = light->getSpotCutOff();
 
     if (transform) {
-        px = transform->getTranslatef()[0];
-        py = transform->getTranslatef()[1];
-        pz = transform->getTranslatef()[2];
+        const float* t = transform->getTranslatef();
+        out.worldPos[0] = t[0];
+        out.worldPos[1] = t[1];
+        out.worldPos[2] = t[2];
 
-        if (type != LightType::POINT)
+        if (type != LightType::POINT) {
             rotarAdelante(transform->getRotatef()[0],
-                          &transform->getRotatef()[1], dir);
+                          &transform->getRotatef()[1], out.direction);
+        }
     }
 
-    const bool direccional = (type == LightType::DIRECTIONAL);
+    if (type == LightType::DIRECTIONAL) {
+        out.worldPos[0] = out.direction[0];
+        out.worldPos[1] = out.direction[1];
+        out.worldPos[2] = out.direction[2];
+    }
+}
+
+// Parametriza un slot GL con los datos del componente Light y el Transform
+// global del objeto que lo lleva.
+void aplicarLightComponent(GLenum lightID, LightData& data) {
+    const bool direccional = (data.type == 0);
 
     const GLfloat pos[4] = {
-        direccional ? dir[0] : px,
-        direccional ? dir[1] : py,
-        direccional ? dir[2] : pz,
+        data.worldPos[0], data.worldPos[1], data.worldPos[2],
         direccional ? 0.f : 1.f};
     const GLfloat amb[4] = {
-        light->getAmbient()[0], light->getAmbient()[1], light->getAmbient()[2], 1.f};
+        data.ambient[0], data.ambient[1], data.ambient[2], 1.f};
     const GLfloat diff[4] = {
-        light->getDiffuse()[0], light->getDiffuse()[1], light->getDiffuse()[2], 1.f};
+        data.diffuse[0], data.diffuse[1], data.diffuse[2], 1.f};
     const GLfloat spec[4] = {
-        light->getSpecular()[0], light->getSpecular()[1], light->getSpecular()[2], 1.f};
+        data.specular[0], data.specular[1], data.specular[2], 1.f};
 
     glEnable(lightID);
     glLightfv(lightID, GL_POSITION, pos);
@@ -99,15 +132,16 @@ void aplicarLightComponent(GLenum lightID, Light* light, Transform* transform) {
     glLightfv(lightID, GL_DIFFUSE, diff);
     glLightfv(lightID, GL_SPECULAR, spec);
 
-    if (type == LightType::POINT || type == LightType::SPOT) {
-        glLightf(lightID, GL_CONSTANT_ATTENUATION, light->getConstant());
-        glLightf(lightID, GL_LINEAR_ATTENUATION, light->getLinear());
-        glLightf(lightID, GL_QUADRATIC_ATTENUATION, light->getQuadratic());
+    if (data.type == 1 || data.type == 2) {
+        glLightf(lightID, GL_CONSTANT_ATTENUATION, data.constant);
+        glLightf(lightID, GL_LINEAR_ATTENUATION, data.linear);
+        glLightf(lightID, GL_QUADRATIC_ATTENUATION, data.quadratic);
     }
-    if (type == LightType::SPOT) {
-        const GLfloat spotDir[3] = {dir[0], dir[1], dir[2]};
+    if (data.type == 2) {
+        const GLfloat spotDir[3] = {data.direction[0], data.direction[1],
+                                    data.direction[2]};
         glLightfv(lightID, GL_SPOT_DIRECTION, spotDir);
-        glLightf(lightID, GL_SPOT_CUTOFF, light->getSpotCutOff());
+        glLightf(lightID, GL_SPOT_CUTOFF, data.spotCutoffDegrees);
         glLightf(lightID, GL_SPOT_EXPONENT, 1.f);
     }
 }
@@ -147,14 +181,31 @@ void LightSystem::beginFrame(ListaDE<GameObject*>* objects) {
             GameObject* object = pos->getElement();
 
             if (Light* light = object->getComponent<Light>()) {
+                LightData data;
+                extraerDatosLuz(light, object->getGlobalTransform(), data);
                 aplicarLightComponent(
-                    static_cast<GLenum>(GL_LIGHT0 + slot),
-                    light,
-                    object->getGlobalTransform());
+                    static_cast<GLenum>(GL_LIGHT0 + slot), data);
                 ++slot;
             }
 
             pos = (pos != objects->last()) ? objects->next(pos) : nullptr;
         }
+    }
+}
+
+void LightSystem::collectLights(ListaDE<GameObject*>* objects,
+                                LightData luces[], int& outCount) const {
+    outCount = 0;
+    if (!objects || objects->isEmpty()) return;
+
+    Position<GameObject*>* pos = objects->first();
+    while (pos && pos->getElement() && outCount < kMaxLights) {
+        GameObject* object = pos->getElement();
+        if (Light* light = object->getComponent<Light>()) {
+            extraerDatosLuz(light, object->getGlobalTransform(),
+                            luces[outCount]);
+            ++outCount;
+        }
+        pos = (pos != objects->last()) ? objects->next(pos) : nullptr;
     }
 }
