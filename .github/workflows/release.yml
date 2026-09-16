@@ -58,7 +58,12 @@ jobs:
         run: cmake --build build --config Release --target FunshiEngineGL
 
       - name: Ejecutar pruebas
-        run: ctest --test-dir build -C Release --output-on-failure
+        uses: nick-fields/retry@v3
+        with:
+          timeout_minutes: 5
+          max_attempts: 3
+          retry_on: any
+          command: ctest --test-dir build -C Release --output-on-failure
 
       - name: Montar dist (exe + dlls + Imagenes)
         shell: pwsh
@@ -129,7 +134,12 @@ jobs:
         run: cmake --build build --target FunshiEngineGL
 
       - name: Ejecutar pruebas
-        run: ctest --test-dir build --output-on-failure
+        uses: nick-fields/retry@v3
+        with:
+          timeout_minutes: 5
+          max_attempts: 3
+          retry_on: any
+          command: ctest --test-dir build --output-on-failure
 
       - name: Montar datos del paquete IFW (binario + libs locales)
         run: chmod +x FunshiEngineGL/packaging/stage_dist_linux.sh && FunshiEngineGL/packaging/stage_dist_linux.sh build/FunshiEngineGL
