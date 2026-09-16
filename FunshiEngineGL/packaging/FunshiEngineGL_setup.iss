@@ -17,7 +17,9 @@
 #define MiVersion "0.5.0"
 #define MiCanal "alpha"          ; demo | alpha | beta | rc
 #define MiExe "FunshiEngineGL.exe"
-#define MiEdicion "{#MiNombre} {#MiVersion} ({#MiCanal})"
+; MiEdicion se construye con + (expresion evaluada por ISPP): un literal de
+; cadena no expande las {#...} internas y quedarian como texto crudo.
+#define MiEdicion MiNombre + " " + MiVersion + " (" + MiCanal + ")"
 #define MiId "{{62F2D6B7-8C4E-4A1B-B3D5-9E7A1F0C2B8A}}"
 
 [Setup]
