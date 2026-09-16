@@ -172,35 +172,39 @@ public:
 	//toma la lista del padre se quita el , la agrega a su lista
 	//mientras la agrega a su lista se linkea como padre y listo
 	//se retorna el valor del padre
-	virtual E deleteRoot() override {
+virtual E deleteRoot() override {
 		E saveElement = nullptr;
-		if (!isEmpty()) {
-			saveElement = root->getElement();
-   if(isInternal(root)){
-   root->setElement(nullptr);
+		if (isEmpty()) {
+			throw InvalidOperationException("ArbolEnlazado::deleteRoot::NoHayRoot");
+		}
+		saveElement = root->getElement();
+		if (isInternal(root)) {
+			// checkPosition exige elemento no-nulo: el isInternal DEBE correr
+			// antes de anular el elemento (lo hace el delete del nodo).
+			root->setElement(nullptr);
 			ListaDE<TNodo<E>*>* listChildsRoot = root->getChilds();
-			// remove() desvincula la posicion y LA DEJA VACIA: el nuevo root es
-			// el valor devuelto por remove, jamas el elemento de una posicion
-			// ya removida (era nullptr -> SEGV en root->getChilds()).
+			// remove() desvincula la posicion, devuelve el valor y LIBERA el
+			// nodo envolvente: el nuevo root es el elemento devuelto, jamas el
+			// elemento de una posicion ya removida (era nullptr -> SEGV).
 			TNodo<E>* newRoot = listChildsRoot->remove(listChildsRoot->first());
-   delete root;
-			root = newRoot;
-			ListaDE<TNodo<E>*>* listChildNewRoot = root->getChilds();
+
+			// Se mueven los hermanos al nuevo root ANTES de liberar el nodo
+			// viejo (~TNodo destruye su ListaDE de hijos en el delete).
+			ListaDE<TNodo<E>*>* listChildNewRoot = newRoot->getChilds();
 			while (!listChildsRoot->isEmpty()) { //recorrido exaustivo
 				TNodo<E>* iterador = listChildsRoot->remove(listChildsRoot->first());
-				iterador->setRootDad(root);
+				iterador->setRootDad(newRoot);
 				listChildNewRoot->addLast(iterador);
 			}
-   }else{
-    root->setElement(nullptr);
-    delete root;
-    root = nullptr;
-   }
-			size--;
+
+			delete root;
+			root = newRoot;
+		} else {
+			// Raiz hoja: el nodo se libera y el arbol queda vacio.
+			delete root;
+			root = nullptr;
 		}
-  else{
-   throw InvalidOperationException("ArbolEnlazado::deleteRoot::NoHayRoot");
-  }
+		size--;
 		return saveElement;
 	}
 
@@ -213,24 +217,33 @@ public:
 		E saveElement = theDeleteable->getElement();
 		theDeleteable->setElement(nullptr);
 
-//Tomo el nodo a eliminar , agarro su lista de hijos , saco a su primer hijo de ahi
-			//remove() desvincula la posicion y LA DEJA VACIA: se usa el valor devuelto.
-			ListaDE<TNodo<E>*>* listChildsTheDeleteable = theDeleteable->getChilds();
-			TNodo<E>* firstChildTheDeleteable = listChildsTheDeleteable->remove(listChildsTheDeleteable->first());
+		TNodo<E>* theDeleteableDad = theDeleteable->getRootDad();
+		TNodo<E>* newDad = theDeleteableDad;
 
-			//Tomo el nodo a eliminar , agarro su padre , salvo la posicion de Position y hago el intercambio
-			TNodo<E>* theDeleteableDad = theDeleteable->getRootDad();
-			ListaDE<TNodo<E>*>* listBrosTheDeleteable = theDeleteableDad->getChilds();
+		// 1. El primer hijo ocupa el lugar del padre en la lista de hermanos:
+		//    remove() desvincula, devuelve el valor y libera el nodo basura.
+		ListaDE<TNodo<E>*>* listChildsTheDeleteable = theDeleteable->getChilds();
+		TNodo<E>* firstChildTheDeleteable = listChildsTheDeleteable->remove(listChildsTheDeleteable->first());
+		if (theDeleteable != root) {
+			ListaDE<TNodo<E>*>* listBrosTheDeleteable = newDad->getChilds();
 			Position<TNodo<E>*>* theDeleteablePosition = listBrosTheDeleteable->whatElementPosition(theDeleteable);
-			delete theDeleteable;
 			listBrosTheDeleteable->remplace(theDeleteablePosition, firstChildTheDeleteable);
-			firstChildTheDeleteable->setRootDad(theDeleteableDad);
+		} else {
+			root = firstChildTheDeleteable;
+			newDad = nullptr;
+		}
+		firstChildTheDeleteable->setRootDad(newDad);
 
-			while (!listChildsTheDeleteable->isEmpty()) { //recorrido exaustivo
-				TNodo<E>* iterador = listChildsTheDeleteable->remove(listChildsTheDeleteable->first());
-				iterador->setRootDad(firstChildTheDeleteable);
-				firstChildTheDeleteable->getChilds()->addLast(iterador);
-			}
+		// 2. El resto de hijos se reparentan al primer hijo ANTES de liberar el
+		//    nodo eliminado (~TNodo destruye su ListaDE de hijos en el delete).
+		while (!listChildsTheDeleteable->isEmpty()) { //recorrido exaustivo
+			TNodo<E>* iterador = listChildsTheDeleteable->remove(listChildsTheDeleteable->first());
+			iterador->setRootDad(firstChildTheDeleteable);
+			firstChildTheDeleteable->getChilds()->addLast(iterador);
+		}
+
+		// 3. Por ultimo se libera el nodo, ya sin hijos.
+		delete theDeleteable;
 		size--;
 		return saveElement;
 	}
@@ -239,15 +252,17 @@ public:
 		if (!isExternal(p)) {
 			throw InvalidOperationException("ArbolEnlazado::deleteExternalNode:LaPosicionNoEsExternal");
 		}
-		E saveElement = theDeleteable->getElement();
+E saveElement = theDeleteable->getElement();
 		theDeleteable->setElement(nullptr);
 		if (theDeleteable != root) {
 			ListaDE<TNodo<E>*>* listChildsDad = theDeleteable->getRootDad()->getChilds();
 			Position<TNodo<E>*>* positionTheDeleteable = listChildsDad->whatElementPosition(theDeleteable);
 			delete theDeleteable;
-   listChildsDad->remove(positionTheDeleteable);
+			listChildsDad->remove(positionTheDeleteable);
 		}
 		else {
+			// Raiz hoja: se libera el nodo (era nullptr sin borrar -> fuga).
+			delete theDeleteable;
 			root = nullptr;
 		}
 		size--;

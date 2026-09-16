@@ -17,7 +17,7 @@
     SPDX-License-Identifier: Apache-2.0
 */
 #ifndef EMPTYTREEEXCEPTION_H
-#define EMPTYTREEXCEPTION_H
+#define EMPTYTREEEXCEPTION_H
 using namespace std;
 #include "../../RuntimeException.h"
 class EmptyTreeException : public RuntimeException {

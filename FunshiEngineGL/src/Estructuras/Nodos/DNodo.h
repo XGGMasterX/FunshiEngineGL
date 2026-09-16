@@ -30,12 +30,16 @@ private:
     E element;
 
 public:
-    // Constructor correcto
+    // Constructor correcto: deja left/right inicializados a nullptr para que
+    // las operaciones de ListaDE nunca lean punteros sin inicializar (los
+    // sentinela front/tail solo se enlazan al construirlos).
     DNodo(E elem){
         element = elem;
+        left = nullptr;
+        right = nullptr;
     }
 
-    // Implementación del método virtual puro
+    // Implementaciï¿½n del mï¿½todo virtual puro
     E getElement() override {
         return element;
     }
@@ -44,17 +48,17 @@ public:
         this->element = element;
     }
 
-    // Métodos para acceder a los nodos hijos
+    // Mï¿½todos para acceder a los nodos hijos
     DNodo<E>* getLeft() { return left; }
     DNodo<E>* getRight() { return right; }
 
-    // Métodos para modificar los nodos hijos
+    // Mï¿½todos para modificar los nodos hijos
     void setLeft(DNodo<E>* l) { left = l; }
     void setRight(DNodo<E>* r) { right = r; }
 
     // Destructor
     ~DNodo() {
-        // Aquí normalmente se manejaría la liberación de memoria
+        // Aquï¿½ normalmente se manejarï¿½a la liberaciï¿½n de memoria
         // si los nodos hijos son propiedad de este nodo
     }
 };

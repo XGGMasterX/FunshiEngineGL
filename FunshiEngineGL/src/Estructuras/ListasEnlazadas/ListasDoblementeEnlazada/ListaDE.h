@@ -64,6 +64,19 @@ public:
 		size = 0;
 	}
 
+	// Libera TODOS los nodos de la lista (elementos y sentinelas front/tail).
+	// Los elementos E NO son propiedad de la lista: no se borran aqui.
+	// Requiere que los punteros left/right esten inicializados (DNodo los
+	// inicializa a nullptr), garantiza el recorrido del centinela tail.
+	virtual ~ListaDE() {
+		DNodo<E>* nodo = front;
+		while (nodo != nullptr) {
+			DNodo<E>* siguiente = nodo->getRight();
+			delete nodo;
+			nodo = siguiente;
+		}
+	}
+
 	virtual bool isEmpty() override {
 		return size == 0;
 	}
@@ -99,11 +112,12 @@ public:
 	virtual void addFirst(E e) override {
 		DNodo<E>* nuevo = new DNodo<E>(e);
 
-		//ligar
+		//ligar despues del centinela front (no del tail):
+		//el primer nodo real pasa a ser nuevo->getRight().
 		front->getRight()->setLeft(nuevo);
-		nuevo->setRight(tail->getRight());
-		tail->setRight(nuevo);
-		nuevo->setLeft(tail);
+		nuevo->setRight(front->getRight());
+		front->setRight(nuevo);
+		nuevo->setLeft(front);
 
 		size++;
 	}
@@ -147,6 +161,10 @@ public:
 		position->getRight()->setLeft(position->getLeft());
 
 		position->setElement(nullptr);
+		// El nodo se desvincula Y se libera (los elementos E no son propiedad
+		// de la lista). La posicion queda invalida: los llamadores deben
+		// descartarla (patron usado en Estructuras y en el engine).
+		delete position;
 		size--;
 		return resultado;
 	}
@@ -240,7 +258,7 @@ public:
 		}
 
 		if (nodo1->getRight() == nodo2) {
-			// nodo1 está antes de nodo2
+			// nodo1 estï¿½ antes de nodo2
 			DNodo<E>* prev = nodo1->getLeft();
 			DNodo<E>* next = nodo2->getRight();
 
@@ -254,7 +272,7 @@ public:
 			next->setLeft(nodo1);
 		}
 		else if (nodo2->getRight() == nodo1) {
-			// nodo2 está antes de nodo1
+			// nodo2 estï¿½ antes de nodo1
 			swapPositions(p2, p1);  // Reutilizamos el caso anterior
 		}
 		else {
@@ -265,13 +283,13 @@ public:
 			DNodo<E>* nodo2Prev = nodo2->getLeft();
 			DNodo<E>* nodo2Next = nodo2->getRight();
 
-			// Reenlazar nodo1 en posición de nodo2
+			// Reenlazar nodo1 en posiciï¿½n de nodo2
 			nodo1Prev->setRight(nodo2);
 			nodo1Next->setLeft(nodo2);
 			nodo2->setLeft(nodo1Prev);
 			nodo2->setRight(nodo1Next);
 
-			// Reenlazar nodo2 en posición de nodo1
+			// Reenlazar nodo2 en posiciï¿½n de nodo1
 			nodo2Prev->setRight(nodo1);
 			nodo2Next->setLeft(nodo1);
 			nodo1->setLeft(nodo2Prev);
