@@ -21,13 +21,8 @@
 #include <iostream>
 #include <cctype>
 
-#if defined(_WIN32)
-#include <glfw3.h>
-#include <gl/glu.h>
-#elif defined(__linux__)
 #include <GLFW/glfw3.h>
 #include <GL/glu.h>
-#endif
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"

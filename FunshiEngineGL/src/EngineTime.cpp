@@ -16,13 +16,9 @@
 
     SPDX-License-Identifier: Apache-2.0
 */
-#include "Time.h"
+#include "EngineTime.h"
 
-#if defined(_WIN32)
-#include <glfw3.h>
-#else
 #include <GLFW/glfw3.h>
-#endif
 #include <chrono>
 #include <thread>
 

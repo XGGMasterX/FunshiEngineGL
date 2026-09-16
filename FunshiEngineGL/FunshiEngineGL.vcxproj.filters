@@ -177,7 +177,7 @@
     <ClInclude Include="..\..\FunshiMotorGrafico\FunshiMotorGrafico\src\Estructuras\Trees\Heap\MinHeap.h">
       <Filter>Archivos de encabezado\Estructuras\Trees\Heap</Filter>
     </ClInclude>
-    <ClInclude Include="src\Time.h">
+    <ClInclude Include="src\EngineTime.h">
       <Filter>Archivos de encabezado</Filter>
     </ClInclude>
     <ClInclude Include="src\GestorDeArchivos\Binario.h">

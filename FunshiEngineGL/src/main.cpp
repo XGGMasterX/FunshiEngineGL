@@ -20,7 +20,7 @@
 #include "../src/GUIManager/GUIManager.h"
 #include "../src/Configuracion/EditorConfig.h"
 #include <imgui.h>
-#include "Time.h"
+#include "EngineTime.h"
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
 #include "../src/Objetos/Modelos3D.h"
@@ -28,11 +28,7 @@
 #include "../src/States/ApplicationStateMachine.h"
 #include "../src/Ventana.h"
 #include "ImGuizmo.h"
-#if defined(_WIN32)
-#include <glfw3.h>
-#elif defined(__linux__)
 #include <GLFW/glfw3.h>
-#endif
 #include <iostream>
 #include <string>
 

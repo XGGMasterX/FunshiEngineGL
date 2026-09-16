@@ -22,11 +22,7 @@
 #include "../GeneralUserInterface.h"
 // GLFW se incluye solo por el botón "Exit"; la lógica de navegación y los
 // datos viven en StartMenuModel, no acá.
-#if defined(_WIN32)
-#include <glfw3.h>
-#elif defined(__linux__)
 #include <GLFW/glfw3.h>
-#endif
 
 #include "MenuModel.h"
 #include "StartMenuPresenter.h"

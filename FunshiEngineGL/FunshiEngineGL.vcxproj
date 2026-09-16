@@ -103,7 +103,7 @@
     <ClInclude Include="src\Objetos\Malla.h" />
     <ClInclude Include="src\Objetos\Modelos3D.h" />
     <ClInclude Include="src\Scenes\GameScene.h" />
-    <ClInclude Include="src\Time.h" />
+    <ClInclude Include="src\EngineTime.h" />
     <ClInclude Include="src\Herramientas\MaterialPresets.h" />
     <ClInclude Include="src\Ventana.h" />
   </ItemGroup>

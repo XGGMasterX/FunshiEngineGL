@@ -22,11 +22,7 @@
 #include <string>
 #include <imgui.h>
 
-#if defined(_WIN32)
-#include <glfw3.h>
-#elif defined(__linux__)
 #include <GLFW/glfw3.h>
-#endif
 
 class IconosGUI {
 public:
