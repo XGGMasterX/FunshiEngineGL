@@ -24,7 +24,6 @@
 #include <string>
 
 #include "../Herramientas/TypeUtils.h"
-#include "../Objetos/Componentes/Phisics.h"
 #include "../Objetos/Componentes/Transform.h"
 #include "../Objetos/Componentes/Color.h"
 #include "../GestorDeArchivos/Binario.h"
