@@ -225,7 +225,7 @@ add_test(NAME configuracion-tests COMMAND configuracion-tests)
 add_executable(assetmanager-tests
     ${SRC_DIR}/Assets/AssetManager.cpp
     ${SRC_DIR}/Assets/Mesh.cpp
-    ${SRC_DIR}/Matematicas/Vector.cpp
+    ${SRC_DIR}/Matematicas/StructVec3.cpp
     ${SRC_DIR}/ExcepcionesCPP/RuntimeException.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../tests/AssetManagerTests.cpp
 )
