@@ -57,9 +57,9 @@ Source: "{#MiExe}"; DestDir: "{app}"; Flags: ignoreversion
 Source: "*.dll"; DestDir: "{app}"; Flags: ignoreversion
 Source: "Imagenes\*"; DestDir: "{app}\Imagenes"; Flags: ignoreversion recursesubdirs
 Source: "MotorGrafico\*"; DestDir: "{app}\MotorGrafico"; Flags: ignoreversion recursesubdirs skipifsourcedoesntexist
-Source: "..\..\LICENSE"; DestDir: "{app}\licencia"; Flags: ignoreversion
-Source: "..\..\NOTICE"; DestDir: "{app}\licencia"; Flags: ignoreversion
-Source: "..\..\THIRD_PARTY_NOTICES.md"; DestDir: "{app}\licencia"; Flags: ignoreversion
+Source: "..\..\..\LICENSE"; DestDir: "{app}\licencia"; Flags: ignoreversion
+Source: "..\..\..\NOTICE"; DestDir: "{app}\licencia"; Flags: ignoreversion
+Source: "..\..\..\THIRD_PARTY_NOTICES.md"; DestDir: "{app}\licencia"; Flags: ignoreversion
 
 ; ============================================================================
 ; Estructura del proyecto del usuario (donde el motor guarda escena + config al
