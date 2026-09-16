@@ -33,7 +33,7 @@ jobs:
       - name: Compilar engine
         run: cmake --build build --target FunshiEngineGL
 
-- name: Compilar pruebas
+      - name: Compilar pruebas
         run: cmake --build build --target filemanager-tests configuracion-tests assetmanager-tests texturemanager-tests
 
       - name: Ejecutar pruebas
