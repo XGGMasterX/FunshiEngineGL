@@ -4,7 +4,9 @@
 #  compilado en CI (build recien hecho) + sus librerias dinamicas locales.
 #
 #  Replica el flujo Linux que ya fue probado (instalador v0.5.1):
-#   - binario con RUNPATH $ORIGIN/lib
+#   - binario con RPATH $ORIGIN/lib (DT_RPATH, NO DT_RUNPATH: runpath no se
+#     usa para deps transitivas, y libdraco.so.8/libminizip/libpugixml son
+#     transitivas libassimp -> fallaban con "libdraco.so.8: cannot open")
 #   - deps de terceros (glfw/assimp/bullet/draco/...) en data/lib/
 #   - NO toca packaging/ifw/config (config.xml/controller.qs intactos)
 #
@@ -22,8 +24,8 @@ fi
 
 echo "== [1/4] Binario =="
 install -m 755 "$BIN_PATH" "$DATA_DIR/FunshiEngineGL"
-patchelf --set-rpath '$ORIGIN/lib' "$DATA_DIR/FunshiEngineGL"
-echo "  [ok] FunshiEngineGL (RUNPATH \$ORIGIN/lib)"
+patchelf --force-rpath --set-rpath '$ORIGIN/lib' "$DATA_DIR/FunshiEngineGL"
+echo "  [ok] FunshiEngineGL (RPATH \$ORIGIN/lib)"
 
 echo "== [2/4] Librerias dinamicas (ldd) =="
 mkdir -p "$DATA_DIR/lib"

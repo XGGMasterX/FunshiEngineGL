@@ -51,6 +51,19 @@ int Ventana::initVentana() {
     }
     glfwMakeContextCurrent(window);
     std::cout << "GPU: " << glGetString(GL_RENDERER) << std::endl;
+    std::cout << "GL_VERSION: " << glGetString(GL_VERSION) << std::endl;
+    std::cout << "GLSL: " << glGetString(GL_SHADING_LANGUAGE_VERSION)
+              << std::endl;
+#ifndef GL_CONTEXT_PROFILE_MASK
+#define GL_CONTEXT_PROFILE_MASK 0x9126
+#define GL_CONTEXT_CORE_PROFILE_BIT 0x00000001
+#define GL_CONTEXT_COMPATIBILITY_PROFILE_BIT 0x00000002
+#endif
+    GLint perfilGL = 0;
+    glGetIntegerv(GL_CONTEXT_PROFILE_MASK, &perfilGL);
+    std::cout << "Perfil GL: " << perfilGL
+              << " (1=core, 2=compatibilidad, 0=desconocido/legacy)"
+              << std::endl;
     return 0;
 }
 
