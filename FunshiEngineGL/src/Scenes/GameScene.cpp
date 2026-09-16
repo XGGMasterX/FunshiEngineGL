@@ -813,6 +813,37 @@ void GameScene::gameScene() {
                   << (noFinita ? "NO (NaN/Inf)" : "si") << "; pos camara = ("
                   << diagPos[0] << ", " << diagPos[1] << ", " << diagPos[2]
                   << ")" << std::endl;
+
+        // Estado de luz real del frame: GL_LIGHTING, LUZS presentes y ultima
+        // luz habilitada por LightSystem. Si dicen que hay luces pero aca no
+        // hay ninguna, es la causa negra en modo inmediato + shader sin luz.
+        std::cout << "[diag] luces_en_escena=";
+        auto* diagObjects = getGameObjectsScene();
+        int diagLuces = 0;
+        int diagObjs = 0;
+        int diagObjsConMalla = 0;
+        if (diagObjects) {
+            Position<GameObject*>* pos = diagObjects->first();
+            while (pos && pos->getElement()) {
+                GameObject* o = pos->getElement();
+                ++diagObjs;
+                if (o->getComponent<Light>()) ++diagLuces;
+                auto* m = dynamic_cast<Modelos3D*>(o);
+                if (m && m->getMesh() && m->getMesh()->hasNormals())
+                    ++diagObjsConMalla;
+                pos = (pos != diagObjects->last()) ? diagObjects->next(pos)
+                                                   : nullptr;
+            }
+        }
+        std::cout << diagLuces << " objetos=" << diagObjs
+                  << " conMallaYNormales=" << diagObjsConMalla << std::endl;
+        std::cout << "[diag] GL_LIGHTING=" << std::flush;
+        std::cout << (glIsEnabled(GL_LIGHTING) ? "on" : "off")
+                  << " GL_LIGHT0=" << std::flush;
+        std::cout << (glIsEnabled(GL_LIGHT0) ? "on" : "off") << std::endl;
+        GLenum err = glGetError();
+        std::cout << "[diag] glGetError tras pasada previa=" << std::hex
+                  << err << std::dec << std::endl;
     }
     dibujarEscena(view, projection, activeCameraObject);
 
