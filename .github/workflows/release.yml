@@ -1,0 +1,189 @@
+name: Release instaladores
+
+# Genera los instaladores de Linux (Qt IFW .run) y Windows (Inno .exe) con el
+# codigo del tag y los adjunta a una GitHub Release. No modifica el sistema de
+# packaging: reutiliza packaging/ifw (config.xml/controller.qs intactos) y
+# packaging/FunshiEngineGL_setup.iss / stage_dist_win.ps1 tal como estan.
+#
+#   Uso: git tag v0.5.2 && git push --tags   (o Run workflow manual).
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version a usar (p.ej. 0.5.2). Sin tag, por defecto 0.0.0-dev'
+        required: false
+
+jobs:
+  instalador-windows:
+    name: Windows (Inno Setup)
+    runs-on: windows-latest
+    steps:
+      - name: Calcular version
+        id: ver
+        shell: pwsh
+        run: |
+          if ("${{ github.event_name }}" -eq "push") {
+            $v = "${{ github.ref }}".Split('/')[-1].TrimStart('v')
+          } else {
+            $v = "${{ github.event.inputs.version }}"
+            if (-not $v) { $v = "0.0.0-dev" }
+          }
+          "version=$v" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+      - uses: actions/checkout@v4
+
+      - name: Cache dependencias vcpkg
+        uses: actions/cache@v4
+        with:
+          path: C:\vcpkg\installed
+          key: vcpkg-x64-windows-v1
+
+      - name: Instalar dependencias (vcpkg)
+        shell: pwsh
+        run: vcpkg install glfw3 assimp bullet3 glm --triplet x64-windows
+
+      - name: Configurar CMake
+        run: >
+          cmake -B build -S FunshiEngineGL
+          -DCMAKE_TOOLCHAIN_FILE=C:\vcpkg\scripts\buildsystems\vcpkg.cmake
+          -DVCPKG_TARGET_TRIPLET=x64-windows
+          -DCMAKE_BUILD_TYPE=Release
+          -DENABLE_ASAN=OFF
+
+      - name: Compilar engine
+        run: cmake --build build --config Release --target FunshiEngineGL
+
+      - name: Ejecutar pruebas
+        run: ctest --test-dir build -C Release --output-on-failure
+
+      - name: Montar dist (exe + dlls + Imagenes)
+        shell: pwsh
+        run: |
+          & "$env:GITHUB_WORKSPACE\FunshiEngineGL\packaging\stage_dist_win.ps1" `
+            -ProjectDir "$env:GITHUB_WORKSPACE\FunshiEngineGL" `
+            -BuildDir "$env:GITHUB_WORKSPACE\build\Release" `
+            -VcpkgInstalled "C:\vcpkg\installed\x64-windows"
+
+      - name: Versionar instalador con el tag
+        shell: pwsh
+        run: |
+          $iss = "FunshiEngineGL\packaging\FunshiEngineGL_setup.iss"
+          (Get-Content -Raw $iss) `
+            -replace '#define MiVersion "[^"]*"', "#define MiVersion `"${{ steps.ver.outputs.version }}`"" `
+            -replace '#define MiCanal "[^"]*"', '#define MiCanal "release"' `
+            | Set-Content -NoNewline $iss -Encoding ASCII
+
+      - name: Instalar Inno Setup y compilar setup.exe
+        shell: pwsh
+        run: |
+          choco install innosetup -y --no-progress
+          $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) {
+            $iscc = (Get-ChildItem "C:\Program Files*\Inno Setup*\ISCC.exe" -Recurse -ErrorAction SilentlyContinue |
+                     Select-Object -First 1 -ExpandProperty FullName)
+          }
+          & $iscc "FunshiEngineGL\packaging\FunshiEngineGL_setup.iss"
+
+      - name: Subir setup.exe como artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: setup-windows
+          path: FunshiEngineGL\packaging\instalador\*.exe
+          if-no-files-found: error
+
+  instalador-linux:
+    name: Linux (Qt Installer Framework)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Calcular version
+        id: ver
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            v="${GITHUB_REF#refs/tags/}"
+            v="${v#v}"
+          else
+            v="${{ github.event.inputs.version }}"
+            v="${v:-0.0.0-dev}"
+          fi
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v4
+
+      - name: Instalar dependencias
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libglfw3-dev libgl1-mesa-dev libglu1-mesa-dev libglm-dev \
+            libncurses-dev libassimp-dev libbullet-dev libxrandr-dev \
+            libxi-dev ninja-build patchelf
+
+      - name: Configurar
+        run: cmake -B build -S FunshiEngineGL -G Ninja -DCMAKE_BUILD_TYPE=Release -DENABLE_ASAN=OFF
+
+      - name: Compilar engine
+        run: cmake --build build --target FunshiEngineGL
+
+      - name: Ejecutar pruebas
+        run: ctest --test-dir build --output-on-failure
+
+      - name: Montar datos del paquete IFW (binario + libs locales)
+        run: chmod +x FunshiEngineGL/packaging/stage_dist_linux.sh && FunshiEngineGL/packaging/stage_dist_linux.sh build/FunshiEngineGL
+
+      - name: Instalar Qt Installer Framework (aqtinstall)
+        run: |
+          pip install --quiet aqtinstall
+          aqt install-tool linux desktop tools_ifw -O /tmp/qtifw
+
+      - name: Generar instalador .run
+        run: |
+          QIFW_BIN=$(find /tmp/qtifw -name binarycreator -type f | sort | tail -1)
+          echo "[qifw] $QIFW_BIN"
+          "$QIFW_BIN" --offline-only \
+            -c FunshiEngineGL/packaging/ifw/config/config.xml \
+            -p FunshiEngineGL/packaging/ifw/packages \
+            "FunshiEngineGL-${{ steps.ver.outputs.version }}-linux-x64.run"
+
+      - name: Subir instalador .run como artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: installer-linux
+          path: ./FunshiEngineGL-*-linux-x64.run
+          if-no-files-found: error
+
+  publicar-release:
+    name: Publicar GitHub Release
+    needs: [instalador-windows, instalador-linux]
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: setup-windows
+          path: release
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: installer-linux
+          path: release
+
+      - name: Listar instaladores
+        run: ls -la release/
+
+      - name: Crear release con los instaladores
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref }}
+          name: ${{ github.ref_name }}
+          body: |
+            Instaladores generados automáticamente desde el tag ${{ github.ref_name }}.
+
+            - Linux: instalador Qt IFW (.run) con dependencias locales en lib/ y RUNPATH `$ORIGIN/lib`.
+            - Windows: instalador Inno Setup (.exe) para x64.
+          files: release/*
