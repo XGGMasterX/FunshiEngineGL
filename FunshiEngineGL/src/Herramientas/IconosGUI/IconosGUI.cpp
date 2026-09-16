@@ -21,8 +21,7 @@
 #include <iostream>
 #include <cctype>
 
-#include <GLFW/glfw3.h>
-#include <GL/glu.h>
+#include "../../GLCompat.h"
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"

@@ -22,7 +22,7 @@
 #include <string>
 #include <imgui.h>
 
-#include <GLFW/glfw3.h>
+#include "../../GLCompat.h"
 
 class IconosGUI {
 public:

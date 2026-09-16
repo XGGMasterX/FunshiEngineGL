@@ -19,7 +19,7 @@
 #ifndef RENDERTARGET_H
 #define RENDERTARGET_H
 
-#include <GL/gl.h>
+#include "../GLCompat.h"
 
 // Render-to-texture (FBO) para las vistas previas de camara (Fase 2).
 // Carga las funciones de framebuffer por puntero via glfwGetProcAddress, asi

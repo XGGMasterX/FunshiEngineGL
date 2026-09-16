@@ -19,12 +19,7 @@
 #ifndef VENTANA_H
 #define VENTANA_H
 
-#if defined(_WIN32)
-#include <windows.h>
-#endif
-#include <GL/gl.h>
-#include <GL/glu.h>
-#include <GLFW/glfw3.h>
+#include "GLCompat.h"
 
 class Ventana {
 private:

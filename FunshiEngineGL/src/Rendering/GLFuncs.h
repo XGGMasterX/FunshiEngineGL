@@ -19,8 +19,7 @@
 #ifndef GLFUNCS_H
 #define GLFUNCS_H
 
-#include <GL/gl.h>
-#include <GLFW/glfw3.h>
+#include "../GLCompat.h"
 #include <type_traits>
 
 // Las funciones modernas (shaders + VAO/VBO) no estan declaradas en el gl.h

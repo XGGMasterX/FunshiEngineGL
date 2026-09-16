@@ -20,7 +20,7 @@
 
 #include <cstddef>
 
-#include <GL/gl.h>
+#include "../GLCompat.h"
 
 namespace {
 

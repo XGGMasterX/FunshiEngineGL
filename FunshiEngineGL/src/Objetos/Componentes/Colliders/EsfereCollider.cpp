@@ -19,7 +19,7 @@
 #include "EsfereCollider.h"
 
 #include <cmath>
-#include <GL/gl.h>
+#include "../../../GLCompat.h"
 #include <memory>
 #include <btBulletDynamicsCommon.h>
 

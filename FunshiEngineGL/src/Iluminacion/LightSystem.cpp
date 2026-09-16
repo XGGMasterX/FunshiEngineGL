@@ -18,7 +18,7 @@
 */
 #include "LightSystem.h"
 
-#include <GL/gl.h>
+#include "../GLCompat.h"
 #include <cmath>
 
 #include "../Estructuras/ListasEnlazadas/ListasDoblementeEnlazada/ListaDE.h"

@@ -18,7 +18,7 @@
 */
 #include "RenderTarget.h"
 
-#include <GLFW/glfw3.h>
+#include "../GLCompat.h"
 #include <iostream>
 
 namespace {

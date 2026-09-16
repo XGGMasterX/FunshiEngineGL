@@ -18,8 +18,6 @@
 */
 #include "Ventana.h"
 
-#include <GL/gl.h>
-#include <GL/glu.h>
 #include <iostream>
 
 Ventana* Ventana::instance = nullptr;

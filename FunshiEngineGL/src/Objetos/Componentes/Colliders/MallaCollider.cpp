@@ -18,7 +18,7 @@
 */
 #include "MallaCollider.h"
 
-#include <GL/gl.h>
+#include "../../../GLCompat.h"
 #include <btBulletDynamicsCommon.h>
 
 #include "../../../Objetos/GameObject.h"

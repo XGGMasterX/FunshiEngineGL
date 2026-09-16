@@ -22,7 +22,7 @@
 #include <cstring>
 #include <iostream>
 
-#include <GL/gl.h>
+#include "../../GLCompat.h"
 
 namespace {
 // Longitud maxima de path de textura en disco. El deserializador descarta

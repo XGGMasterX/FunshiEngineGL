@@ -18,7 +18,7 @@
 */
 #include "CameraComponent.h"
 
-#include <GL/glu.h>
+#include "../../GLCompat.h"
 #include <cmath>
 #include <cstring>
 

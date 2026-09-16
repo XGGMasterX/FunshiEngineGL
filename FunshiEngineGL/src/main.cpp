@@ -28,7 +28,7 @@
 #include "../src/States/ApplicationStateMachine.h"
 #include "../src/Ventana.h"
 #include "ImGuizmo.h"
-#include <GLFW/glfw3.h>
+#include "GLCompat.h"
 #include <iostream>
 #include <string>
 

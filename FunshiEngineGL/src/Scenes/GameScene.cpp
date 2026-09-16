@@ -43,7 +43,7 @@
 #include "../Rendering/MeshRenderer.h"
 #include "../Rendering/RenderTarget.h"
 #include "ImGuizmo.h"
-#include <GL/gl.h>
+#include "../GLCompat.h"
 #include <imgui.h>
 #include <iostream>
 #include <algorithm>

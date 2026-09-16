@@ -18,7 +18,7 @@
 */
 #include "CubeCollider.h"
 
-#include <GL/gl.h>
+#include "../../../GLCompat.h"
 #include <memory>
 #include <btBulletDynamicsCommon.h>
 

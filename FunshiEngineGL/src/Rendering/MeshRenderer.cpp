@@ -18,7 +18,7 @@
 */
 #include "MeshRenderer.h"
 
-#include <GL/gl.h>
+#include "../GLCompat.h"
 #include <glm/gtc/type_ptr.hpp>
 
 #include <algorithm>

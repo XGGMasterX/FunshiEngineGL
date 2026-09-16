@@ -18,7 +18,7 @@
 */
 #include "Modelos3D.h"
 
-#include <GL/gl.h>
+#include "../GLCompat.h"
 #include <algorithm>
 #include <cstring>
 #include <fstream>
