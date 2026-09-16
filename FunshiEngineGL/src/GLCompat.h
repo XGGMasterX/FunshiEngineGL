@@ -45,9 +45,72 @@
 #include <GL/gl.h>
 #include <GL/glu.h>
 
-// El gl.h legacy de Windows no define GL_CLAMP_TO_EDGE (GL 1.2+).
+// El gl.h legacy de Windows es OpenGL 1.1: no define GL_CLAMP_TO_EDGE (GL
+// 1.2+), ni los tipos y constantes de GL 1.5/2.0/3.0 que el motor usa para los
+// shaders (GL_VERTEX_SHADER, GL_ARRAY_BUFFER...) y FBO (GL_FRAMEBUFFER...).
+// En Linux/macOS esas definiciones ya las trae gl.h/glext; en Windows se
+// agregan aquí con guards para no pisar cabeceras que sí las declaren.
+#ifdef _WIN32
+#include <cstddef>
+#ifndef GL_VERSION_1_5
+typedef std::ptrdiff_t GLintptr;
+typedef std::ptrdiff_t GLsizeiptr;
+#endif
+#ifndef GL_VERSION_2_0
+typedef char GLchar;
+#endif
+
 #ifndef GL_CLAMP_TO_EDGE
 #define GL_CLAMP_TO_EDGE 0x812F
+#endif
+#ifndef GL_TEXTURE0
+#define GL_TEXTURE0 0x84C0
+#endif
+#ifndef GL_ARRAY_BUFFER
+#define GL_ARRAY_BUFFER 0x8892
+#endif
+#ifndef GL_ELEMENT_ARRAY_BUFFER
+#define GL_ELEMENT_ARRAY_BUFFER 0x8893
+#endif
+#ifndef GL_STATIC_DRAW
+#define GL_STATIC_DRAW 0x88E4
+#endif
+#ifndef GL_VERTEX_SHADER
+#define GL_VERTEX_SHADER 0x8B31
+#endif
+#ifndef GL_FRAGMENT_SHADER
+#define GL_FRAGMENT_SHADER 0x8B30
+#endif
+#ifndef GL_COMPILE_STATUS
+#define GL_COMPILE_STATUS 0x8B81
+#endif
+#ifndef GL_LINK_STATUS
+#define GL_LINK_STATUS 0x8B82
+#endif
+#ifndef GL_INFO_LOG_LENGTH
+#define GL_INFO_LOG_LENGTH 0x8B84
+#endif
+#ifndef GL_RGBA8
+#define GL_RGBA8 0x8058
+#endif
+#ifndef GL_RENDERBUFFER
+#define GL_RENDERBUFFER 0x8D41
+#endif
+#ifndef GL_FRAMEBUFFER
+#define GL_FRAMEBUFFER 0x8D40
+#endif
+#ifndef GL_COLOR_ATTACHMENT0
+#define GL_COLOR_ATTACHMENT0 0x8CE0
+#endif
+#ifndef GL_DEPTH_ATTACHMENT
+#define GL_DEPTH_ATTACHMENT 0x8D00
+#endif
+#ifndef GL_FRAMEBUFFER_COMPLETE
+#define GL_FRAMEBUFFER_COMPLETE 0x8CD5
+#endif
+#ifndef GL_DEPTH_COMPONENT24
+#define GL_DEPTH_COMPONENT24 0x81A6
+#endif
 #endif
 
 #include <GLFW/glfw3.h>
