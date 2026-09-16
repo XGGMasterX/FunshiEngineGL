@@ -102,6 +102,10 @@ FunshiEngineGL_BACKUP/
 FunshiEngineGL/packaging/dist/
 FunshiEngineGL/packaging/instalador/
 
+# Empaquetado Linux (Qt IFW): instaladores .run generados localmente
+FunshiEngineGL/packaging/ifw/output/
+FunshiEngineGL/*.run
+
 # Temporary refactoring/build scripts
 FunshiEngineGL/fix_build.py
 FunshiEngineGL/gui_contents.txt
