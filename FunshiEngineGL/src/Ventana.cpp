@@ -50,13 +50,18 @@ int Ventana::initVentana() {
         return -1;
     }
     glfwMakeContextCurrent(window);
-    std::cout << "GPU: " << glGetString(GL_RENDERER) << std::endl;
-    std::cout << "GL_VERSION: " << glGetString(GL_VERSION) << std::endl;
+    const auto imprimir = [](const char* etiqueta, GLenum glenum) {
+        const GLubyte* s = glGetString(glenum);
+        std::cout << etiqueta << (s ? reinterpret_cast<const char*>(s)
+                                    : "(no disponible)")
+                  << std::endl;
+    };
+    imprimir("GPU: ", GL_RENDERER);
+    imprimir("GL_VERSION: ", GL_VERSION);
 #ifndef GL_SHADING_LANGUAGE_VERSION
 #define GL_SHADING_LANGUAGE_VERSION 0x8B30
 #endif
-    std::cout << "GLSL: " << glGetString(GL_SHADING_LANGUAGE_VERSION)
-              << std::endl;
+    imprimir("GLSL: ", GL_SHADING_LANGUAGE_VERSION);
 #ifndef GL_CONTEXT_PROFILE_MASK
 #define GL_CONTEXT_PROFILE_MASK 0x9126
 #define GL_CONTEXT_CORE_PROFILE_BIT 0x00000001

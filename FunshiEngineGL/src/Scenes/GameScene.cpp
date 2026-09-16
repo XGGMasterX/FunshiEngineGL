@@ -798,6 +798,22 @@ void GameScene::gameScene() {
     camara->getProjectionMatrix(projection,
                                 static_cast<float>(fbW) /
                                     static_cast<float>(fbH));
+    static bool diagMatricesPendiente = true;
+    if (diagMatricesPendiente) {
+        diagMatricesPendiente = false;
+        bool noFinita = false;
+        for (int i = 0; i < 16; ++i) {
+            if (!std::isfinite(view[i]) || !std::isfinite(projection[i])) {
+                noFinita = true;
+                break;
+            }
+        }
+        const float* diagPos = camara->getPosition();
+        std::cout << "[diag] matrices camara finitas: "
+                  << (noFinita ? "NO (NaN/Inf)" : "si") << "; pos camara = ("
+                  << diagPos[0] << ", " << diagPos[1] << ", " << diagPos[2]
+                  << ")" << std::endl;
+    }
     dibujarEscena(view, projection, activeCameraObject);
 
     ImGuizmo::SetOrthographic(false);
