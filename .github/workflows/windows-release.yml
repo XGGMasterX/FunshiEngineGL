@@ -70,4 +70,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: FunshiEngineGL-setup
-          path: FunshiEngineGL\packaging\instalador\*.exe
+          path: FunshiEngineGL\packaging\dist\instalador\*.exe
+          if-no-files-found: error
