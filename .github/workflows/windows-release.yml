@@ -41,6 +41,9 @@ jobs:
       - name: Compilar engine
         run: cmake --build build --config Release --target FunshiEngineGL
 
+      - name: Compilar pruebas
+        run: cmake --build build --config Release --target filemanager-tests configuracion-tests assetmanager-tests texturemanager-tests
+
       - name: Ejecutar pruebas
         run: ctest --test-dir build -C Release --output-on-failure
 
