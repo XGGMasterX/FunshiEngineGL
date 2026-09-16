@@ -25,6 +25,25 @@
 #include <cstdlib>
 #endif
 
+namespace {
+// MSVC no "demanglea": typeid().name() ya viene en forma legible pero con el
+// prefijo de verificacion de compilador ("class Transform", "struct XCoord").
+// Esos prefijos no son plataforma-portables: en Linux el demangle produce el
+// nombre pelado ("Transform") y la serializacion de la escena pierde consistencia
+// en Windows (ComponentFactory no reconoce "class Transform" al deserializar).
+std::string normalizarNombreMSVC(std::string nombre) {
+    constexpr const char* prefijos[] = {"class ", "struct ", "union ", "enum "};
+    for (const char* prefijo : prefijos) {
+        const std::size_t len = std::char_traits<char>::length(prefijo);
+        if (nombre.rfind(prefijo, 0) == 0) {
+            nombre.erase(0, len);
+            break;
+        }
+    }
+    return nombre;
+}
+} // namespace
+
 std::string demangle(const char* name) {
 #if defined(__GNUG__)
     int status = 0;
@@ -33,6 +52,8 @@ std::string demangle(const char* name) {
     std::free(demangled);
     return result;
 #else
-    return name; // En MSVC no necesita demangling
+    // En MSVC no necesita demangling, pero si normalizacion del prefijo de tipo
+    // para que los nombres serializados coincidan con los de GCC/Linux.
+    return normalizarNombreMSVC(name ? name : "");
 #endif
 }

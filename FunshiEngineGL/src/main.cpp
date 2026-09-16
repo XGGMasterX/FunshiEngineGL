@@ -227,7 +227,13 @@ int main(void)
     ContentFolderInterface* contentFolderInterface = managerOfGUI->getContentFolderGUI();
     MiAPP* app = new MiAPP(scene);
     Time::start();
-    std::string homePath = std::getenv("HOME");
+    // Ruta base del proyecto del usuario. getenv("HOME") NO existe en Windows
+    // (ahí se usa USERPROFILE) y construir un std::string desde su nullptr era
+    // comportamiento indefinido -> crash al arrancar justo despues de cargar
+    // las texturas de la GUI. EditorConfig ya resuelve la ruta por plataforma:
+    //  - Windows: C:/MotorGraficoArchivos (creada por el instalador)
+    //  - Linux:   ~/MotorGrafico
+    const std::string proyectoDir = EditorConfig::directorioProyectoPorDefecto();
 
     // Configuration del editor (interfaz + menu) persistida en JSON junto al
     // proyecto del usuario. Al arrancar se carga y se aplica a cada capa; al
@@ -283,8 +289,8 @@ int main(void)
  #if defined(_WIN32)
      scene->loadScene("C:/MotorGraficoArchivos/Binarios/SceneBBDDObjetos.txt", "C:/MotorGraficoArchivos/Binarios/Scene/");
  #elif defined(__linux__)
-     scene->loadScene(homePath+"/MotorGrafico/Binarios/SceneBBDDObjetos.txt", 
-                homePath+"/MotorGrafico/Binarios/Scene/");
+     scene->loadScene(proyectoDir+"/Binarios/SceneBBDDObjetos.txt",
+                proyectoDir+"/Binarios/Scene/");
  #endif
 
 
@@ -372,9 +378,9 @@ int main(void)
     }
 
 #if defined(_WIN32)
-    scene->saveScene(homePath+"/MotorGraficoArchivos/Binarios/Scene");
+    scene->saveScene(proyectoDir+"/Binarios/Scene");
 #elif defined(__linux__)
-    scene->saveScene(homePath+"/MotorGrafico/Binarios/Scene");
+    scene->saveScene(proyectoDir+"/Binarios/Scene");
 #endif
 
     ImGui_ImplOpenGL3_Shutdown();
