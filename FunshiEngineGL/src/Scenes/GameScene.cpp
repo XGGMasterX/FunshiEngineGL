@@ -426,7 +426,6 @@ void GameScene::mallaScene(float tam) {
         glVertex3f(tam, y, i);
     }
     glEnd();
-    glEndList();
 }
 
 void GameScene::GUI() {
@@ -809,10 +808,14 @@ void GameScene::gameScene() {
             }
         }
         const float* diagPos = camara->getPosition();
+        const float fwd[3] = {-view[2], -view[6], -view[10]};
         std::cout << "[diag] matrices camara finitas: "
                   << (noFinita ? "NO (NaN/Inf)" : "si") << "; pos camara = ("
                   << diagPos[0] << ", " << diagPos[1] << ", " << diagPos[2]
-                  << ")" << std::endl;
+                  << ") fwd=(" << fwd[0] << ", " << fwd[1] << ", " << fwd[2]
+                  << ") fov=" << camara->getFov()
+                  << " near=" << camara->getNearPlane()
+                  << " far=" << camara->getFarPlane() << std::endl;
 
         // Estado de luz real del frame: GL_LIGHTING, LUZS presentes y ultima
         // luz habilitada por LightSystem. Si dicen que hay luces pero aca no
@@ -821,7 +824,8 @@ void GameScene::gameScene() {
         auto* diagObjects = getGameObjectsScene();
         int diagLuces = 0;
         int diagObjs = 0;
-        int diagObjsConMalla = 0;
+        int diagConMalla = 0;
+        int diagConMallaYNormales = 0;
         if (diagObjects) {
             Position<GameObject*>* pos = diagObjects->first();
             while (pos && pos->getElement()) {
@@ -829,14 +833,18 @@ void GameScene::gameScene() {
                 ++diagObjs;
                 if (o->getComponent<Light>()) ++diagLuces;
                 auto* m = dynamic_cast<Modelos3D*>(o);
-                if (m && m->getMesh() && m->getMesh()->hasNormals())
-                    ++diagObjsConMalla;
+                if (m && m->getMesh() && !m->getMesh()->isEmpty()) {
+                    ++diagConMalla;
+                    if (m->getMesh()->hasNormals()) ++diagConMallaYNormales;
+                }
                 pos = (pos != diagObjects->last()) ? diagObjects->next(pos)
                                                    : nullptr;
             }
         }
         std::cout << diagLuces << " objetos=" << diagObjs
-                  << " conMallaYNormales=" << diagObjsConMalla << std::endl;
+                  << " conMalla=" << diagConMalla
+                  << " conMallaYNormales=" << diagConMallaYNormales
+                  << std::endl;
         std::cout << "[diag] GL_LIGHTING=" << std::flush;
         std::cout << (glIsEnabled(GL_LIGHTING) ? "on" : "off")
                   << " GL_LIGHT0=" << std::flush;
@@ -846,6 +854,18 @@ void GameScene::gameScene() {
                   << err << std::dec << std::endl;
     }
     dibujarEscena(view, projection, activeCameraObject);
+
+    static bool diagPostPassPendiente = true;
+    if (diagPostPassPendiente) {
+        diagPostPassPendiente = false;
+        GLenum err = glGetError();
+        std::cout << "[diag] glGetError tras pasada escena=" << std::hex
+                  << err << std::dec << std::endl;
+        std::cout << "[diag] MeshRenderer moderno disponible="
+                  << (meshRenderer && meshRenderer->available() ? "si"
+                                                                : "no")
+                  << std::endl;
+    }
 
     ImGuizmo::SetOrthographic(false);
     ImGuizmo::SetDrawlist(ImGui::GetForegroundDrawList());
