@@ -52,6 +52,9 @@ int Ventana::initVentana() {
     glfwMakeContextCurrent(window);
     std::cout << "GPU: " << glGetString(GL_RENDERER) << std::endl;
     std::cout << "GL_VERSION: " << glGetString(GL_VERSION) << std::endl;
+#ifndef GL_SHADING_LANGUAGE_VERSION
+#define GL_SHADING_LANGUAGE_VERSION 0x8B30
+#endif
     std::cout << "GLSL: " << glGetString(GL_SHADING_LANGUAGE_VERSION)
               << std::endl;
 #ifndef GL_CONTEXT_PROFILE_MASK
