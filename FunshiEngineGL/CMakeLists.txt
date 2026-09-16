@@ -253,10 +253,26 @@ set_target_properties(texturemanager-tests PROPERTIES
 )
 add_test(NAME texturemanager-tests COMMAND texturemanager-tests)
 
+# Estructuras de datos (headless y portatil): las estructuras son cabeceras
+# puras, solo se necesita RuntimeException.cpp por la jerarquia de excepciones.
+# Cubre las clases verificadas/corregidas (ListaDE, ArbolEnlazado) y las
+# implementadas para el motor (Heaps, ListMergeSort, ArbolBinarioEnlazado).
+add_executable(estructuras-tests
+    ${SRC_DIR}/ExcepcionesCPP/RuntimeException.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../tests/EstructurasTests.cpp
+)
+set_target_properties(estructuras-tests PROPERTIES
+    CXX_STANDARD 17
+    CXX_STANDARD_REQUIRED ON
+    CXX_EXTENSIONS OFF
+)
+add_test(NAME estructuras-tests COMMAND estructuras-tests)
+
 if(WIN32)
     # dbghelp: CapturaBackTrace/SymFromAddr/SymInitialize (RuntimeException).
     # En MinGW los #pragma comment(lib) de MSVC se ignoran, hay que enlazarla.
     target_link_libraries(filemanager-tests PRIVATE dbghelp)
     target_link_libraries(assetmanager-tests PRIVATE dbghelp)
     target_link_libraries(texturemanager-tests PRIVATE dbghelp)
+    target_link_libraries(estructuras-tests PRIVATE dbghelp)
 endif()
