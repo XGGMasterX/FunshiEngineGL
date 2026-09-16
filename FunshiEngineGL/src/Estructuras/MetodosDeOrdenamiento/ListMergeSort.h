@@ -18,4 +18,71 @@
 */
 #ifndef LISTMERGESORT_H
 #define LISTMERGESORT_H
+
+#include "../ListasEnlazadas/ListasDoblementeEnlazada/ListaDE.h"
+
+#include <functional>
+
+// Merge sort estable en O(n log n) sobre ListaDE<E>.
+//
+// Ordena la MISMA lista pasada (no devuelve una copia): ListaDE no tiene
+// constructor de copia propio y una copia por valor haria doble free de sus
+// nodos. La ordenacion usa la interfaz publica (first/remove/addLast/tam):
+// los elementos E se MUEVEN entre listas, nunca se copian, y ListaDE no es
+// duena de los elementos (punteros/valores), asi que el resultado sigue
+// referenciando los mismos elementos.
+//
+// Cmp debe implementar cmp(a, b) == true si a va antes que b
+// (por defecto std::less<E>).
+template <typename E, typename Cmp = std::less<E>>
+class ListMergeSort {
+private:
+    // Reparte los elementos de `lista` en dos mitades iguales.
+    static void split(ListaDE<E>& lista, ListaDE<E>& izq, ListaDE<E>& der) {
+        const int mitad = lista.tam() / 2;
+        int i = 0;
+        while (!lista.isEmpty()) {
+            if (i < mitad)
+                izq.addLast(lista.remove(lista.first()));
+            else
+                der.addLast(lista.remove(lista.first()));
+            ++i;
+        }
+    }
+
+    // Fusiona dos listas ordenadas en la lista destino (vacia), tomando cada
+    // vez el menor primero (estabilidad: empates -> el de la izquierda).
+    static void merge(ListaDE<E>& destino, ListaDE<E>& izq,
+                      ListaDE<E>& der, const Cmp& cmp) {
+        while (!izq.isEmpty() && !der.isEmpty()) {
+            // Se prefiere el de `izq` cuando cmp decide que va primero;
+            // en empate sigue cayendo primero el de la izquierda (estable).
+            if (cmp(izq.first()->getElement(), der.first()->getElement()))
+                destino.addLast(izq.remove(izq.first()));
+            else
+                destino.addLast(der.remove(der.first()));
+        }
+        while (!izq.isEmpty())
+            destino.addLast(izq.remove(izq.first()));
+        while (!der.isEmpty())
+            destino.addLast(der.remove(der.first()));
+    }
+
+    static void ordenar(ListaDE<E>& lista, const Cmp& cmp) {
+        if (lista.tam() > 1) {
+            ListaDE<E> izq, der;
+            split(lista, izq, der);
+            ordenar(izq, cmp);
+            ordenar(der, cmp);
+            merge(lista, izq, der, cmp);
+        }
+    }
+
+public:
+    // Ordena `lista` in-place segun `cmp`.
+    static void sort(ListaDE<E>& lista, Cmp cmp = Cmp{}) {
+        ordenar(lista, cmp);
+    }
+};
+
 #endif

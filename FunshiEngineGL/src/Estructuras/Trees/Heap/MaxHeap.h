@@ -18,4 +18,74 @@
 */
 #ifndef MAXHEAP_H
 #define MAXHEAP_H
+
+#include "Heap.h"
+
+#include <algorithm>
+#include <cassert>
+#include <vector>
+
+// Monticulo de maximos (cola de prioridad donde el mayor queda arriba).
+// Implementacion sobre std::vector (heap binario): push() en O(log n),
+// top() en O(1) y pop() en O(log n). E se compara con operator>.
+template <typename E>
+class MaxHeap : public Heap<E> {
+private:
+    std::vector<E> items;
+
+    static int indicePadre(int i) { return (i - 1) / 2; }
+    static int indiceHijoIzq(int i) { return 2 * i + 1; }
+    static int indiceHijoDer(int i) { return 2 * i + 2; }
+
+    // Sube el elemento en i hasta su posicion de monticulo (tras un push).
+    void siftUp(int i) {
+        while (i > 0 && items[indicePadre(i)] < items[i]) {
+            std::swap(items[i], items[indicePadre(i)]);
+            i = indicePadre(i);
+        }
+    }
+
+    // Baja el elemento en i hasta restaurar la propiedad (tras un pop).
+    void siftDown(int i) {
+        const int n = static_cast<int>(items.size());
+        while (true) {
+            int mayor = i;
+            const int izq = indiceHijoIzq(i);
+            const int der = indiceHijoDer(i);
+            if (izq < n && items[mayor] < items[izq]) mayor = izq;
+            if (der < n && items[mayor] < items[der]) mayor = der;
+            if (mayor == i) break;
+            std::swap(items[i], items[mayor]);
+            i = mayor;
+        }
+    }
+
+public:
+    MaxHeap() = default;
+
+    bool isEmpty() const override { return items.empty(); }
+    int tam() const override { return static_cast<int>(items.size()); }
+
+    void push(E e) override {
+        items.push_back(e);
+        siftUp(static_cast<int>(items.size()) - 1);
+    }
+
+    E top() const override {
+        assert(!isEmpty() && "MaxHeap::top sobre un heap vacio");
+        return items.front();
+    }
+
+    E pop() override {
+        assert(!isEmpty() && "MaxHeap::pop sobre un heap vacio");
+        E extremo = items.front();
+        items.front() = items.back();
+        items.pop_back();
+        if (!items.empty()) siftDown(0);
+        return extremo;
+    }
+
+    void clear() override { items.clear(); }
+};
+
 #endif

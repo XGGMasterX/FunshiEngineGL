@@ -18,4 +18,35 @@
 */
 #ifndef HEAP_H
 #define HEAP_H
+
+#include <vector>
+
+// Interfaz de una cola de prioridad (monticulos) sobre E. Los monticulos se
+// implementan sobre un vector contiguo (heap binario clasico): el acceso por
+// indice da posiciones de hijos/padre en O(1) y push/pop en O(log n).
+//
+// E debe ser comparable con operadores relacionales:
+//   - MinHeap<E> usa <  (el top es el menor).
+//   - MaxHeap<E> usa >  (el top es el mayor).
+template <typename E>
+class Heap {
+public:
+    virtual ~Heap() = default;
+
+    virtual bool isEmpty() const = 0;
+    virtual int tam() const = 0;
+
+    // Inserta un elemento manteniendo la propiedad del monticulo.
+    virtual void push(E e) = 0;
+
+    // Devuelve el extremo (min en MinHeap, max en MaxHeap) sin extraerlo.
+    virtual E top() const = 0;
+
+    // Extrae y devuelve el extremo.
+    virtual E pop() = 0;
+
+    // Elimina todos los elementos. Los elementos E no son propiedad del heap.
+    virtual void clear() = 0;
+};
+
 #endif
