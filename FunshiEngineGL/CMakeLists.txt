@@ -268,6 +268,21 @@ set_target_properties(estructuras-tests PROPERTIES
 )
 add_test(NAME estructuras-tests COMMAND estructuras-tests)
 
+# Reflexion de comportamiento (motor de SerializeField): headless y portatil.
+# Cubre las macros REFLECT_*, la lectura/escritura de campos (incl. grupos
+# anidados y vectores de grupos) y el round-trip binario del arbol de valores.
+add_executable(scripts-tests
+    ${SRC_DIR}/Behaviour/Reflection/BehaviourReflection.cpp
+    ${SRC_DIR}/Matematicas/StructVec3.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../tests/ScriptsTests.cpp
+)
+set_target_properties(scripts-tests PROPERTIES
+    CXX_STANDARD 17
+    CXX_STANDARD_REQUIRED ON
+    CXX_EXTENSIONS OFF
+)
+add_test(NAME scripts-tests COMMAND scripts-tests)
+
 if(WIN32)
     # dbghelp: CapturaBackTrace/SymFromAddr/SymInitialize (RuntimeException).
     # En MinGW los #pragma comment(lib) de MSVC se ignoran, hay que enlazarla.

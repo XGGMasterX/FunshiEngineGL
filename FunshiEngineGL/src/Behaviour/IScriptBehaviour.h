@@ -19,11 +19,21 @@
 #ifndef ISCRIPTBEHAVIOUR_H
 #define ISCRIPTBEHAVIOUR_H
 #include "../Objetos/GameObject.h"
+#include "Reflection/BehaviourReflection.h"
 
 class IScriptBehaviour {
 public:
     virtual ~IScriptBehaviour() {}
     virtual void onStart(GameObject* owner) = 0;
     virtual void onUpdate(GameObject* owner, float deltaTime) = 0;
+
+    // Ciclo opcional invocado al salir de play mode (limpieza del script).
+    virtual void onStop(GameObject* owner) { (void)owner; }
+
+    // Campos editables (SerializeField). Los scripts que usan las macros
+    // REFLECT_* la implementan automaticamente; sin reflexion devuelve vacio.
+    virtual std::vector<ReflejoScripts::DefCampo> camposReflejados() const {
+        return {};
+    }
 };
 #endif
