@@ -45,6 +45,12 @@ public:
                                  float deltaTime);
     static void llamarDetener(ComportamientoCargado& c, GameObject* owner);
 
+    // SerializeField: despacha al backend del lenguaje.
+    static void inyectar(ComportamientoCargado& c,
+                         const std::vector<ReflejoScripts::ValorCampo>& valores);
+    static std::vector<ReflejoScripts::ValorCampo> extraer(
+        ComportamientoCargado& c);
+
     // Hot reload: true si el fuente en disco difiere del que fue compilado.
     static bool cambioElFuente(const ComportamientoCargado& c);
 };

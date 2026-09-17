@@ -116,6 +116,20 @@ void ScriptRuntime::llamarDetener(ComportamientoCargado& c, GameObject* owner) {
         backend->llamarDetener(c, owner);
 }
 
+void ScriptRuntime::inyectar(
+    ComportamientoCargado& c,
+    const std::vector<ReflejoScripts::ValorCampo>& valores) {
+    if (BackendScript* backend = backendPara(c.lenguaje))
+        backend->inyectar(c, valores);
+}
+
+std::vector<ReflejoScripts::ValorCampo> ScriptRuntime::extraer(
+    ComportamientoCargado& c) {
+    if (BackendScript* backend = backendPara(c.lenguaje))
+        return backend->extraer(c);
+    return {};
+}
+
 bool ScriptRuntime::cambioElFuente(const ComportamientoCargado& c) {
     if (!c.cargado || c.fuente.empty()) return false;
     return mtimeDe(c.fuente) != c.mtimeFuente;

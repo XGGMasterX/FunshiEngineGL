@@ -26,6 +26,10 @@ if(BUILD_ENGINE)
     # main.cpp es el punto de entrada del ejecutable, no parte de la libreria.
     list(REMOVE_ITEM SOURCES ${SRC_DIR}/main.cpp)
 
+    # El backend Java solo se compila con FUNSHI_JAVA=ON: necesita jni.h del
+    # JDK en tiempo de build. Igual en runtime el JVM es dinamico/opcional.
+    list(REMOVE_ITEM SOURCES ${SRC_DIR}/Behaviour/Backends/BackendJava.cpp)
+
     add_library(funshi_engine STATIC ${SOURCES} ${HEADERS})
 
     # Ejecutable principal (solo el entry point).
@@ -35,6 +39,29 @@ if(BUILD_ENGINE)
     # Cabeceras del engine y definiciones que expone a sus consumidores.
     target_include_directories(funshi_engine PUBLIC ${SRC_DIR})
     target_compile_definitions(funshi_engine PUBLIC GLM_ENABLE_EXPERIMENTAL)
+
+    # Soporte opcional de scripts Java (JNI). Se detecta el JDK con FindJNI y
+    # se embeben las rutas de javac/libjvm para el runtime (se pueden
+    # sobreescribir con las variables de entorno JAVA_HOME/JAVAC/FUNSHI_LIBJVM).
+    if(FUNSHI_JAVA)
+        find_package(JNI REQUIRED)
+        find_package(Java QUIET COMPONENTS Development)
+        target_sources(funshi_engine PRIVATE
+            ${SRC_DIR}/Behaviour/Backends/BackendJava.cpp)
+        target_include_directories(funshi_engine PRIVATE ${JNI_INCLUDE_DIRS})
+        target_compile_definitions(funshi_engine PUBLIC FUNSHI_JAVA)
+        if(Java_JAVAC_EXECUTABLE)
+            target_compile_definitions(funshi_engine
+                PRIVATE FUNSHI_JAVAC_DEFAULT="${Java_JAVAC_EXECUTABLE}")
+        endif()
+        if(JAVA_JVM_LIBRARY)
+            target_compile_definitions(funshi_engine
+                PRIVATE FUNSHI_LIBJVM_DEFAULT="${JAVA_JVM_LIBRARY}")
+        endif()
+        if(UNIX)
+            target_link_libraries(funshi_engine PRIVATE ${CMAKE_DL_LIBS})
+        endif()
+    endif()
 
     # Ruta al fuente del motor (para que los scripts usen las cabeceras al
     # compilarse en caliente) y compilador C++ a invocar por el BackendCpp.
@@ -327,6 +354,45 @@ add_test(NAME scripts-runtime-tests COMMAND scripts-runtime-tests)
 # El test devuelve 77 cuando no hay compilador C++ (p. ej. Windows sin cl.exe
 # en PATH): ctest lo reporta como SKIP en lugar de fallo.
 set_tests_properties(scripts-runtime-tests PROPERTIES SKIP_RETURN_CODE 77)
+
+# Prueba end-to-end del backend Java (se compila solo con FUNSHI_JAVA=ON).
+if(FUNSHI_JAVA)
+    find_package(JNI REQUIRED)
+    find_package(Java QUIET COMPONENTS Development)
+    add_executable(scripts-java-tests
+        ${SRC_DIR}/Behaviour/Reflection/BehaviourReflection.cpp
+        ${SRC_DIR}/Behaviour/Backends/BackendCpp.cpp
+        ${SRC_DIR}/Behaviour/Backends/BackendJava.cpp
+        ${SRC_DIR}/Behaviour/ScriptRuntime.cpp
+        ${SRC_DIR}/Matematicas/StructVec3.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/../tests/ScriptsJavaTests.cpp
+    )
+    set_target_properties(scripts-java-tests PROPERTIES
+        CXX_STANDARD 17
+        CXX_STANDARD_REQUIRED ON
+        CXX_EXTENSIONS OFF
+    )
+    target_include_directories(scripts-java-tests
+        PRIVATE ${SRC_DIR} ${JNI_INCLUDE_DIRS})
+    target_compile_definitions(scripts-java-tests PRIVATE FUNSHI_JAVA)
+    if(Java_JAVAC_EXECUTABLE)
+        target_compile_definitions(scripts-java-tests
+            PRIVATE FUNSHI_JAVAC_DEFAULT="${Java_JAVAC_EXECUTABLE}")
+    endif()
+    if(JAVA_JVM_LIBRARY)
+        target_compile_definitions(scripts-java-tests
+            PRIVATE FUNSHI_LIBJVM_DEFAULT="${JAVA_JVM_LIBRARY}")
+    endif()
+    if(UNIX)
+        target_link_libraries(scripts-java-tests PRIVATE ${CMAKE_DL_LIBS})
+    endif()
+    find_package(Threads QUIET)
+    if(Threads_FOUND)
+        target_link_libraries(scripts-java-tests PRIVATE Threads::Threads)
+    endif()
+    add_test(NAME scripts-java-tests COMMAND scripts-java-tests)
+    set_tests_properties(scripts-java-tests PROPERTIES SKIP_RETURN_CODE 77)
+endif()
 
 if(WIN32)
     # dbghelp: CapturaBackTrace/SymFromAddr/SymInitialize (RuntimeException).

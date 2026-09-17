@@ -50,6 +50,18 @@ public:
                                   GameObject* owner, float deltaTime) = 0;
     virtual void llamarDetener(ComportamientoCargado& comportamiento,
                                GameObject* owner) = 0;
+
+    // SerializeField: inyecta/extrae el arbol de valores sobre la instancia.
+    // El default vale para instancias con memoria C++ contigua (BackendCpp);
+    // Java lo redefine para usar reflexion JNI.
+    virtual void inyectar(ComportamientoCargado& comportamiento,
+                          const std::vector<ReflejoScripts::ValorCampo>& valores) {
+        inyectarCampos(comportamiento, valores);
+    }
+    virtual std::vector<ReflejoScripts::ValorCampo> extraer(
+        ComportamientoCargado& comportamiento) {
+        return extraerCampos(comportamiento);
+    }
 };
 
 #endif // BACKENDSCRIPT_H

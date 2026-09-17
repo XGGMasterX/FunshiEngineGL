@@ -173,19 +173,21 @@ void ContentFolderInterface::crearNuevoElemento() {
             const size_t dot = clase.find_last_of('.');
             if (dot != std::string::npos) clase = clase.substr(0, dot);
             contenido =
-                "import funshi.*;\n"
-                "\n"
-                "// Script Java ejecutado por el motor via JNI (requiere que el\n"
-                "// motor se compile con -DFUNSHI_JAVA=ON). Los campos publicos\n"
-                "// del script se exponen como SerializeField en el inspector.\n"
+                "// Script Java ejecutado por el motor via JNI (requiere compilar\n"
+                "// el motor con -DFUNSHI_JAVA=ON). Los campos publicos son\n"
+                "// SerializeField editables en el inspector.\n"
+                "// El nombre de la clase debe coincidir con el del archivo.\n"
                 "public class " + clase + " implements Comportamiento {\n"
                 "    // public float velocidad = 5.0f;\n"
                 "\n"
                 "    @Override\n"
-                "    public void iniciar(GameObject objeto) {}\n"
+                "    public void iniciar(long objeto) {}\n"
                 "\n"
                 "    @Override\n"
-                "    public void actualizar(GameObject objeto, double dt) {}\n"
+                "    public void actualizar(long objeto, double deltaTime) {}\n"
+                "\n"
+                "    @Override\n"
+                "    public void detener(long objeto) {}\n"
                 "}\n";
         }
         const std::string ruta = destFolder + PATH_SEP + nombre;

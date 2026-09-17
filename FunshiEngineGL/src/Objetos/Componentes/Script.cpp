@@ -68,14 +68,14 @@ void Script::cargarSiNecesario() {
 
     // Restaurar los valores de SerializeField persistidos en la escena sobre
     // la instancia recien compilada (reemplazos en caliente o editados).
-    inyectarCampos(comportamiento_, valores_);
+    ScriptRuntime::inyectar(comportamiento_, valores_);
     if (!comportamiento_.campos.empty() && valores_.empty())
         valores_ = ReflejoScripts::valoresPorDefecto(comportamiento_.campos);
 }
 
 void Script::extraerValores() {
     if (comportamiento_.valido())
-        valores_ = extraerCampos(comportamiento_);
+        valores_ = ScriptRuntime::extraer(comportamiento_);
 }
 
 void Script::recargar(GameObject* owner) {

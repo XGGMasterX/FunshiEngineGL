@@ -35,6 +35,7 @@ struct ComportamientoCargado {
     std::string artefacto; // .so/.dll/.dylib o carpeta de clases compiladas
     void* manejador = nullptr;  // handle de biblioteca (C++) / JVM ref (Java)
     void* instancia = nullptr;  // IScriptBehaviour* (C++) / jobject (Java)
+    void* datos = nullptr;     // estado privado del backend (p. ej. jfieldIDs)
     std::vector<ReflejoScripts::DefCampo> campos; // reflexion del comportamiento
     std::string mtimeFuente;                  // para hot reload (idempotente)
     bool cargado = false;
