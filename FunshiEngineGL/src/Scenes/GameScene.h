@@ -89,7 +89,6 @@ private:
     float sensibilidadCamara = 1.0f;
     int gizmoOperation = 7; // ImGuizmo::TRANSLATE
     bool gizmoReady = false;
-    bool showGrid_ = true;
 
     // Vista previa viva por camara con el checkbox "Vista previa" (Fase 2).
     // Se reconstruye cada frame: texturas FBO + el objeto que las genera.
@@ -105,11 +104,16 @@ private:
                                   const float projection[16]);
     void dibujarObjectConOjo(GameObject* object, GameObject* camaraOjo,
                              const float view[16], const float projection[16]);
+    void dibujarGrilla(GameObject* object);
     void dibujarViewportsPrevios();
     void pintarViewportsGUI();
     // Recoge las luces de la escena (LightSystem::collectLights) y se las
     // pasa al MeshRenderer como uniforms de la pasada en curso.
     void prepararLucesFrame();
+    // Crea el objeto especial "Grilla" (Transform + Grid) si la escena no lo
+    // tiene; las escenas viejas (o recien abiertas) quedan con grilla sin
+    // tocar nada manual.
+    void asegurarGrilla();
 
 public:
     GameScene(GUIManager* managerGUI);
@@ -123,7 +127,6 @@ public:
     void dibujarObject(GameObject* object);
     void dibujarMarcadorLuz(GameObject* object);
     void dibujarMarcadorCamara(GameObject* object);
-    void mallaScene(float tam);
     void GUI();
     void pintarVentanaCamaras();
     void update(float deltaTime);
@@ -133,9 +136,6 @@ public:
     bool isGizmoCapturingInput() const;
     bool gizmoInUse() const;
     GameObject* pickObject(float mouseX, float mouseY);
-
-    bool isGridVisible() const { return showGrid_; }
-    void setGridVisible(bool v) { showGrid_ = v; }
 
     // Camara de la escena como Component: devuelve el primer objeto que tenga
     // una CameraComponent (crea "CamaraPrincipal" si la escena no tiene).
