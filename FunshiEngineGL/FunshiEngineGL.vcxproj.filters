@@ -485,7 +485,7 @@
     <ClCompile Include="src\GUI\ObjetosGUI\Camera\SettingsCamera.cpp">
       <Filter>Archivos de encabezado\GUI\ObjetosGUI\Camera</Filter>
     </ClCompile>
-    <ClCompile Include="src\Matematicas\Vector.cpp">
+    <ClCompile Include="src\Matematicas\StructVec3.cpp">
       <Filter>Archivos de origen\Matematicas</Filter>
     </ClCompile>
     <ClCompile Include="src\Fisicas\PhysicsEngine.cpp">
