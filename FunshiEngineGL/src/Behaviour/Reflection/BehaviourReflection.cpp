@@ -611,8 +611,7 @@ void leerValor(std::ifstream& in, ValorCampo& valor) {
 }
 } // namespace
 
-std::vector<ValorCampo> cargarValoresCampos(
-    std::ifstream& in, const std::vector<DefCampo>& defs) {
+std::vector<ValorCampo> leerValoresCrudos(std::ifstream& in) {
     uint32_t n = 0;
     in.read(reinterpret_cast<char*>(&n), sizeof(n));
     std::vector<ValorCampo> leidos;
@@ -624,6 +623,16 @@ std::vector<ValorCampo> cargarValoresCampos(
         leerValor(in, valor);
         leidos.push_back(std::move(valor));
     }
+    return leidos;
+}
+
+std::vector<ValorCampo> cargarValoresCampos(std::ifstream& in) {
+    return leerValoresCrudos(in);
+}
+
+std::vector<ValorCampo> cargarValoresCampos(
+    std::ifstream& in, const std::vector<DefCampo>& defs) {
+    std::vector<ValorCampo> leidos = leerValoresCrudos(in);
 
     // Casar con los defs actuales POR NOMBRE (robusto a reordenamientos y a
     // campos agregados/quitados en versiones nuevas del script): los campos

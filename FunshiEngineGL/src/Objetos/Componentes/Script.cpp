@@ -18,53 +18,173 @@
 */
 #include "Script.h"
 
-void Script::serializeComponent(std::ofstream* fileNamePathContentObject) {
-    // 1. Serializar longitud del path + contenido
-    size_t pathLength = dllPath.size();
-    fileNamePathContentObject->write(reinterpret_cast<const char*>(&pathLength),
-                                     sizeof(size_t));
-    fileNamePathContentObject->write(dllPath.c_str(), pathLength);
+#include "../Behaviour/ComportamientoCargado.h"
+#include "../Behaviour/ScriptRuntime.h"
+#include "../Objetos/GameObject.h"
 
-    // 2. Serializar longitud del nombre de clase + contenido
-    size_t nameLength = nameClass.size();
-    fileNamePathContentObject->write(reinterpret_cast<const char*>(&nameLength),
-                                     sizeof(size_t));
-    fileNamePathContentObject->write(nameClass.c_str(), nameLength);
-}
-
-void Script::deserializeComponent(std::ifstream* fileNamePathContentObject) {
-    // 1. Deserializar path
-    size_t pathLength = 0;
-    fileNamePathContentObject->read(reinterpret_cast<char*>(&pathLength),
-                                    sizeof(size_t));
-    dllPath.resize(pathLength);
-    fileNamePathContentObject->read(&dllPath[0], pathLength);
-
-    // 2. Deserializar nombre de clase
-    size_t nameLength = 0;
-    fileNamePathContentObject->read(reinterpret_cast<char*>(&nameLength),
-                                    sizeof(size_t));
-    nameClass.resize(nameLength);
-    fileNamePathContentObject->read(&nameClass[0], nameLength);
-}
+namespace {
+constexpr uint32_t MAGIC_SCRIPT = 0x31535346; // 'F','S','S','1'
+constexpr uint32_t VERSION_SCRIPT = 1;
+} // namespace
 
 void Script::setDllPath(std::string dllPath) {
-    this->dllPath = dllPath; // Guarda el path completo
+    this->dllPath = dllPath; // guarda el path completo del fuente
 
-    // Extraer nombre de clase (entre el ultimo '/' y '.')
     size_t lastSlash = dllPath.find_last_of("/\\");
     size_t lastDot = dllPath.find_last_of('.');
 
-    bool isValidScript =
-        !dllPath.empty() && dllPath.find(".cpp") != std::string::npos;
+    bool esFuenteValida = !dllPath.empty() &&
+                          (dllPath.find(".cpp") != std::string::npos ||
+                           dllPath.find(".java") != std::string::npos);
 
     if (lastSlash != std::string::npos && lastDot != std::string::npos &&
-        lastDot > lastSlash && isValidScript) {
+        lastDot > lastSlash && esFuenteValida) {
         this->nameClass =
             dllPath.substr(lastSlash + 1, lastDot - lastSlash - 1);
     } else {
-        this->nameClass = "Debe ser <ClassName>.cpp"; // O valor por defecto
+        this->nameClass = "Debe ser <ClassName>.cpp o .java";
     }
+
+    // El fuente cambio: invalidar lo cargado para que recompile en play mode.
+    comportamiento_ = ComportamientoCargado{};
+    cargado_ = false;
+    arrancado_ = false;
+    error_.clear();
+}
+
+bool Script::cargarActual(std::string& error) {
+    if (dllPath.empty()) {
+        error = "No hay fuente de script asignado.";
+        return false;
+    }
+    return ScriptRuntime::compilarYCargar(dllPath, nameClass, comportamiento_,
+                                          error);
+}
+
+void Script::cargarSiNecesario() {
+    if (cargado_ || dllPath.empty()) return;
+    cargado_ = true;
+    if (!cargarActual(error_)) return;
+
+    // Restaurar los valores de SerializeField persistidos en la escena sobre
+    // la instancia recien compilada (reemplazos en caliente o editados).
+    inyectarCampos(comportamiento_, valores_);
+    if (!comportamiento_.campos.empty() && valores_.empty())
+        valores_ = ReflejoScripts::valoresPorDefecto(comportamiento_.campos);
+}
+
+void Script::extraerValores() {
+    if (comportamiento_.valido())
+        valores_ = extraerCampos(comportamiento_);
+}
+
+void Script::recargar(GameObject* owner) {
+    extraerValores();
+    ScriptRuntime::descargar(comportamiento_, owner); // llama onStop si invalido
+    cargado_ = false;
+    arrancado_ = false;
+    cargarSiNecesario();
+}
+
+void Script::actualizar(GameObject* owner, float deltaTime) {
+    if (dllPath.empty()) return;
+
+    if (!cargado_) cargarSiNecesario();
+    if (!comportamiento_.valido()) return;
+
+    // Hot reload: si el fuente cambio en disco se recompila y se recarga.
+    if (ScriptRuntime::cambioElFuente(comportamiento_)) recargar(owner);
+    if (!comportamiento_.valido()) return;
+
+    if (!arrancado_) {
+        ScriptRuntime::llamarInicio(comportamiento_, owner);
+        arrancado_ = true;
+    }
+    ScriptRuntime::llamarActualizar(comportamiento_, owner, deltaTime);
+}
+
+void Script::detener(GameObject* owner) {
+    if (!arrancado_) return;
+    ScriptRuntime::llamarDetener(comportamiento_, owner);
+    arrancado_ = false;
+    extraerValores(); // que la GUI conserve los ultimos valores editados
+}
+
+void Script::escribirCampo(int indice,
+                           const ReflejoScripts::ValorCampo& valor) {
+    if (indice < 0 || indice >= static_cast<int>(valores_.size())) return;
+    valores_[indice] = valor;
+    // Si la instancia esta viva (play mode) reflejar el cambio inmediato.
+    if (comportamiento_.valido() && indice <
+        static_cast<int>(comportamiento_.campos.size()))
+        ReflejoScripts::escribirCampo(
+            comportamiento_.campos[static_cast<std::size_t>(indice)],
+            comportamiento_.instancia, valor);
+}
+
+void Script::serializeComponent(std::ofstream* f) {
+    // 1. Magic + version para distinguir el formato nuevo (con SerializeField)
+    uint32_t magic = MAGIC_SCRIPT;
+    uint32_t version = VERSION_SCRIPT;
+    f->write(reinterpret_cast<const char*>(&magic), sizeof(magic));
+    f->write(reinterpret_cast<const char*>(&version), sizeof(version));
+
+    // 2. Campos historicos: path + nombre de clase
+    size_t pathLength = dllPath.size();
+    f->write(reinterpret_cast<const char*>(&pathLength), sizeof(size_t));
+    f->write(dllPath.c_str(), pathLength);
+
+    size_t nameLength = nameClass.size();
+    f->write(reinterpret_cast<const char*>(&nameLength), sizeof(size_t));
+    f->write(nameClass.c_str(), nameLength);
+
+    // 3. Valores de SerializeField (arbol autodescriptivo)
+    extraerValores();
+    ReflejoScripts::guardarValoresCampos(*f, valores_);
+}
+
+void Script::deserializeComponent(std::ifstream* f) {
+    std::streampos inicio = f->tellg();
+
+    uint32_t magic = 0;
+    f->read(reinterpret_cast<char*>(&magic), sizeof(magic));
+
+    if (magic == MAGIC_SCRIPT) {
+        uint32_t version = 0;
+        f->read(reinterpret_cast<char*>(&version), sizeof(version));
+
+        size_t pathLength = 0;
+        f->read(reinterpret_cast<char*>(&pathLength), sizeof(size_t));
+        dllPath.resize(pathLength);
+        f->read(&dllPath[0], pathLength);
+
+        size_t nameLength = 0;
+        f->read(reinterpret_cast<char*>(&nameLength), sizeof(size_t));
+        nameClass.resize(nameLength);
+        f->read(&nameClass[0], nameLength);
+
+        if (version >= 1)
+            valores_ = ReflejoScripts::cargarValoresCampos(*f);
+
+        setDllPath(dllPath); // valida nombre clase + invalida lo cargado
+    } else {
+        // Formato legacy: solo path + nombre de clase (sin magic).
+        f->seekg(inicio); // rebobinar para releer por el camino viejo
+
+        size_t pathLength = 0;
+        f->read(reinterpret_cast<char*>(&pathLength), sizeof(size_t));
+        dllPath.resize(pathLength);
+        f->read(&dllPath[0], pathLength);
+
+        size_t nameLength = 0;
+        f->read(reinterpret_cast<char*>(&nameLength), sizeof(size_t));
+        nameClass.resize(nameLength);
+        f->read(&nameClass[0], nameLength);
+        setDllPath(dllPath);
+    }
+
+    cargado_ = false;
+    comportamiento_ = ComportamientoCargado{};
 }
 
 void Script::saveComponent(std::ofstream* fileNamePathContentObject) {

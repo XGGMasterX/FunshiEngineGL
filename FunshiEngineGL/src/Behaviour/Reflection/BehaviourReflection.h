@@ -132,6 +132,10 @@ void guardarValoresCampos(std::ofstream& out,
                           const std::vector<ValorCampo>& valores);
 std::vector<ValorCampo> cargarValoresCampos(
     std::ifstream& in, const std::vector<DefCampo>& defs);
+// Sin defs (p. ej. al cargar la escena sin haber compilado el script): devuelve
+// el arbol tal cual quedo escrito; el emparejado con los defs reales ocurre
+// luego en Script::inyectarCampos (por nombre).
+std::vector<ValorCampo> cargarValoresCampos(std::ifstream& in);
 
 // Resolve el nombre de un GameObject objetivo a su puntero vivo. Lo fija quien
 // tiene acceso a la escena actual (GameScene) antes de inyectar campos/objeto.

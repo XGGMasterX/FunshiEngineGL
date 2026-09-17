@@ -626,6 +626,23 @@ void GameScene::update(float value) {
     // pose del collider desde una posicion descartada. Se empuja el body a
     // la pose VISUAL actual antes de arrancar.
     if (start && !previousStart) {
+        // Los campos de SerializeField que referencian GameObjects se guardan
+        // por nombre; aca se configura el resolver hacia los objetos de ESTA
+        // escena (valido mientras se construye el arbol de valores).
+        ReflejoScripts::fijarResolverObjetos(
+            [this](const std::string& nombre) -> GameObject* {
+                auto* objetos = getGameObjectsScene();
+                if (objetos->isEmpty()) return nullptr;
+                Position<GameObject*>* pos = objetos->first();
+                while (pos && pos->getElement()) {
+                    if (nombre == pos->getElement()->inputName)
+                        return pos->getElement();
+                    pos = (pos != objetos->last()) ? objetos->next(pos)
+                                                   : nullptr;
+                }
+                return nullptr;
+            });
+
         auto* gameObjects = getGameObjectsScene();
         if (!gameObjects->isEmpty()) {
             Position<GameObject*>* pos = gameObjects->first();
@@ -633,6 +650,22 @@ void GameScene::update(float value) {
                 if (RigidBody* body =
                         pos->getElement()->getComponent<RigidBody>())
                     body->syncGameObjectToPhysics();
+                pos = (pos != gameObjects->last()) ? gameObjects->next(pos)
+                                                   : nullptr;
+            }
+        }
+    }
+
+    // Transicion play->editor: avisar a los scripts para que hagan limpieza
+    // (onStop) y conservar los valores editados en play mode para la GUI.
+    if (previousStart && !start) {
+        auto* gameObjects = getGameObjectsScene();
+        if (!gameObjects->isEmpty()) {
+            Position<GameObject*>* pos = gameObjects->first();
+            while (pos && pos->getElement()) {
+                if (Script* script =
+                        pos->getElement()->getComponent<Script>())
+                    script->detener(pos->getElement());
                 pos = (pos != gameObjects->last()) ? gameObjects->next(pos)
                                                    : nullptr;
             }

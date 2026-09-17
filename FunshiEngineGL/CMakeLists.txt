@@ -18,6 +18,9 @@ file(GLOB_RECURSE HEADERS CONFIGURE_DEPENDS ${SRC_DIR}/*.h ${SRC_DIR}/*.hpp)
 # (tests, herramientas, otros front-ends) sin recompilar todo. CI puede compilar
 # SOLO las pruebas headless con BUILD_ENGINE=OFF.
 option(BUILD_ENGINE "Build engine library and executable" ON)
+# Soporte de scripts Java via JNI (requiere JDK en tiempo de build para jni.h;
+# el JVM en runtime se carga dinamicamente solo si hay una escena con .java).
+option(FUNSHI_JAVA "Soporte de scripts Java via JNI" OFF)
 
 if(BUILD_ENGINE)
     # main.cpp es el punto de entrada del ejecutable, no parte de la libreria.
@@ -32,6 +35,12 @@ if(BUILD_ENGINE)
     # Cabeceras del engine y definiciones que expone a sus consumidores.
     target_include_directories(funshi_engine PUBLIC ${SRC_DIR})
     target_compile_definitions(funshi_engine PUBLIC GLM_ENABLE_EXPERIMENTAL)
+
+    # Ruta al fuente del motor (para que los scripts usen las cabeceras al
+    # compilarse en caliente) y compilador C++ a invocar por el BackendCpp.
+    target_compile_definitions(funshi_engine
+        PUBLIC FUNSHI_SRC_DIR="${SRC_DIR}"
+               FUNSHI_CXX_COMPILER="${CMAKE_CXX_COMPILER}")
 
 # 1. Configuración de GLFW
 find_package(glfw3 REQUIRED)
