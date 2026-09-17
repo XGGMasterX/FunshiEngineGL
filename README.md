@@ -20,7 +20,8 @@ Motor y editor 3D en tiempo real escrito en C++17, con interfaz ImGui y renderiz
 - **Iluminación** gestionada por `LightSystem` (slots `GL_LIGHT0..7`, marcadores de luz y cámara en escena) y **materiales** con presets (`MaterialPresets`).
 - Menú de inicio modular (paquete `MenusGUI`, patrón MVP): idioma, nombre del proyecto y sensibilidad de cámara.
 - **Configuración del editor persistida en JSON** (`EditorConfig`, nlohmann/json): proyecto, idioma, sensibilidad, gizmo activo, ventana de cámaras y estado de las ventanas. Se guarda junto al proyecto (`~/MotorGrafico/Configuracion.json` en Linux / `C:/MotorGraficoArchivos/Configuracion.json` en Windows); tolerante a archivos ausentes o corruptos.
-- Estructuras de datos propias (listas, árboles, heaps, mergesort) y jerarquía de excepciones propia.
+- **Caché de assets compartida** (Flyweight): `AssetManager` (meshes CPU) y `TextureManager` (imágenes), con rutas normalizadas (`AssetPath`) y loader inyectable.
+- Estructuras de datos propias (listas, árboles, heaps, mergesort) y jerarquía de excepciones propia: las usadas por el motor (`ListaDE`, `ArbolEnlazado`, `PriorityListaDE`) están corregidas y verificadas, y las implementadas para el motor (`MinHeap`, `MaxHeap`, `ListMergeSort`, `ArbolBinarioEnlazado`) cuentan con pruebas headless.
 - **Pruebas headless** (`tests/`, CTest) y **CI multiplataforma** en GitHub Actions.
 - Build reproducible en **Linux** y **Windows** (y pruebas en macOS) con **CMake**; ASan+UBSan por defecto en Debug.
 
@@ -87,12 +88,17 @@ En Windows la misma receta funciona con el generador de Visual Studio; también 
 
 ## Pruebas y CI
 
-Las pruebas del subsistema FileManager y de `EditorConfig` son headless (sin pila gráfica) y corren con CTest:
+Las pruebas son headless (sin pila gráfica) y corren con CTest:
 
 ```bash
-cmake --build build --target filemanager-tests configuracion-tests
+cmake --build build --target filemanager-tests configuracion-tests assetmanager-tests texturemanager-tests estructuras-tests
 ctest --test-dir build --output-on-failure
 ```
+
+- `filemanager-tests`: explorador de archivos (`GestorDeArchivos`/`FileManager`/`FileSystemWatcher`).
+- `configuracion-tests`: `EditorConfig` (JSON tolerante + round-trip).
+- `assetmanager-tests` y `texturemanager-tests`: caches Flyweight de meshes e imágenes.
+- `estructuras-tests`: listas, árboles, heaps y ordenamiento propios (87 verificaciones).
 
 Con `-DBUILD_ENGINE=OFF` se compilan **solo** las pruebas: no se requieren GLFW/OpenGL/Bullet/Assimp y funcionan en cualquier plataforma. `.github/workflows/ci.yml` hace exactamente eso en Linux, Windows y macOS, además de un build completo del engine en Ubuntu.
 
@@ -107,7 +113,7 @@ FunshiEngineGL/            ← raíz del repo
 ├── CAMARAS_VISTAS_PREVIAS.md ← cámaras componente + vistas previas (Fase 2)
 ├── FunshiEngineGL.sln     ← solución Visual Studio (Windows)
 ├── .github/workflows/     ← CI (build del engine + pruebas multiplataforma)
-├── tests/                 ← pruebas headless (FileManager, EditorConfig)
+├── tests/                 ← pruebas headless (FileManager, EditorConfig, Assets, Estructuras)
 └── FunshiEngineGL/        ← proyecto principal
     ├── CMakeLists.txt
     ├── ImGuizmo/          ← dependencia externa integrada
@@ -115,11 +121,11 @@ FunshiEngineGL/            ← raíz del repo
     ├── Imagenes/          ← íconos del editor
     └── src/               ← todo el código fuente
         ├── main.cpp       ← composition root y bucle principal
-        ├── Behaviour/  Entity/  Estructuras/  Events/  ExcepcionesCPP/
-        ├── Fisicas/    FileManager/  GestorDeArchivos/  Configuracion/
-        ├── GUI/        GUIManager/  Herramientas/  Iluminacion/
-        ├── ImGui/      Matematicas/  Rendering/  Objetos/
-        ├── Scenes/     States/  Gizmo/  Ventana.*  Time.*
+        ├── Assets/        Behaviour/  Entity/  Estructuras/  Events/
+        ├── ExcepcionesCPP/  Fisicas/  FileManager/  GestorDeArchivos/
+        ├── Configuracion/ GUI/  GUIManager/  Herramientas/  Iluminacion/
+        ├── ImGui/  Matematicas/  Rendering/  Objetos/
+        ├── Scenes/  States/  Ventana.*  EngineTime.*
 ```
 
 Ver **PROJECT_STRUCTURE.md** para la descripción completa de cada módulo, las relaciones entre clases, el flujo de ejecución, las pruebas y los pendientes.
@@ -147,7 +153,6 @@ Ver **PROJECT_STRUCTURE.md** para la descripción completa de cada módulo, las 
 ## Roadmap / Pendientes conocidos
 
 - [ ] Sistema de animaciones.
-- [ ] Texturas y *asset manager* compartido (los materiales ya existen como componente).
 - [ ] Scripts dinámicos completos: compilación en caliente, `onStart`/`onUpdate`, `SerializeField`.
 - [ ] `CommandManager` para undo/redo.
 - [ ] Cuadro de log de errores en el editor.
