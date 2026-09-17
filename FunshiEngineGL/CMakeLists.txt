@@ -292,6 +292,42 @@ set_target_properties(scripts-tests PROPERTIES
 )
 add_test(NAME scripts-tests COMMAND scripts-tests)
 
+# Runtime de scripts: valida de punta a punta el BackendCpp (compila el fuente
+# de un script a .so, lo carga con dlopen y ejecuta el ciclo). Requiere un
+# compilador C++ en PATH; si no hay, el test sale con SKIP (77).
+# En Windows el test queda ignorado: cl necesita el entorno de Visual Studio.
+add_executable(scripts-runtime-tests
+    ${SRC_DIR}/Behaviour/Reflection/BehaviourReflection.cpp
+    ${SRC_DIR}/Behaviour/Backends/BackendCpp.cpp
+    ${SRC_DIR}/Behaviour/ScriptRuntime.cpp
+    ${SRC_DIR}/Matematicas/StructVec3.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../tests/ScriptsRuntimeTests.cpp
+)
+set_target_properties(scripts-runtime-tests PROPERTIES
+    CXX_STANDARD 17
+    CXX_STANDARD_REQUIRED ON
+    CXX_EXTENSIONS OFF
+)
+# The SRC_DIR/CXX_COMPILER macros normally come from the engine target; expose
+# them here too para que el BackendCpp pueda compilar el script de prueba.
+target_include_directories(scripts-runtime-tests PRIVATE ${SRC_DIR})
+target_compile_definitions(scripts-runtime-tests
+    PRIVATE FUNSHI_SRC_DIR="${SRC_DIR}"
+            FUNSHI_CXX_COMPILER="${CMAKE_CXX_COMPILER}")
+# dlopen/dlsym on Linux/macOS requiere -ldl (en glibc moderno esta en libc,
+# pero -ldl no molesta); sin backend C fallaria con dlopen.
+if(UNIX)
+    target_link_libraries(scripts-runtime-tests PRIVATE ${CMAKE_DL_LIBS})
+endif()
+find_package(Threads QUIET)
+if(Threads_FOUND)
+    target_link_libraries(scripts-runtime-tests PRIVATE Threads::Threads)
+endif()
+add_test(NAME scripts-runtime-tests COMMAND scripts-runtime-tests)
+# El test devuelve 77 cuando no hay compilador C++ (p. ej. Windows sin cl.exe
+# en PATH): ctest lo reporta como SKIP en lugar de fallo.
+set_tests_properties(scripts-runtime-tests PROPERTIES SKIP_RETURN_CODE 77)
+
 if(WIN32)
     # dbghelp: CapturaBackTrace/SymFromAddr/SymInitialize (RuntimeException).
     # En MinGW los #pragma comment(lib) de MSVC se ignoran, hay que enlazarla.

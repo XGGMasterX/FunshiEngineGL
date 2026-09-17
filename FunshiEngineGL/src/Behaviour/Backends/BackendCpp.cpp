@@ -27,7 +27,6 @@
 
 #include "../ScriptGameObject.h"
 #include "../IScriptBehaviour.h"
-#include "../../Objetos/GameObject.h"
 
 #ifndef FUNSHI_CXX_COMPILER
 #define FUNSHI_CXX_COMPILER "g++"
@@ -139,25 +138,29 @@ bool BackendCpp::compilarYCargar(const std::string& fuente,
     bool hayQueRecompilar = !std::filesystem::exists(artefactoPath, ec) ||
                             salida.mtimeFuente != mtime;
     if (hayQueRecompilar) {
+        // FUNSHI_SRC_DIR llega como literal con comillas dentro del contenido
+        // (FUNSHI_SRC_DIR=\"/ruta\") usadas para argv del compilador.
+        std::string logic = std::string("-I") + FUNSHI_SRC_DIR + " " +
+                            escapar(fuente);
+        const std::string logPath =
+            (std::filesystem::path(directorioCache()) / "compilar.log")
+                .string();
         std::string cmd;
 #if defined(_WIN32)
-        cmd = compilador() + " /nologo /LD /std:c++17 /O2 /DFUNSHI_NOMBRE_CLASE=" +
-              nombreClase + " /I" + escapar(FUNSHI_SRC_DIR) + " " +
-              escapar(fuente) + " /Fo\"" + directorioCache() +
-              "\\\" /Fe" + escapar(artefactoPath) +
-              " > \"" + directorioCache() + "\\compilar.log\" 2>&1";
+        cmd = compilador() +
+              " /nologo /LD /std:c++17 /O2 /DFUNSHI_NOMBRE_CLASE=" +
+              nombreClase + " " + logic + " /Fo\"" + directorioCache() +
+              "\\\" /Fe" + escapar(artefactoPath) + " > \"" + logPath +
+              "\" 2>&1";
 #else
         cmd = compilador() +
               " -std=c++17 -shared -fPIC -O2 -DFUNSHI_NOMBRE_CLASE=" +
-              nombreClase + " -I" + escapar(FUNSHI_SRC_DIR) + " " +
-              escapar(fuente) + " -o " + escapar(artefactoPath) +
-              " > " + (std::filesystem::path(directorioCache()) / "compilar.log").string() +
-              " 2>&1";
+              nombreClase + " " + logic + " -o " + escapar(artefactoPath) +
+              " > " + logPath + " 2>&1";
 #endif
         int rc = std::system(cmd.c_str());
         if (rc != 0) {
-            std::ifstream log((std::filesystem::path(directorioCache()) /
-                               "compilar.log").string());
+            std::ifstream log(logPath);
             std::string contenido((std::istreambuf_iterator<char>(log)),
                                   std::istreambuf_iterator<char>());
             error = "Error al compilar el script C++:\n" + contenido;
@@ -221,8 +224,12 @@ void BackendCpp::descargar(ComportamientoCargado& comportamiento,
     if (comportamiento.instancia) {
         delete reinterpret_cast<IScriptBehaviour*>(comportamiento.instancia);
     }
-    FUNSHI_DLOPENCERRAR(comportamiento.manejador);
+    void* manejador = comportamiento.manejador;
+    // IMPORTANTE: destruir el arbol de campos (std::function con target dentro
+    // del .so) ANTES de dlclose; si no, los destructores saltan a codigo
+    // descargado y segfaultean.
     comportamiento = ComportamientoCargado{};
+    FUNSHI_DLOPENCERRAR(manejador);
 }
 
 void BackendCpp::llamarInicio(ComportamientoCargado& comportamiento,
