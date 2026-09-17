@@ -45,6 +45,10 @@ IconosGUI::~IconosGUI() {
         GLuint id = (GLuint)(intptr_t)iconoHpp;
         glDeleteTextures(1, &id);
     }
+    if (iconoJava != ImTextureID_Invalid) {
+        GLuint id = (GLuint)(intptr_t)iconoJava;
+        glDeleteTextures(1, &id);
+    }
     if (iconoGameObject != ImTextureID_Invalid) {
         GLuint id = (GLuint)(intptr_t)iconoGameObject;
         glDeleteTextures(1, &id);
@@ -57,6 +61,7 @@ void IconosGUI::init() {
     iconoArchivo = cargarPNG("file.png");
     iconoCpp = cargarPNG("cpp.png");
     iconoHpp = cargarPNG("hpp.png");
+    iconoJava = cargarPNG("java.png");
     iconoGameObject = cargarPNG("cubo.png");
     inicializado = true;
 }
@@ -114,5 +119,6 @@ ImTextureID IconosGUI::getIconoPorExtension(const std::string& extension) const 
 
     if (ext == ".cpp" || ext == ".cc" || ext == ".cxx" || ext == ".c") return iconoCpp;
     if (ext == ".h" || ext == ".hpp" || ext == ".hh" || ext == ".hxx") return iconoHpp;
+    if (ext == ".java") return iconoJava;
     return iconoArchivo;
 }
