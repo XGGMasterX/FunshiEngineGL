@@ -15,6 +15,8 @@
 - Máquina de estados explícita (`ApplicationStateMachine`).
 - Explorador de archivos del proyecto con fachada propia y vigilancia de cambios.
 - Configuración del editor persistida en JSON (`EditorConfig`).
+- Caché compartida de assets (meshes CPU e imágenes) mediante Flyweight
+  (`AssetManager` / `TextureManager`).
 - Soporte para scripts dinámicos (`.so`/`.dll`) via `IScriptBehaviour`.
 - Estructuras de datos genéricas propias y jerarquía de excepciones.
 
@@ -38,10 +40,15 @@ FunshiEngineGL/                          ← raíz del repo
 ├── CAMARAS_VISTAS_PREVIAS.md            ← Fase 2: cámaras componente + vistas previas
 ├── FunshiEngineGL.sln                   ← solución Visual Studio (Windows)
 ├── .github/workflows/ci.yml             ← CI: engine en Ubuntu + pruebas en Linux/Win/macOS
+├── .github/workflows/release.yml        ← instaladores Qt IFW (.run) e Inno (.exe) por tag
+├── .github/workflows/windows-release.yml← build+release específico de Windows
 ├── .gitignore / .gitattributes
 ├── tests/
 │   ├── FileManagerTests.cpp             ← pruebas headless del explorador de archivos
-│   └── EditorConfigTests.cpp            ← pruebas headless de la configuración JSON
+│   ├── EditorConfigTests.cpp            ← pruebas headless de la configuración JSON
+│   ├── AssetManagerTests.cpp            ← caché Flyweight de meshes (AssetPath/Mesh)
+│   ├── TextureManagerTests.cpp          ← caché Flyweight de imágenes (TextureManager)
+│   └── EstructurasTests.cpp             ← listas, árboles, heaps y ordenamiento propios
 └── FunshiEngineGL/                      ← proyecto CMake principal
     ├── CMakeLists.txt                   ← GLOB de fuentes, dependencias, sanitizers,
     │                                      pruebas (CTest) y opción BUILD_ENGINE
@@ -51,8 +58,15 @@ FunshiEngineGL/                          ← raíz del repo
     ├── External/nlohmann/json.hpp       ← nlohmann/json vendoriado (EditorConfig)
     └── src/
         ├── main.cpp                     ← composition root: ventanas, callbacks, bucle, config
-        ├── Time.h / Time.cpp            ← delta time y limitador de FPS
+        ├── EngineTime.h / EngineTime.cpp← delta time y limitador de FPS
         ├── Ventana.h / Ventana.cpp      ← inicialización GLFW
+        ├── Assets/                      ← caché Flyweight compartida (meshes e imágenes)
+        │   ├── AssetManager.h/.cpp      ← registro de AssetPath→Mesh (loader inyectable)
+        │   ├── TextureManager.h/.cpp    ← registro de AssetPath→Image (loader inyectable)
+        │   ├── AssetPath.h / Image.h    ← rutas normalizadas y metadatos de imagen
+        │   ├── Mesh.h/.cpp              ← geometría CPU (vértices, normales, índices)
+        │   ├── AssimpMeshLoader.*       ← loader Assimp→Mesh
+        │   └── StbImageLoader.*         ← loader stb_image→Image (solo engine)
         ├── Behaviour/
         │   └── IScriptBehaviour.h       ← interfaz de scripts dinámicos (onStart, onUpdate)
         ├── Configuracion/
@@ -67,13 +81,14 @@ FunshiEngineGL/                          ← raíz del repo
         │   │   ├── ListasConPrioridad/PriorityListaDE.h
         │   │   └── PositionList.h
         │   ├── MetodosDeOrdenamiento/ListMergeSort.h
-        │   ├── Nodos/DNodo.h + TNodo.h  ← nodos de listas y de árbol
+        │   ├── Nodos/DNodo.h + TNodo.h + BNodo.h  ← nodos de listas, árbol n-ario y binario
         │   ├── Position/Position.h
         │   └── Trees/
         │       ├── Tree.h
+        │       ├── Heap/Heap.h + MinHeap.h + MaxHeap.h  ← colas de prioridad (vector)
         │       └── ArbolesEnlazados/
         │           ├── ArbolEnlazado.h  ← árbol n-ario: jerarquía de GameObjects
-        │           └── ArbolBinarioEnlazado.h + Heap/ (Heap, MinHeap, MaxHeap)
+        │           └── ArbolBinarioEnlazado.h ← binario con addLeft/addRight y preorden
         ├── Events/
         │   ├── EventBus.h               ← pub/sub tipado con token de suscripción
         │   └── EventBus.cpp
@@ -89,8 +104,6 @@ FunshiEngineGL/                          ← raíz del repo
         │   └── FileSystemWatcher.h/.cpp ← vigilancia de cambios externos (inotify)
         ├── GestorDeArchivos/            ← Binario (streams binarios), File, Carpeta,
         │                                  GestorDeArchivos (exploración del filesystem)
-        ├── Gizmo/
-        │   └── Gizmo.h                  ← placeholder (la manipulación real vive en ImGuizmo)
         ├── GUI/
         │   ├── GeneralUserInterface.h/.cpp ← interfaz base de paneles ImGui
         │   ├── WindowNames.h
@@ -127,15 +140,20 @@ FunshiEngineGL/                          ← raíz del repo
         │   └── LightSystem.h/.cpp        ← dueño del estado GL de luces (GL_LIGHT0..7) por frame
         ├── ImGui/                        ← Dear ImGui v1.x integrado (+ backends glfw/opengl3)
         ├── Matematicas/
-        │   ├── StructVec3.h              ← vec3 propio
-        │   └── Vector.cpp/.h
+        │   └── StructVec3.h/.cpp         ← vec3 propio
         ├── Rendering/
-        │   └── RenderTarget.h/.cpp       ← render a textura (FBO) para vistas previas de cámara
+        │   ├── MeshGPU.h/.cpp            ← malla residente en GPU (buffers VBO/VAO)
+        │   ├── MeshRenderer.h/.cpp       ← dibuja MeshGPU con shader program
+        │   ├── TextureGL.h/.cpp          ← textura OpenGL desde Image
+        │   ├── RenderTarget.h/.cpp       ← render a textura (FBO) para vistas previas de cámara
+        │   ├── GLFuncs.h                ← punteros de función OpenGL (contexto de compatibilidad)
+        │   └── Shaders/
+        │       ├── ShaderProgram.h/.cpp  ← compilación/link de shaders + ShaderSources.h
+        │       └── ShaderException.h
         ├── Objetos/
         │   ├── GameObject.h/.cpp         ← id, nombre, estado, update, serialización binaria
         │   ├── GameObjectFactory.h/.cpp
         │   ├── Modelos3D.h/.cpp          ← carga Assimp y dibujo GL inmediato
-        │   ├── Malla.h                   ← placeholder de malla
         │   └── Componentes/
         │       ├── Component.h           ← interfaz base polimórfica (serialize/deserialize)
         │       ├── ComponentFactory.h/.cpp ← creación por nombre (GUI y deserialización)
@@ -143,7 +161,7 @@ FunshiEngineGL/                          ← raíz del repo
         │       ├── CameraComponent.h/.cpp ← cámara componente: vista, FPS, flag de vista previa
         │       ├── Material.h/.cpp       ← AMBIENT/DIFFUSE/SPECULAR/EMISSION/SHININESS
         │       ├── Light.h/.cpp          ← luz puntual serializable
-        │       ├── Color.h / Model.h / Script.h / Phisics.h
+        │       ├── Color.h / Model.h / Script.h
         │       ├── RigidBody/RigidBody.h/.cpp ← cuerpo Bullet sincronizado (RAII)
         │       └── Colliders/
         │           ├── Collider.h/.cpp   ← base abstracta; radio; gizmo del collider (GizmoTarget)
@@ -155,6 +173,7 @@ FunshiEngineGL/                          ← raíz del repo
             ├── SceneRegistry.h/.cpp      ← ownership único (unique_ptr) + árbol + vista lineal
             ├── EditorController.h/.cpp   ← mutaciones + GizmoTarget + registro de física
             ├── SceneSerializer.h/.cpp    ← save/load binario preorden con marcadores =>/<=
+            └── States/ApplicationStateMachine.h/.cpp ← MainMenu/Editing/Playing/Exiting
 ```
 
 ---
@@ -176,7 +195,7 @@ main.cpp
   ├── ApplicationStateMachine      ← MainMenu / Editing / Playing / Exiting
   └── bucle principal
       ├── glfwPollEvents
-      ├── Time::update (deltaTime)
+      ├── EngineTime::update (deltaTime)
       ├── ImGui::NewFrame
       ├── refleja el estado del menú en la fachada MenuGUI (guardia de cambio)
       ├── si Playing → phisics.stepSimulation(dt) (solo con start==true)
@@ -249,9 +268,20 @@ internamente `GUIManager`, `SceneRegistry`, `EditorController`, `SceneSerializer
   `SceneRegistry`. No libera los objetos apuntados (la ownership está en el vector).
 - `ListaDE<GameObject*>` es una vista lineal reconstruible de `SceneRegistry`,
   usada por GUI, render, iluminación y actualización. Tampoco es propietaria.
-- `TNodo` contiene sus hijos mediante una `ListaDE<Position<E>*>`;
-  `DNodo` implementa los nodos de listas doblemente enlazadas.
+- `TNodo` contiene sus hijos mediante una `ListaDE<TNodo<E>*>`;
+  `DNodo` implementa los nodos de listas doblemente enlazadas y `BNodo` los del
+  binario (con destructor recursivo de subárbol).
 - Las estructuras genéricas son header-only para permitir la instanciación de plantillas.
+- Estado de las estructuras (ver `tests/EstructurasTests.cpp`):
+  - **Usadas por el motor**: `ListaDE`, `PriorityListaDE`, `ArbolEnlazado`.
+    ListaDE y ArbolEnlazado fueron corregidas (inicialización de nodos,
+    `addFirst`, liberación de nodos en `remove` y destructores, orden de
+    borrado en `deleteRoot`/`deleteInternalNode`/`deleteExternalNode`) y su
+    comportamiento está cubierto por la suite.
+  - **Disponibles y probadas, sin consumidores todavía**: `MinHeap`, `MaxHeap`,
+    `ListMergeSort` y `ArbolBinarioEnlazado`. Fueron implementadas (antes eran
+    stubs vacíos que el README daba por hechos) y validadas con las mismas
+    pruebas, aptas para su uso por el motor cuando hagan falta.
 
 ### GUI
 
@@ -338,13 +368,18 @@ La convención general es un par `.h`/`.cpp` por clase. Las excepciones son:
 al build sin enumerarlos manualmente. Los archivos de ImGui se recopilan por separado
 desde `src/ImGui/` y los de ImGuizmo desde `ImGuizmo/` (fuera de `src/`).
 
-Además del ejecutable, el proyecto define dos **targets de prueba headless**
-registrados en CTest:
+Además del ejecutable, el proyecto define **cinco targets de prueba headless**
+registrados en CTest (compilan en cualquier plataforma con `BUILD_ENGINE=OFF`):
 
 - `filemanager-tests`: ejercita `GestorDeArchivos`/`FileManager`/`FileSystemWatcher`
   contra un proyecto temporal, sin ventanas ni pila gráfica.
 - `configuracion-tests`: round-trip del JSON de `EditorConfig` y carga tolerante
   ante archivos ausentes o corruptos.
+- `assetmanager-tests`: caché Flyweight de meshes (rutas `AssetPath`, geometría
+  `Mesh`) y el registro compartido con un loader artificial.
+- `texturemanager-tests`: caché Flyweight de imágenes CPU (sin entrar la pila gráfica).
+- `estructuras-tests`: `ListaDE`, `ArbolEnlazado`, `PriorityListaDE`,
+  `MinHeap`/`MaxHeap`, `ListMergeSort` y `ArbolBinarioEnlazado` (87 verificaciones).
 
 La opción `BUILD_ENGINE=OFF` compila solo las pruebas (útil en CI y plataformas
 sin las librerías gráficas), y `ENABLE_ASAN` (ON por defecto en Debug) activa
@@ -403,11 +438,11 @@ main.cpp
 | MVP | Paquete `MenusGUI` (`MenuModel`/`MenuView`/`StartMenuPresenter`) | Lógica del menú testeable, independiente de ImGui/GLFW. |
 | Observer | `EventBus` (token-based) | Desacopla notificaciones de escena y selección entre subsistemas. |
 | State | `ApplicationStateMachine` | Explicita los modos principales de la aplicación. |
+| Flyweight / Cache | `AssetManager` (meshes) y `TextureManager` (imágenes) | Recursos CPU compartidos por ruta (`AssetPath`) con loader inyectable y liberación por refcount. |
 
 No están implementados todavía:
 - `Command` para undo/redo.
 - `Prototype` para duplicación y prefabs.
-- `AssetManager / Flyweight` para compartir recursos de forma eficiente.
 - `Visitor` para inspectores extensibles.
 
 ---
@@ -475,10 +510,20 @@ GameScene → coordina todos los subsistemas del frame
   `FileSystemWatcher` (detección de cambios externos, en Linux via inotify).
 - `tests/EditorConfigTests.cpp`: round-trip del JSON y tolerancia a archivos
   ausentes o corruptos.
-- Ambos targets compilan en cualquier plataforma y se ejecutan con `ctest`.
+- `tests/AssetManagerTests.cpp` y `tests/TextureManagerTests.cpp`: caches
+  Flyweight con loader artificial; validan rutas normalizadas, compartición y ciclo
+  de vida de los recursos.
+- `tests/EstructurasTests.cpp`: suite de las estructuras propias. Cubre la regresión
+  de `ListaDE::addFirst`, la liberación de nodos en `remove`, el borrado de
+  `ArbolEnlazado` (hoja, nodo interno y raíz), `PriorityListaDE`, la extracción
+  ordenada de `MinHeap`/`MaxHeap`, la estabilidad de `ListMergeSort` y el árbol
+  binario (addLeft/addRight, childsOf, preorden RID, borrado de hoja e interno).
+- Los cinco targets compilan en cualquier plataforma y se ejecutan con `ctest`.
 - `.github/workflows/ci.yml` compila el engine completo en Ubuntu (Release, sin
-  ASan) y ejecuta las pruebas; además ejecuta las pruebas headless en
+  ASan) y ejecuta las pruebas; además ejecuta las cinco pruebas headless en
   Linux/Windows/macOS con `BUILD_ENGINE=OFF`.
+- `.github/workflows/release.yml` y `windows-release.yml` también ejecutan la
+  suite (y `estructuras-tests`) al generar los instaladores por tag.
 
 Los bugs de la Fase 2 (cámaras/vistas previas) y sus fixes están documentados en
 [CAMARAS_VISTAS_PREVIAS.md](CAMARAS_VISTAS_PREVIAS.md).
@@ -488,7 +533,6 @@ Los bugs de la Fase 2 (cámaras/vistas previas) y sus fixes están documentados 
 ## 12. Pendientes conocidos
 
 - [ ] Sistema de animaciones.
-- [ ] Texturas y asset manager compartido.
 - [ ] Scripts dinámicos completos: compilación en caliente, `onStart`/`onUpdate`, `SerializeField`.
 - [ ] `CommandManager` para undo/redo.
 - [ ] Cuadro de log de errores en el editor.
@@ -501,4 +545,33 @@ Los bugs de la Fase 2 (cámaras/vistas previas) y sus fixes están documentados 
 - [ ] Extraer `SceneRenderer`, `PhysicsSystem` y `ScriptSystem` de `GameScene`.
 - [ ] Encapsular las estructuras internas de `SceneRegistry` (eliminar getters raw de compatibilidad).
 - [ ] Vistas previas de cámara seleccionables con clic (hoy son pasivas).
-- [ ] Limpiar el `glEndList()` huérfano en `GameScene::mallaScene`.
+
+---
+
+## 13. Análisis: expresiones regulares (veredicto)
+
+Se buscó uso de `std::regex` / `boost::regex` en el código del motor (búsqueda
+por `regex|regular_expression` en `src/`, tests y herramientas). **No existe
+ningún consumidor de expresiones regulares** (la única aparición es un comentario
+dentro de `ImGui/imgui.cpp`, código de terceros), y los puntos donde un motor
+suele necesitarlas están resueltos con otras herramientas:
+
+- **Rutas de assets**: `AssetPath` normaliza con `std::filesystem` (carga sobre
+  `std::path` con separadores y síndromes `.`/`..` del propio API), sin patrones.
+- **Extensión de archivos**: predicados directos (`entrada.path().extension()`,
+  comparaciones de `std::string`) en `GestorDeArchivos` y `AssetManager`.
+- **Configuración del editor**: `EditorConfig` parsea JSON con **nlohmann/json**
+  (librería ya vendoriada en `External/`); las claves se validan por acceso
+  estructurado, no por patrones.
+- **Serialización de escenas**: `SceneSerializer` usa un formato binario en
+  preorden con marcadores literales `=>`/`<=`, decididos con comparaciones de
+  `std::string` exactas (búsqueda del look-ahead), no con matching.
+- **Nombres de tipos**: `ComponentFactory`/`TypeUtils` comparan huesos
+  exactamente (`"CameraComponent"` y alias `"Camera"`), sin patrones.
+
+**Conclusión**: no se incorpora ninguna dependencia de regex. Las necesidades
+actuales de parsing son estructuradas (filesystem, JSON, binario, comparación
+literal) y una implementación con `std::regex` añadiría coste de compilación y
+de runtime sin cubrir ningún caso real. Si más adelante se necesitara validar
+nombres de archivos o campos con patrones (p. ej. prefijos de prefabs), la
+decisión sería revistarla puntualmente con `std::regex` (sin dependencia extra).
