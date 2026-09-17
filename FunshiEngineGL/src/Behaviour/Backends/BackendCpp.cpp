@@ -198,6 +198,10 @@ bool BackendCpp::compilarYCargar(const std::string& fuente,
         return false;
     }
 
+    // La fábrica recibe la tabla pero el template no la guarda: el motor la
+    // inyecta acá para que `this->api` quede siempre disponible en el script.
+    instancia->conectarApi(MotorScript::tablaApi());
+
     salida.fuente = fuente;
     salida.lenguaje = "cpp";
     salida.artefacto = artefactoPath;
