@@ -17,7 +17,8 @@
 - Configuración del editor persistida en JSON (`EditorConfig`).
 - Caché compartida de assets (meshes CPU e imágenes) mediante Flyweight
   (`AssetManager` / `TextureManager`).
-- Soporte para scripts dinámicos (`.so`/`.dll`) via `IScriptBehaviour`.
+- Scripts dinámicos (`.so`/`.dll`) con reflexión tipo `SerializeField` y hot
+  reload (`ScriptRuntime` + backends C++/Java) sobre `IScriptBehaviour`.
 - Estructuras de datos genéricas propias y jerarquía de excepciones.
 
 El punto de entrada es `FunshiEngineGL/src/main.cpp`. La configuración de compilación
@@ -68,7 +69,16 @@ FunshiEngineGL/                          ← raíz del repo
         │   ├── AssimpMeshLoader.*       ← loader Assimp→Mesh
         │   └── StbImageLoader.*         ← loader stb_image→Image (solo engine)
         ├── Behaviour/
-        │   └── IScriptBehaviour.h       ← interfaz de scripts dinámicos (onStart, onUpdate)
+        │   ├── IScriptBehaviour.h       ← interfaz de scripts (onStart/onUpdate/onStop, campos)
+        │   ├── ScriptGameObject.*       ← tabla de acceso al GameObject inyectada al script
+        │   ├── ScriptRuntime.*          ← registro de backends, compilación y hot reload
+        │   ├── ComportamientoCargado.h  ← instancia compilada (módulo + campos)
+        │   ├── Backends/
+        │   │   ├── BackendScript.h      ← interfaz de backend (C++/Java)
+        │   │   ├── BackendCpp.*         ← compila .cpp→.so/.dll y lo carga (dlopen)
+        │   │   └── BackendJava.*        ← Java vía JNI/JVM dinámico (solo con FUNSHI_JAVA)
+        │   └── Reflection/
+        │       └── BehaviourReflection.* ← reflexión, macros SerializeField y serialización
         ├── Configuracion/
         │   └── EditorConfig.h/.cpp      ← persistencia JSON de la configuración (menú + GUI)
         ├── Entity/
@@ -330,9 +340,22 @@ internamente `GUIManager`, `SceneRegistry`, `EditorController`, `SceneSerializer
 
 ### Scripts dinámicos
 
-- `Script` (componente) gestiona la carga de módulos `.so`/`.dll` mediante `dlopen`/`LoadLibrary`.
-- `IScriptBehaviour` define la interfaz esperada: `onStart(GameObject*)` y `onUpdate(GameObject*, float)`.
-- La compilación en caliente y el `SerializeField` están pendientes de implementación completa.
+- `Script` (componente) orquesta el ciclo de vida del módulo y guarda los valores de
+  los campos (`SerializeField`) en la serialización binaria de la escena.
+- `ScriptRuntime` registra los backends por extensión, compila/carga el fuente y
+  aplica hot reload comparando la fecha de modificación (conserva y reinyecta los
+  valores por nombre de campo).
+- `IScriptBehaviour` define la interfaz: `onStart`/`onUpdate`/`onStop` y
+  `camposReflejados()`; el motor inyecta la tabla `MotorScript::ApiScriptGameObject`
+  (nombre, transform, log) para que el script no enlace contra el motor.
+- `BehaviourReflection` implementa la reflexión por macros (`REFLECT_INICIO`,
+  `CAMPO`, `ARRAY`, `GRUPO`, `GRUPOS`, `FIN`), la conversión de valores tipados y la
+  serialización binaria autodescriptiva de los campos.
+- `BackendCpp` compila el `.cpp` a `.so`/`.dll` con el compilador configurado y lo
+  carga con `dlopen`/`LoadLibrary`; `BackendJava` (opcional, `-DFUNSHI_JAVA=ON`)
+  compila con `javac` y ejecuta sobre un JVM cargado dinámicamente vía JNI.
+- El editor (`SettingsScript`) dibuja los campos reflejados (escalares, arrays,
+  grupos y referencias a `GameObject`) y dispara la recompilación.
 
 ---
 

@@ -97,6 +97,8 @@ FunshiEngineGL/build/
 FunshiEngineGL/build_temp/
 FunshiEngineGL/build-win/
 FunshiEngineGL_BACKUP/
+# Build dirs en la raiz del repo (build-release de desarrollo, build-java, etc.)
+/build-*/
 
 # Empaquetado Windows (montaje y setup generados por HacerInstalador.bat / CI)
 FunshiEngineGL/packaging/dist/
