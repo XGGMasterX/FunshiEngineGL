@@ -61,18 +61,6 @@ void SceneSelectedInterface::initGUI() {
 }
 
 void SceneSelectedInterface::contentGUI() {
-	// Entrada sintetica "Grilla" como objeto unico en la jerarquia.
-	if (gridVisible_) {
-		ImGui::PushID("Grilla");
-		if (iconosGUI && iconosGUI->getIconoGameObject() != ImTextureID_Invalid) {
-			ImGui::Image(iconosGUI->getIconoGameObject(), ImVec2(22, 22));
-			ImGui::SameLine();
-		}
-		ImGui::Checkbox("Grilla", gridVisible_);
-		ImGui::PopID();
-		ImGui::Separator();
-	}
-
 	auto* entitys = getEntitysTree();
     if (!entitys) return;
 

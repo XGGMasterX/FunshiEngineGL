@@ -20,11 +20,46 @@
 #include <fstream>
 #include <iostream>
 #include <cctype>
+#include <cstring>
+#include <string>
+#include <vector>
 
 #include "../../GLCompat.h"
+#ifdef _WIN32
+#include <windows.h>
+#else
+#include <unistd.h>
+#endif
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
+
+namespace {
+
+// Directorio del ejecutable (sin el nombre del binario, con separador final).
+// Refleja donde quedo el build y NO depende del directorio desde el que se
+// lance el engine: hasta ahora los iconos se resolvian 100% relativo al cwd y
+// segun quien corriera el exe se veian las imagenes de una carpeta u otra.
+std::string directorioEjecutable() {
+#ifdef _WIN32
+    char exe[MAX_PATH] = {};
+    DWORD n = GetModuleFileNameA(nullptr, exe, MAX_PATH);
+    if (n == 0 || n >= MAX_PATH) return "";
+    const std::string path(exe, static_cast<std::size_t>(n));
+    const std::size_t sep = path.find_last_of("\\/");
+    return (sep == std::string::npos) ? "" : path.substr(0, sep + 1);
+#else
+    char link[4096] = {};
+    const ssize_t n = readlink("/proc/self/exe", link, sizeof(link) - 1);
+    if (n <= 0) return "";
+    link[n] = '\0';
+    const std::string path(link);
+    const std::size_t sep = path.find_last_of('/');
+    return (sep == std::string::npos) ? "" : path.substr(0, sep + 1);
+#endif
+}
+
+} // namespace
 
 IconosGUI::IconosGUI() {}
 
@@ -62,17 +97,34 @@ void IconosGUI::init() {
 }
 
 ImTextureID IconosGUI::cargarPNG(const char* nombrePNG) {
-    // El exe puede correrse desde build/, la raiz del proyecto, etc., asi que
-    // probamos varias rutas relativas al directorio de trabajo actual.
-    const char* carpetasProbables[] = {
+    // Orden de busqueda:
+    //  1) Relativo al directorio del ejecutable (determinista): los vectores
+    //     de build activo suelen quedar junto al binario o un nivel arriba
+    //     (build/ -> ../Imagenes, build-java/ -> ../FunshiEngineGL/Imagenes).
+    //  2) Relativo al cwd (fallback historico): si el exe se corre desde
+    //     build/, la raiz del proyecto o la raiz del proyecto del usuario.
+    const std::string exeDir = directorioEjecutable();
+    std::vector<std::string> carpetas;
+    if (!exeDir.empty()) {
+        carpetas.push_back(exeDir + "Imagenes/");
+        carpetas.push_back(exeDir + "../Imagenes/");
+        carpetas.push_back(exeDir + "../FunshiEngineGL/Imagenes/");
+        carpetas.push_back(exeDir + "../../Imagenes/");
+        carpetas.push_back(exeDir + "../../../Imagenes/");
+    }
+    const char* rutasCwd[] = {
         "Imagenes/", "../Imagenes/", "../../Imagenes/", "../../../Imagenes/"
     };
+    for (const char* carpeta : rutasCwd) carpetas.emplace_back(carpeta);
 
     std::string rutaEncontrada;
-    for (const char* carpeta : carpetasProbables) {
-        std::string ruta = std::string(carpeta) + nombrePNG;
+    for (const std::string& carpeta : carpetas) {
+        const std::string ruta = carpeta + nombrePNG;
         std::ifstream archivo(ruta.c_str(), std::ios::binary);
-        if (archivo.good()) { rutaEncontrada = ruta; break; }
+        if (archivo.good()) {
+            rutaEncontrada = ruta;
+            break;
+        }
     }
     if (rutaEncontrada.empty()) {
         std::cerr << "[IconosGUI] No se encontro la imagen '" << nombrePNG

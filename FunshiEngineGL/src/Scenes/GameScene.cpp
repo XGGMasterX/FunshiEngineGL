@@ -28,6 +28,7 @@
 #include "../Objetos/Componentes/Light.h"
 #include "../Objetos/Componentes/Script.h"
 #include "../Objetos/Componentes/Transform.h"
+#include "../Objetos/Componentes/Grid.h"
 #include "../Objetos/Modelos3D.h"
 #include "../Objetos/Componentes/Colliders/EsfereCollider.h"
 #include "../Objetos/Componentes/Colliders/CubeCollider.h"
@@ -84,7 +85,7 @@ GameScene::GameScene(GUIManager* manager)
                                              assetManager.get())) {
     selecteableGUI = managerGUI->getSelecteableGUI();
     managerGUI->bindScene(sceneRegistry.get(), editorController.get(), &events);
-    if (selecteableGUI) selecteableGUI->setGridToggle(&showGrid_);
+    asegurarGrilla();
     menuBarGUI = managerGUI->getMenuBarGUI(&start);
     // El renderer resuelve la textura de cada Material con el cache de imagenes
     // de la escena (un solo decode por archivo, imagen compartida).
@@ -99,6 +100,30 @@ GameScene::~GameScene() {
 ListaDE<GameObject*>* GameScene::getGameObjectsScene() {
     sceneRegistry->refreshGameObjectView();
     return sceneRegistry->getGameObjects();
+}
+
+void GameScene::asegurarGrilla() {
+    if (!sceneRegistry || !editorController) return;
+    auto* lista = getGameObjectsScene();
+    if (lista && !lista->isEmpty()) {
+        Position<GameObject*>* pos = lista->first();
+        while (pos && pos->getElement()) {
+            if (std::string(pos->getElement()->inputName) == "Grilla") return;
+            pos = (pos != lista->last()) ? lista->next(pos) : nullptr;
+        }
+    }
+
+    GameObject* creada = editorController->createGameObject(
+        std::make_unique<Modelos3D>(nullptr), sceneRegistry->getRoot());
+    if (!creada) return;
+    std::snprintf(creada->inputName, sizeof(creada->inputName), "Grilla");
+    Transform* transform = creada->getComponent<Transform>();
+    if (!transform) {
+        creada->addComponent(std::make_unique<Transform>());
+        transform = creada->getComponent<Transform>();
+    }
+    if (transform) transform->setTranslatef(0.f, -0.5f, 0.f);
+    creada->addComponent(std::make_unique<Grid>());
 }
 
 void GameScene::saveScene(const std::string& filename) {
@@ -119,6 +144,9 @@ void GameScene::loadScene(const std::string& pathTxt, const std::string& semiPat
             selecteableGUI->bindScene(sceneRegistry.get(), editorController.get(),
                                        &events);
         if (managerGUI) managerGUI->removeSettingsGUI();
+        // Las escenas viejas no guardan el objeto "Grilla": se crea sobre la
+        // marcha si falta, conservando la visibilidad por defecto.
+        asegurarGrilla();
     }
 }
 
@@ -304,6 +332,10 @@ void GameScene::dibujarObjectConOjo(GameObject* object, GameObject* camaraOjo,
             object->dibujar(deltaTime);
         }
     }
+    // La grilla es un GameObject (Transform + Grid): se dibuja desde su propio
+    // transform como cualquier otro objeto, no mas como una grilla fija al
+    // mundo con visibilidad global.
+    if (object->getComponent<Grid>() != nullptr) dibujarGrilla(object);
     if (object->getComponent<Light>()) dibujarMarcadorLuz(object);
     if (object->getComponent<CameraComponent>() && object != camaraOjo)
         dibujarMarcadorCamara(object);
@@ -414,18 +446,32 @@ void GameScene::dibujarMarcadorCamara(GameObject* object) {
     glPopMatrix();
 }
 
-void GameScene::mallaScene(float tam) {
-    const float y = -0.5f;
-    glColor3fv(branco_gelo);
-    glMaterialfv(GL_FRONT, GL_DIFFUSE, branco_gelo);
+void GameScene::dibujarGrilla(GameObject* object) {
+    Grid* grid = object->getComponent<Grid>();
+    Transform* transform = object->getGlobalTransform();
+    if (!grid || !grid->getVisible() || !transform) return;
+
+    const float tam = grid->getTam();
+    const float sep = grid->getSeparacion();
+    if (tam <= 0.f || sep <= 0.f) return;
+
+    float modelArr[16];
+    buildMatrixFromTransform(transform, modelArr);
+
+    glPushMatrix();
+    glMultMatrixf(modelArr);
+    glDisable(GL_LIGHTING);
+    glColor3fv(grid->getColor());
     glBegin(GL_LINES);
-    for (float i = -tam; i <= tam; i += 1.0f) {
-        glVertex3f(i, y, -tam);
-        glVertex3f(i, y, tam);
-        glVertex3f(-tam, y, i);
-        glVertex3f(tam, y, i);
+    for (float i = -tam; i <= tam; i += sep) {
+        glVertex3f(i, 0.f, -tam);
+        glVertex3f(i, 0.f, tam);
+        glVertex3f(-tam, 0.f, i);
+        glVertex3f(tam, 0.f, i);
     }
     glEnd();
+    glEnable(GL_LIGHTING);
+    glPopMatrix();
 }
 
 void GameScene::GUI() {
@@ -454,7 +500,6 @@ void GameScene::dibujarEscena(const float view[16], const float projection[16],
 
     lightSystem.beginFrame(getGameObjectsScene());
     prepararLucesFrame();
-    if (showGrid_) mallaScene(70.0f);
     dibujarGameObjectsConOjo(camaraOjo, view, projection);
 }
 
