@@ -37,6 +37,7 @@ public:
     ImTextureID getIconoArchivo() const { return iconoArchivo; }
     ImTextureID getIconoCpp() const { return iconoCpp; }
     ImTextureID getIconoHpp() const { return iconoHpp; }
+    ImTextureID getIconoJava() const { return iconoJava; }
     ImTextureID getIconoGameObject() const { return iconoGameObject; }
     ImTextureID getIconoPorExtension(const std::string& extension) const;
 
@@ -47,6 +48,7 @@ private:
     ImTextureID iconoArchivo = ImTextureID_Invalid;
     ImTextureID iconoCpp = ImTextureID_Invalid;
     ImTextureID iconoHpp = ImTextureID_Invalid;
+    ImTextureID iconoJava = ImTextureID_Invalid;
     ImTextureID iconoGameObject = ImTextureID_Invalid;
     bool inicializado = false;
 };
