@@ -18,12 +18,32 @@
 */
 #ifndef ISCRIPTBEHAVIOUR_H
 #define ISCRIPTBEHAVIOUR_H
-#include "../Objetos/GameObject.h"
+#include "Reflection/BehaviourReflection.h"
+#include "ScriptGameObject.h"
 
 class IScriptBehaviour {
 public:
+    // Tabla de acceso a GameObject que inyecta el motor al cargar el script.
+    // Los scripts la usan como `if (api) api->posicionX(owner)`.
+    const MotorScript::ApiScriptGameObject* api = nullptr;
+
     virtual ~IScriptBehaviour() {}
     virtual void onStart(GameObject* owner) = 0;
     virtual void onUpdate(GameObject* owner, float deltaTime) = 0;
+
+    // Opcional: recibe la tabla de punteros que implementa el motor en la TU
+    // del ejecutable (así el .so del script no enlaza símbolos del motor).
+    virtual void conectarApi(const MotorScript::ApiScriptGameObject* tabla) {
+        api = tabla;
+    }
+
+    // Ciclo opcional invocado al salir de play mode (limpieza del script).
+    virtual void onStop(GameObject* owner) { (void)owner; }
+
+    // Campos editables (SerializeField). Los scripts que usan las macros
+    // REFLECT_* la implementan automaticamente; sin reflexion devuelve vacio.
+    virtual std::vector<ReflejoScripts::DefCampo> camposReflejados() const {
+        return {};
+    }
 };
 #endif

@@ -215,12 +215,16 @@ int GameObject::getTam() {
 }
 
 
-void GameObject::update(float /*deltaTime*/) {
+void GameObject::update(float deltaTime) {
 
     if (RigidBody* body =
             getComponent<RigidBody>())
     {
         body->syncPhysicsToGameObject();
+    }
+
+    if (Script* script = getComponent<Script>()) {
+        script->actualizar(this, deltaTime);
     }
 }
 

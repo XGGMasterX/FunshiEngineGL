@@ -9,6 +9,7 @@ Motor y editor 3D en tiempo real escrito en C++17, con interfaz ImGui y renderiz
 - Ventana y contexto OpenGL con **GLFW**; renderizado con **OpenGL / GLU** (pipeline inmediato).
 - Interfaz de editor con **Dear ImGui** (docking) y gizmos con **ImGuizmo**.
 - Sistema **Entity–Component**: `Transform`, `Color`, `Model`, `Material`, `Light`, `CameraComponent`, colliders (esfera / cubo / malla), `RigidBody` y `Script`.
+- **Scripts dinámicos** (`Script` + `IScriptBehaviour`): reflexión por macros con campos `SerializeField` (escalares, arrays y grupos anidados) editables en el inspector; compilación en caliente de C++ a `.so`/`.dll` (`BackendCpp`) y soporte opcional de **Java vía JNI** (`BackendJava`, se activa con `-DFUNSHI_JAVA=ON`). Hot reload por fecha de modificación que reinyecta los valores serializados, y ciclo `onStart`/`onUpdate`/`onStop`.
 - **Jerarquía de objetos** con árbol enlazado propio (`ArbolEnlazado<GameObject*>`) y reparentado seguro (rechaza ciclos y la raíz).
 - Carga de modelos 3D con **Assimp** (`.obj`, `.fbx` y formatos soportados por Assimp).
 - **Física con Bullet** detrás de una fachada desacoplada (`PhysicsEngine` → `IPhysicsBackend` → `BulletPhysicsAdapter`): solo simula en modo Play, sincroniza transformaciones entre objeto, collider y cuerpo, y admite un gizmo dedicado para el collider activo.
@@ -41,6 +42,7 @@ Motor y editor 3D en tiempo real escrito en C++17, con interfaz ImGui y renderiz
 | nlohmann/json  | —              | Vendoriado en `FunshiEngineGL/External/nlohmann`             |
 | ncurses        | cualquiera     | `libncurses-dev` (solo Linux)                                |
 | X11            | —              | `libx11-dev`, `libxrandr-dev`, `libxi-dev`                   |
+| JDK            | 17+            | Solo para scripts **Java** (`-DFUNSHI_JAVA=ON`); opcional en runtime via `JAVA_HOME` |
 
 ### Instalar dependencias en Ubuntu/Debian
 
@@ -153,7 +155,7 @@ Ver **PROJECT_STRUCTURE.md** para la descripción completa de cada módulo, las 
 ## Roadmap / Pendientes conocidos
 
 - [ ] Sistema de animaciones.
-- [ ] Scripts dinámicos completos: compilación en caliente, `onStart`/`onUpdate`, `SerializeField`.
+- [x] Scripts dinámicos: `SerializeField` con reflexión, compilación en caliente de C++ (`BackendCpp`) y Java opcional vía JNI (`BackendJava`, `-DFUNSHI_JAVA=ON` + JDK en build), ciclo `onStart`/`onUpdate`/`onStop` y hot reload.
 - [ ] `CommandManager` para undo/redo.
 - [ ] Cuadro de log de errores en el editor.
 - [ ] Resolver IDs duplicados al crear objetos; limpiar binarios huérfanos al eliminar.

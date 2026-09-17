@@ -125,8 +125,10 @@ void ContentFolderInterface::crearNuevoElemento() {
         }
     } else {
         std::string nombre = nombreNuevo;
-        if (creandoScript && nombre.find(".cpp") == std::string::npos)
-            nombre += ".cpp";
+        if (creandoScript || creandoScriptJava) {
+            const std::string ext = creandoScriptJava ? ".java" : ".cpp";
+            if (nombre.find(ext) == std::string::npos) nombre += ext;
+        }
 
         std::string contenido;
         if (creandoScript) {
@@ -134,14 +136,59 @@ void ContentFolderInterface::crearNuevoElemento() {
             std::string clase = nombre;
             const size_t dot = clase.find_last_of('.');
             if (dot != std::string::npos) clase = clase.substr(0, dot);
+            // La clase compilada se llama FUNSHI_NOMBRE_CLASE: asi el mismo
+            // template compila para cualquier <ClassName>.cpp del proyecto.
             contenido =
-                "#include \"../../Behaviour/IScriptBehaviour.h\"\n"
+                "#include \"Behaviour/IScriptBehaviour.h\"\n"
                 "\n"
-                "class " + clase + " : public IScriptBehaviour {\n"
+                "// Script C++ ejecutado por el motor (compilado a .so con hot\n"
+                "// reload en play mode). Los campos expuestos con REFLECT_*\n"
+                "// aparecen como SerializeField en el inspector.\n"
+                "class FUNSHI_NOMBRE_CLASE : public IScriptBehaviour {\n"
                 "public:\n"
-                "    void onStart(GameObject* owner) override {}\n"
-                "    void onUpdate(GameObject* owner, float deltaTime) override {}\n"
-                "};\n";
+                "    // float velocidad = 5.0f; // descomenten y agreguen aca\n"
+                "\n"
+                "    REFLECT_INICIO(FUNSHI_NOMBRE_CLASE)\n"
+                "        // REFLECT_CAMPO(velocidad)\n"
+                "    REFLECT_FIN\n"
+                "\n"
+                "    void onStart(GameObject* owner) override { (void)owner; }\n"
+                "    void onUpdate(GameObject* owner, float deltaTime) override {\n"
+                "        (void)owner; (void)deltaTime;\n"
+                "    }\n"
+                "    void onStop(GameObject* owner) override { (void)owner; }\n"
+                "\n"
+                "    std::vector<::ReflejoScripts::DefCampo>\n"
+                "    camposReflejados() const override { return reflexion(); }\n"
+                "};\n"
+                "\n"
+                "// Export requerida por el backend del motor; no renombrar.\n"
+                "extern \"C\" IScriptBehaviour* FUNSHI_CREAR_COMPORTAMIENTO(\n"
+                "    const MotorScript::ApiScriptGameObject* api) {\n"
+                "    (void)api;\n"
+                "    return new FUNSHI_NOMBRE_CLASE();\n"
+                "}\n";
+        } else if (creandoScriptJava) {
+            std::string clase = nombre;
+            const size_t dot = clase.find_last_of('.');
+            if (dot != std::string::npos) clase = clase.substr(0, dot);
+            contenido =
+                "// Script Java ejecutado por el motor via JNI (requiere compilar\n"
+                "// el motor con -DFUNSHI_JAVA=ON). Los campos publicos son\n"
+                "// SerializeField editables en el inspector.\n"
+                "// El nombre de la clase debe coincidir con el del archivo.\n"
+                "public class " + clase + " implements Comportamiento {\n"
+                "    // public float velocidad = 5.0f;\n"
+                "\n"
+                "    @Override\n"
+                "    public void iniciar(long objeto) {}\n"
+                "\n"
+                "    @Override\n"
+                "    public void actualizar(long objeto, double deltaTime) {}\n"
+                "\n"
+                "    @Override\n"
+                "    public void detener(long objeto) {}\n"
+                "}\n";
         }
         const std::string ruta = destFolder + PATH_SEP + nombre;
         // No sube el contador: los archivos no aparecen en el arbol de
@@ -151,6 +198,7 @@ void ContentFolderInterface::crearNuevoElemento() {
 
     creandoCarpeta = false;
     creandoScript = false;
+    creandoScriptJava = false;
     memset(nombreNuevo, 0, sizeof(nombreNuevo));
 }
 
@@ -346,18 +394,28 @@ void ContentFolderInterface::initGUI() {
     if (ImGui::BeginPopupContextWindow("AddFilesPopup", ImGuiPopupFlags_MouseButtonRight)) {
         if (ImGui::MenuItem("New Script")) {
             creandoCarpeta = false; creandoScript = true;
+            creandoScriptJava = false;
+            memset(nombreNuevo, 0, sizeof(nombreNuevo));
+            abrirPopupNombre = true;
+            ImGui::CloseCurrentPopup();
+        }
+        if (ImGui::MenuItem("New Java Script")) {
+            creandoCarpeta = false; creandoScript = false;
+            creandoScriptJava = true;
             memset(nombreNuevo, 0, sizeof(nombreNuevo));
             abrirPopupNombre = true;
             ImGui::CloseCurrentPopup();
         }
         if (ImGui::MenuItem("New Folder")) {
             creandoCarpeta = true; creandoScript = false;
+            creandoScriptJava = false;
             memset(nombreNuevo, 0, sizeof(nombreNuevo));
             abrirPopupNombre = true;
             ImGui::CloseCurrentPopup();
         }
         if (ImGui::MenuItem("New File")) {
             creandoCarpeta = false; creandoScript = false;
+            creandoScriptJava = false;
             memset(nombreNuevo, 0, sizeof(nombreNuevo));
             abrirPopupNombre = true;
             ImGui::CloseCurrentPopup();
@@ -400,7 +458,10 @@ void ContentFolderInterface::initGUI() {
 
     if (ImGui::BeginPopupModal("Ingresar nombre", NULL, ImGuiWindowFlags_AlwaysAutoResize)) {
         ImGui::Text("Escribe el nombre del %s:",
-                    creandoCarpeta ? "folder" : (creandoScript ? "script" : "file"));
+                    creandoCarpeta ? "folder"
+                                   : (creandoScriptJava ? "script java"
+                                                        : (creandoScript ? "script C++"
+                                                                         : "file")));
         ImGui::InputText("##nombreNuevo", nombreNuevo, IM_ARRAYSIZE(nombreNuevo));
         const bool confirmado = ImGui::Button("Crear", ImVec2(120, 0)) ||
                                 (ImGui::IsItemFocused() &&

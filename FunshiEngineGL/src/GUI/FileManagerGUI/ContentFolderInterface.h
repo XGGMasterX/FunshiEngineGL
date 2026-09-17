@@ -50,6 +50,7 @@ private:
     bool abrirPopupNombre = false;
     bool creandoCarpeta = false;
     bool creandoScript = false;
+    bool creandoScriptJava = false;
     char nombreNuevo[128] = "";
     IconosGUI* iconosGUI = nullptr;
 
