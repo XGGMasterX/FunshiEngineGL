@@ -30,10 +30,12 @@
 #include "Material/SettingsMaterial.h"
 #include "Light/SettingsLight.h"
 #include "Camera/SettingsCamera.h"
+#include "Grid/SettingsGrid.h"
 #include "../../Objetos/GameObject.h"
 #include "../../Objetos/Componentes/Light.h"
 #include "../../Objetos/Componentes/Material.h"
 #include "../../Objetos/Componentes/CameraComponent.h"
+#include "../../Objetos/Componentes/Grid.h"
 #include "../../Scenes/EditorController.h"
 #include "../../Herramientas/TypeUtils.h"
 #include <imgui.h>
@@ -115,6 +117,10 @@ void SettingsObjectInterface::loadComponents() {
 	Model* model = object->getComponent<Model>();
 	if (model != nullptr) {
 		listaDESettingsComponent->addLast(new SettingsModel(object));
+	}
+	Grid* grid = object->getComponent<Grid>();
+	if (grid != nullptr) {
+		listaDESettingsComponent->addLast(new SettingsGrid(object));
 	}
 }
 
@@ -251,6 +257,12 @@ void SettingsObjectInterface::contentGUI() {
 				object->addComponent(new Model());
 				listaDESettingsComponent->addLast(new SettingsModel(object));
 			}
+		}
+		if (ImGui::MenuItem("Grilla") &&
+		    object->getComponent<Grid>() == nullptr &&
+		    object->getComponent<Transform>() != nullptr) {
+			object->addComponent(new Grid());
+			listaDESettingsComponent->addLast(new SettingsGrid(object));
 		}
 		ImGui::EndPopup();
 	}

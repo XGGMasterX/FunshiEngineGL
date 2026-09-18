@@ -48,9 +48,6 @@ protected:
 	// Widget reutilizable de jerarquia (contenido de la ventana)
 	SceneObjectTree sceneTree;
 
-	// Toggle de la grilla (puntero al showGrid_ de GameScene).
-	bool* gridVisible_ = nullptr;
-
 	IconosGUI* iconosGUI = nullptr;
 
 public:
@@ -61,7 +58,6 @@ public:
 		iconosGUI = iconosG;
 		sceneTree.setIconosGUI(iconosG);
 	}
-	void setGridToggle(bool* v) { gridVisible_ = v; }
 
 	virtual ArbolEnlazado<GameObject*>* getEntitysTree();
 	virtual void setEntitys(ListaDE<GameObject*>* gameObjects);
