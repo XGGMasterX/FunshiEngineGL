@@ -50,6 +50,7 @@ void DockSpaceInterface::initGUI() {
         ImGui::DockBuilderDockWindow(WindowNames::Settings,       right);
         ImGui::DockBuilderDockWindow(WindowNames::MenuBar,        top);
         ImGui::DockBuilderDockWindow(WindowNames::ShowFolder,     bottom);
+        ImGui::DockBuilderDockWindow(WindowNames::Status,       right);
 
         ImGui::DockBuilderFinish(dockspaceId);
     }

@@ -86,8 +86,26 @@ void Script::recargar(GameObject* owner) {
     cargarSiNecesario();
 }
 
+bool Script::necesitaCompilar() const {
+    return !dllPath.empty() &&
+           (!cargado_ || ScriptRuntime::cambioElFuente(comportamiento_));
+}
+
+bool Script::aplicarCarga(GameObject* owner) {
+    if (!dllPath.empty() && !cargado_) {
+        cargarSiNecesario();
+        return comportamiento_.valido();
+    }
+    if (ScriptRuntime::cambioElFuente(comportamiento_)) recargar(owner);
+    return comportamiento_.valido();
+}
+
 void Script::actualizar(GameObject* owner, float deltaTime) {
     if (dllPath.empty()) return;
+
+    // La compilacion esta en la cola de GameScene: no compilar inline aca, la
+    // cola aplica la carga en su turno (progreso visible en la barra).
+    if (aplazarCarga_ && necesitaCompilar()) return;
 
     if (!cargado_) cargarSiNecesario();
     if (!comportamiento_.valido()) return;

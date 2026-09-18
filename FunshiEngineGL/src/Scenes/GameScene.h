@@ -26,6 +26,7 @@
 #include "../Events/EventBus.h"
 #include "../Estructuras/ListasEnlazadas/ListasDoblementeEnlazada/ListaDE.h"
 #include "../Iluminacion/LightSystem.h"
+#include "../Behaviour/ScriptRuntime.h"
 
 class CameraComponent;
 class EditorController;
@@ -40,6 +41,7 @@ class SceneSelectedInterface;
 class SceneSerializer;
 class AssetManager;
 class TextureManager;
+class Script;
 
 class GameScene {
 private:
@@ -115,6 +117,26 @@ private:
     // tocar nada manual.
     void asegurarGrilla();
 
+    // Cola de compilacion de scripts (play mode). Cada script se agenda y se
+    // procesa en DOS fases para que la barra de estado muestre "Compilando X
+    // (i de n)..." un frame antes de bloquear el hilo con g++/javac.
+    struct CargaPendiente {
+        Script* script = nullptr;
+        GameObject* owner = nullptr;
+    };
+    std::vector<CargaPendiente> colaCompilacion_;
+    enum class FaseCarga { Mostrar, Compilar };
+    FaseCarga faseCarga_ = FaseCarga::Mostrar;
+    std::size_t indiceCarga_ = 0;
+    std::string cargaActual_;
+    std::size_t cargaTotal_ = 0;
+    std::size_t cargaHecha_ = 0;
+    std::vector<ScriptRuntime::ResultadoCarga> resultadosCarga_;
+    bool compilacionEnCurso_ = false;
+    void encolarScriptsIniciales();
+    void procesarColaCompilacion();
+    void limpiarColaCompilacion();
+
 public:
     GameScene(GUIManager* managerGUI);
     ~GameScene();
@@ -163,6 +185,15 @@ public:
     // Estado de la ventana "Camaras" (persistido por EditorConfig).
     bool getVentanaCamarasAbierta() const noexcept;
     void setVentanaCamarasAbierta(bool abierta) noexcept;
+
+    // Estado de la compilacion de scripts para la barra "Estado".
+    bool compilacionEnCurso() const noexcept { return compilacionEnCurso_; }
+    const std::string& cargaActual() const noexcept { return cargaActual_; }
+    std::size_t cargaHecha() const noexcept { return cargaHecha_; }
+    std::size_t cargaTotal() const noexcept { return cargaTotal_; }
+    const std::vector<ScriptRuntime::ResultadoCarga>& resultadosCarga() const noexcept {
+        return resultadosCarga_;
+    }
 };
 
 #endif

@@ -50,6 +50,13 @@ public:
                   const std::vector<ReflejoScripts::ValorCampo>& valores) override;
     std::vector<ReflejoScripts::ValorCampo> extraer(
         ComportamientoCargado& comportamiento) override;
+
+    // Informacion del toolchain para la barra de estado del editor (rutas
+    // resueltas en runtime y si la JVM ya esta arrancada).
+    static std::string javacRuta();
+    static std::string libjvmRuta();
+    static bool jvmArrancada();
+    static std::string cacheDir();
 };
 
 #endif // BACKENDJAVA_H

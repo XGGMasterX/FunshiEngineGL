@@ -134,3 +134,21 @@ bool ScriptRuntime::cambioElFuente(const ComportamientoCargado& c) {
     if (!c.cargado || c.fuente.empty()) return false;
     return mtimeDe(c.fuente) != c.mtimeFuente;
 }
+
+ScriptRuntime::EstadoHerramientas ScriptRuntime::estadoHerramientas() {
+    EstadoHerramientas e;
+    auto& registro = backendRegistro();
+    if (auto it = registro.find("cpp"); it != registro.end())
+        e.compiladorCpp = BackendCpp::compiladorRuta();
+#if defined(FUNSHI_JAVA)
+    e.soporteJava = true;
+    if (auto it = registro.find("java"); it != registro.end()) {
+        e.javac = BackendJava::javacRuta();
+        e.javacDisponible = !e.javac.empty();
+        e.libjvm = BackendJava::libjvmRuta();
+        e.jvmArrancada = BackendJava::jvmArrancada();
+    }
+#endif
+    e.cache = BackendCpp::cacheDir();
+    return e;
+}

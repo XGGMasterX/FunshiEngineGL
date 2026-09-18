@@ -71,6 +71,60 @@ const char* SRC_NATIVO =
     "    private Nativo() {}\n"
     "}\n";
 
+// Classloader hijo (child-first) para HOT RELOAD real de Java: el classloader
+// del sistema cachea una clase por nombre y la JVM no la vuelve a leer aunque
+// javac reescriba el .class. Cada carga crea una instancia NUEVA de Cargador,
+// que define la clase a partir del binario recien compilado (child-first),
+// delegando al padre solo el SDK (Nativo/Comportamiento) y las clases del JDK.
+const char* SRC_CARGADOR =
+    "public final class Cargador {\n"
+    "    private final ClassLoader interno;\n"
+    "    public Cargador(final String base) {\n"
+    "        interno = new ClassLoader() {\n"
+    "            @Override\n"
+    "            protected Class<?> findClass(String nombre)\n"
+    "                    throws ClassNotFoundException {\n"
+    "                try {\n"
+    "                    java.nio.file.Path ruta = java.nio.file.Paths.get(\n"
+    "                        base, nombre.replace('.', '/') + \".class\");\n"
+    "                    byte[] bytes = java.nio.file.Files.readAllBytes(ruta);\n"
+    "                    return defineClass(nombre, bytes, 0, bytes.length);\n"
+    "                } catch (java.io.IOException e) {\n"
+    "                    throw new ClassNotFoundException(nombre, e);\n"
+    "                }\n"
+    "            }\n"
+    "            @Override\n"
+    "            protected Class<?> loadClass(String nombre, boolean resolve)\n"
+    "                    throws ClassNotFoundException {\n"
+    "                if (nombre.equals(\"Nativo\") ||\n"
+    "                    nombre.equals(\"Comportamiento\") ||\n"
+    "                    nombre.startsWith(\"java.\") ||\n"
+    "                    nombre.startsWith(\"javax.\") ||\n"
+    "                    nombre.startsWith(\"jdk.\") ||\n"
+    "                    nombre.startsWith(\"sun.\") ||\n"
+    "                    nombre.startsWith(\"com.sun.\")) {\n"
+    "                    return super.loadClass(nombre, resolve);\n"
+    "                }\n"
+    "                synchronized (getClassLoadingLock(nombre)) {\n"
+    "                    Class<?> c = findLoadedClass(nombre);\n"
+    "                    if (c == null) {\n"
+    "                        try {\n"
+    "                            c = findClass(nombre);\n"
+    "                        } catch (ClassNotFoundException ign) {\n"
+    "                            c = super.loadClass(nombre, resolve);\n"
+    "                        }\n"
+    "                    }\n"
+    "                    if (resolve) resolveClass(c);\n"
+    "                    return c;\n"
+    "                }\n"
+    "            }\n"
+    "        };\n"
+    "    }\n"
+    "    public Class<?> cargar(String nombre) throws ClassNotFoundException {\n"
+    "        return interno.loadClass(nombre);\n"
+    "    }\n"
+    "}\n";
+
 // --- Bootstrap dinamico del JVM --------------------------------------------
 struct Jvm {
     void* biblioteca = nullptr;
@@ -230,6 +284,7 @@ ReflejoScripts::TagTipo etiquetaDeTipo(const std::string& tipo) {
 
 struct DatosJava {
     jclass clase = nullptr;
+    jobject cargador = nullptr; // classloader hijo (hot reload de la clase)
     jmethodID iniciar = nullptr;
     jmethodID actualizar = nullptr;
     jmethodID detener = nullptr;
@@ -327,6 +382,11 @@ bool registrarNativos(std::string& error) {
 
 const char* BackendJava::lenguaje() const { return "java"; }
 
+std::string BackendJava::javacRuta() { return javacExe(); }
+std::string BackendJava::libjvmRuta() { return rutaLibjvm(); }
+bool BackendJava::jvmArrancada() { return jvm().jvm != nullptr; }
+std::string BackendJava::cacheDir() { return directorioCache(); }
+
 bool BackendJava::compilarYCargar(const std::string& fuente,
                                   const std::string& nombreClase,
                                   ComportamientoCargado& salida,
@@ -345,6 +405,8 @@ bool BackendJava::compilarYCargar(const std::string& fuente,
     escribirSiCambia((fs::path(sdkDir) / "Comportamiento.java").string(),
                      SRC_COMPORTAMIENTO);
     escribirSiCambia((fs::path(sdkDir) / "Nativo.java").string(), SRC_NATIVO);
+    escribirSiCambia((fs::path(sdkDir) / "Cargador.java").string(),
+                     SRC_CARGADOR);
 
     auto mtime = [](const std::string& r) {
         std::error_code e;
@@ -363,10 +425,11 @@ bool BackendJava::compilarYCargar(const std::string& fuente,
         const std::string sdkComportamiento =
             (fs::path(sdkDir) / "Comportamiento.java").string();
         const std::string sdkNativo = (fs::path(sdkDir) / "Nativo.java").string();
+        const std::string sdkCargador = (fs::path(sdkDir) / "Cargador.java").string();
         const std::string cmd =
             "\"" + javac + "\" -d \"" + clasesDir + "\" -cp \"" + clasesDir +
             "\" \"" + sdkComportamiento + "\" \"" + sdkNativo + "\" \"" +
-            fuente + "\" > \"" + logPath + "\" 2>&1";
+            sdkCargador + "\" \"" + fuente + "\" > \"" + logPath + "\" 2>&1";
         int rc = std::system(cmd.c_str());
         if (rc != 0) {
             error = "Error al compilar el script Java:\n" + leerArchivo(logPath);
@@ -378,7 +441,47 @@ bool BackendJava::compilarYCargar(const std::string& fuente,
     if (!registrarNativos(error)) return false;
 
     JNIEnv* env = entorno();
-    jclass clase = env->FindClass(nombreClase.c_str());
+
+    // El classloader del sistema cachea cada clase por nombre y la JVM no la
+    // redefine aunque javac reescriba el .class; por eso FindClass no bastaria
+    // para el hot reload. Se carga cada script con una instancia FRESCA de un
+    // classloader hijo (child-first) que define la clase desde el binario
+    // recien compilado -> editar un .java aplica sin reiniciar el motor.
+    jclass claseCargador = env->FindClass("Cargador");
+    if (!claseCargador) {
+        env->ExceptionClear();
+        error = "No se encontro el SDK 'Cargador' (classloader de hot reload).";
+        return false;
+    }
+    jmethodID ctorCargador =
+        env->GetMethodID(claseCargador, "<init>", "(Ljava/lang/String;)V");
+    if (!ctorCargador) {
+        env->ExceptionClear();
+        error = "El SDK 'Cargador' no tiene constructor (String).";
+        return false;
+    }
+    jmethodID cargarDeCargador =
+        env->GetMethodID(claseCargador, "cargar",
+                         "(Ljava/lang/String;)Ljava/lang/Class;");
+    if (!cargarDeCargador) {
+        env->ExceptionClear();
+        error = "El SDK 'Cargador' no expone cargar(String).";
+        return false;
+    }
+
+    jstring jBase = env->NewStringUTF(clasesDir.c_str());
+    jobject cargadorObj = env->NewObject(claseCargador, ctorCargador, jBase);
+    env->DeleteLocalRef(jBase);
+    if (!cargadorObj) {
+        env->ExceptionClear();
+        error = "No se pudo crear el classloader hijo para '" + nombreClase + "'.";
+        return false;
+    }
+
+    jstring jNombre = env->NewStringUTF(nombreClase.c_str());
+    jclass clase = static_cast<jclass>(
+        env->CallObjectMethod(cargadorObj, cargarDeCargador, jNombre));
+    env->DeleteLocalRef(jNombre);
     if (!clase) {
         env->ExceptionClear();
         error = "No se encontro la clase Java '" + nombreClase +
@@ -400,6 +503,7 @@ bool BackendJava::compilarYCargar(const std::string& fuente,
 
     auto* datos = new DatosJava();
     datos->clase = static_cast<jclass>(env->NewGlobalRef(clase));
+    datos->cargador = env->NewGlobalRef(cargadorObj);
     datos->iniciar = env->GetMethodID(clase, "iniciar", "(J)V");
     datos->actualizar = env->GetMethodID(clase, "actualizar", "(JD)V");
     datos->detener = env->GetMethodID(clase, "detener", "(J)V");
@@ -494,6 +598,7 @@ void BackendJava::descargar(ComportamientoCargado& comportamiento,
                 static_cast<jobject>(comportamiento.instancia));
         auto* datos = static_cast<DatosJava*>(comportamiento.datos);
         if (datos) {
+            if (datos->cargador) env->DeleteGlobalRef(datos->cargador);
             if (datos->clase) env->DeleteGlobalRef(datos->clase);
             delete datos;
         }

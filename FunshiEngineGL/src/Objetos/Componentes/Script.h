@@ -35,6 +35,10 @@ private:
     std::vector<ReflejoScripts::ValorCampo> valores_;
     bool cargado_ = false;  // ya se intento cargar el fuente actual
     bool arrancado_ = false; // onStart ya fue invocado (en play mode)
+    // En play mode la recompilacion la agenda GameScene (cola con progreso
+    // visible en la barra de estado): mientras esta en cola, actualizar() no
+    // compila inline y deja que la cola lo haga.
+    bool aplazarCarga_ = false;
     std::string error_;
 
     void extraerValores();
@@ -55,6 +59,14 @@ public:
     void detener(GameObject* owner);
     void recargar(GameObject* owner); // forza recompilar + recargar
     void cargarSiNecesario();         // carga (compila) sin arrancar onStart
+
+    // Cola de compilacion de GameScene (play mode): true si el fuente actual
+    // requiere compilarse; aplicarCarga ejecuta esa carga/recompilacion.
+    bool necesitaCompilar() const;
+    bool aplicarCarga(GameObject* owner);
+    void setAplazarCarga(bool aplazar) { aplazarCarga_ = aplazar; }
+    bool getAplazarCarga() const { return aplazarCarga_; }
+    const std::string& rutaFuente() const { return dllPath; }
 
     // SerializeField: campos reflejados del comportamiento (si esta cargado)
     const std::vector<ReflejoScripts::DefCampo>& obtenerCampos() const {

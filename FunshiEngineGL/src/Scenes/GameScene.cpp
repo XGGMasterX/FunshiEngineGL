@@ -483,6 +483,7 @@ void GameScene::GUI() {
     pintarViewportsGUI();
     menuBarGUI->printGUI();
     pintarVentanaCamaras();
+    if (managerGUI) managerGUI->getStatusBarGUI()->printGUI();
     if (menuBarGUI->getCargarScripts()) {
         menuBarGUI->setCargarScripts(false);
     }
@@ -699,11 +700,16 @@ void GameScene::update(float value) {
                                                    : nullptr;
             }
         }
+
+        // Todos los scripts que necesitan (re)compilarse entran a la cola: su
+        // progreso se ve en la barra "Estado" antes de bloquear con g++/javac.
+        encolarScriptsIniciales();
     }
 
     // Transicion play->editor: avisar a los scripts para que hagan limpieza
     // (onStop) y conservar los valores editados en play mode para la GUI.
     if (previousStart && !start) {
+        limpiarColaCompilacion();
         auto* gameObjects = getGameObjectsScene();
         if (!gameObjects->isEmpty()) {
             Position<GameObject*>* pos = gameObjects->first();
@@ -722,6 +728,7 @@ void GameScene::update(float value) {
 
     // Sincronizar la fisica de vuelta a los GameObjects del mundo
     // (GameObject::update escribe en los Transforms via RigidBody).
+    procesarColaCompilacion();
     if (start && !gizmoInUse()) {
         auto* gameObjects = getGameObjectsScene();
         if (!gameObjects->isEmpty()) {
@@ -733,6 +740,118 @@ void GameScene::update(float value) {
             }
         }
     }
+
+    // Publicar el estado de la compilacion para la barra "Estado" (se dibuja
+    // al final del frame, por eso el "Mostrar" de la cola es visible).
+    if (managerGUI)
+        managerGUI->getStatusBarGUI()->setEstadoCompilacion(
+            compilacionEnCurso_, cargaActual_, cargaHecha_, cargaTotal_,
+            resultadosCarga_);
+}
+
+void GameScene::encolarScriptsIniciales() {
+    auto* objs = getGameObjectsScene();
+    if (!objs || objs->isEmpty()) return;
+
+    bool hayPendientes = false;
+    Position<GameObject*>* pos = objs->first();
+    while (pos && pos->getElement()) {
+        if (Script* s = pos->getElement()->getComponent<Script>()) {
+            if (s->necesitaCompilar()) {
+                colaCompilacion_.push_back({s, pos->getElement()});
+                s->setAplazarCarga(true);
+                hayPendientes = true;
+            }
+        }
+        pos = (pos != objs->last()) ? objs->next(pos) : nullptr;
+    }
+    if (!hayPendientes) {
+        compilacionEnCurso_ = false;
+        cargaActual_.clear();
+        return;
+    }
+
+    resultadosCarga_.clear();
+    faseCarga_ = FaseCarga::Mostrar;
+    indiceCarga_ = 0;
+    cargaTotal_ = colaCompilacion_.size();
+    cargaHecha_ = 0;
+    compilacionEnCurso_ = true;
+    cargaActual_ = colaCompilacion_[0].script->rutaFuente();
+}
+
+void GameScene::procesarColaCompilacion() {
+    if (!start) {
+        limpiarColaCompilacion();
+        return;
+    }
+
+    // Recoleccion continua: un script editado a mitad de play tambien pasa por
+    // la cola, asi su compilacion se ve en la barra de estado.
+    if (colaCompilacion_.empty()) {
+        auto* objs = getGameObjectsScene();
+        if (!objs || objs->isEmpty()) return;
+        bool hay = false;
+        Position<GameObject*>* pos = objs->first();
+        while (pos && pos->getElement()) {
+            if (Script* s = pos->getElement()->getComponent<Script>()) {
+                if (s->necesitaCompilar()) {
+                    colaCompilacion_.push_back({s, pos->getElement()});
+                    s->setAplazarCarga(true);
+                    hay = true;
+                }
+            }
+            pos = (pos != objs->last()) ? objs->next(pos) : nullptr;
+        }
+        if (hay) {
+            faseCarga_ = FaseCarga::Mostrar;
+            indiceCarga_ = 0;
+            cargaTotal_ = colaCompilacion_.size();
+            cargaHecha_ = 0;
+            compilacionEnCurso_ = true;
+            cargaActual_ = colaCompilacion_[0].script->rutaFuente();
+        }
+        return;
+    }
+
+    // Fase 1 (Mostrar): este frame solo informa cual script se va a compilar;
+    // el dibujado al final del frame muestra la barra con su progreso.
+    if (faseCarga_ == FaseCarga::Mostrar) {
+        cargaActual_ = colaCompilacion_[indiceCarga_].script->rutaFuente();
+        faseCarga_ = FaseCarga::Compilar;
+        return;
+    }
+
+    // Fase 2 (Compilar): ejecuta la compilacion sincronica del iesimo script.
+    {
+        const CargaPendiente& item = colaCompilacion_[indiceCarga_];
+        item.script->setAplazarCarga(false);
+        ScriptRuntime::ResultadoCarga r;
+        r.nombre = item.script->rutaFuente();
+        r.ok = item.script->aplicarCarga(item.owner);
+        r.mensaje = item.script->ultimoError();
+        resultadosCarga_.push_back(std::move(r));
+        ++cargaHecha_;
+        ++indiceCarga_;
+    }
+    if (indiceCarga_ >= colaCompilacion_.size()) {
+        limpiarColaCompilacion();
+        compilacionEnCurso_ = false;
+        cargaActual_.clear();
+    } else {
+        faseCarga_ = FaseCarga::Mostrar;
+        cargaActual_ = colaCompilacion_[indiceCarga_].script->rutaFuente();
+    }
+}
+
+void GameScene::limpiarColaCompilacion() {
+    for (const CargaPendiente& item : colaCompilacion_)
+        if (item.script) item.script->setAplazarCarga(false);
+    colaCompilacion_.clear();
+    indiceCarga_ = 0;
+    faseCarga_ = FaseCarga::Mostrar;
+    compilacionEnCurso_ = false;
+    cargaActual_.clear();
 }
 
 static bool intersectRayAABB(const glm::vec3& rayOrigin, const glm::vec3& rayDir,
