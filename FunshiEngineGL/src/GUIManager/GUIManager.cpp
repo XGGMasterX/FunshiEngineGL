@@ -26,7 +26,8 @@
 
 GUIManager::GUIManager(GLFWwindow* window)
     : menuGUI(new MenuGUI(window)),
-      settingGUI(new SettingsObjectInterface(new Modelos3D(), false)),
+      modeloSettings(std::make_unique<Modelos3D>()),
+      settingGUI(new SettingsObjectInterface(modeloSettings.get(), false)),
       selecteableGUI(new SceneSelectedInterface(true)),
       menuBarGUI(std::make_unique<SceneMenuBarInterface>(true)),
       treeFilesGUI(nullptr), contentOfThisFolder(nullptr) {
