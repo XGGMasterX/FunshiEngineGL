@@ -41,6 +41,7 @@ GUIManager::GUIManager(GLFWwindow* window)
     dockSpaceGUI = std::make_unique<DockSpaceInterface>(true);
     iconosGUI = std::make_unique<IconosGUI>();
     iconosGUI->init();
+    statusBarGUI = std::make_unique<StatusBarInterface>(true);
     treeFilesGUI->setIconosGUI(iconosGUI.get());
     contentOfThisFolder->setIconosGUI(iconosGUI.get());
     selecteableGUI->setIconosGUI(iconosGUI.get());
@@ -53,6 +54,7 @@ void GUIManager::bindScene(SceneRegistry* scene, EditorController* editor,
                            EventBus* events) {
     this->editor = editor;
     selecteableGUI->bindScene(scene, editor, events);
+    statusBarGUI->bindScene(scene);
     settingGUI->setEditor(editor);
 }
 MenuGUI* GUIManager::getMenuGUI() { return menuGUI.get(); }
@@ -85,6 +87,8 @@ SceneMenuBarInterface* GUIManager::getMenuBarGUI(bool* targetBool) {
 SceneSelectedInterface* GUIManager::getSelecteableGUI() { return selecteableGUI.get(); }
 ContentFolderInterface* GUIManager::getContentFolderGUI() { return contentOfThisFolder.get(); }
 DockSpaceInterface* GUIManager::getDockSpaceGUI() { return dockSpaceGUI.get(); }
+
+StatusBarInterface* GUIManager::getStatusBarGUI() { return statusBarGUI.get(); }
 
 void GUIManager::restaurarEstadosVentanas(const std::map<std::string, bool>& estados) {
     const std::vector<GeneralUserInterface*> ventanas = {

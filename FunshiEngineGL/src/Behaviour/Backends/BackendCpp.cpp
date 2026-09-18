@@ -108,6 +108,13 @@ std::string mtimeDe(const std::string& ruta) {
 
 const char* BackendCpp::lenguaje() const { return "cpp"; }
 
+std::string BackendCpp::compiladorRuta() {
+    const char* env = std::getenv("FUNSHI_CXX");
+    return (env && *env) ? env : FUNSHI_CXX_COMPILER;
+}
+
+std::string BackendCpp::cacheDir() { return directorioCache(); }
+
 std::string BackendCpp::artefacto(const std::string& fuente) {
     std::size_t hash =
         std::hash<std::string>{}(std::filesystem::weakly_canonical(fuente).string());

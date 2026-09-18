@@ -31,6 +31,7 @@
 #include "../GUI/ObjetosGUI/SettingsObjectInterface.h"
 #include "../GUI/SceneGUI/SceneMenuBarInterface.h"
 #include "../GUI/DockSpaceGUI/DockSpaceInterface.h"
+#include "../GUI/Estado/StatusBarInterface.h"
 #include "../Herramientas/IconosGUI/IconosGUI.h"
 #include "../FileManager/FileManager.h"
 #include "../Estructuras/ListasEnlazadas/ListasConPrioridad/PriorityListaDE.h"
@@ -63,6 +64,7 @@ private:
 	std::unique_ptr<IconosGUI> iconosGUI;
 	EditorController* editor = nullptr;
 	std::unique_ptr<ContentFolderInterface> contentOfThisFolder;
+	std::unique_ptr<StatusBarInterface> statusBarGUI;
 
 public:
 	GUIManager(GLFWwindow* window);
@@ -79,6 +81,7 @@ public:
 	SceneSelectedInterface* getSelecteableGUI();
 	ContentFolderInterface* getContentFolderGUI();
 	DockSpaceInterface* getDockSpaceGUI();
+	StatusBarInterface* getStatusBarGUI();
 
 	// Persistencia del estado de las ventanas (EditorConfig): restaura el
 	// stateGUI de cada ventana persistente por su nombre y recoge el estado

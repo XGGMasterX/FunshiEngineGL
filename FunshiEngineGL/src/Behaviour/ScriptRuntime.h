@@ -53,6 +53,26 @@ public:
 
     // Hot reload: true si el fuente en disco difiere del que fue compilado.
     static bool cambioElFuente(const ComportamientoCargado& c);
+
+    // Resultado de compilar un script (para la barra "Estado" del editor).
+    struct ResultadoCarga {
+        std::string nombre;
+        bool ok = false;
+        std::string mensaje;
+    };
+
+    // Estado del toolchain externo (compilador/javac/libjvm/cache) para la
+    // barra "Estado" del editor. Los campos vacios indican "no detectado".
+    struct EstadoHerramientas {
+        std::string compiladorCpp;
+        std::string javac;
+        std::string libjvm;
+        bool soporteJava = false; // el motor fue compilado con FUNSHI_JAVA=ON
+        bool javacDisponible = false;
+        bool jvmArrancada = false;
+        std::string cache;
+    };
+    static EstadoHerramientas estadoHerramientas();
 };
 
 #endif // SCRIPTRUNTIME_H

@@ -47,6 +47,11 @@ public:
 
 private:
     static std::string artefacto(const std::string& fuente);
+
+public:
+    // Informacion del toolchain para la barra de estado del editor.
+    static std::string compiladorRuta();
+    static std::string cacheDir();
 };
 
 #endif // BACKENDCPP_H

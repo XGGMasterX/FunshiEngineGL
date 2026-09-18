@@ -30,6 +30,7 @@ inline constexpr const char* SelectedObjects = "SelectedObjects";
 inline constexpr const char* Settings       = "Settings";
 inline constexpr const char* MenuBar        = "MenuBar";
 inline constexpr const char* EditorDockSpace = "EditorDockSpace";
+inline constexpr const char* Status         = "Estado";
 } // namespace WindowNames
 
 #endif

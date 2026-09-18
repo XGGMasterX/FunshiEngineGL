@@ -27,6 +27,7 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <chrono>
 
 #include "../FunshiEngineGL/src/Behaviour/Reflection/BehaviourReflection.h"
 #include "../FunshiEngineGL/src/Behaviour/ScriptRuntime.h"
@@ -154,6 +155,40 @@ int main() {
 
     ScriptRuntime::descargar(comportamiento);
     CHECK(!comportamiento.valido(), "descargar invalida el comportamiento Java");
+
+    // Hot reload: editar el fuente (misma clase) y volver a cargar en la MISMA
+    // JVM debe aplicar la nueva version. El classloader del sistema cachea por
+    // nombre (FindClass devolveria la clase vieja); el backend carga con un
+    // classloader hijo fresco -> la nueva version manda.
+    {
+        std::ofstream f(fuente);
+        f << "public class MiPruebaJava implements Comportamiento {\n"
+             "    public int vidas = 3;\n"
+             "    @Override public void iniciar(long o) { vidas = 200; }\n"
+             "    @Override public void actualizar(long o, double dt) { vidas += 1; }\n"
+             "}\n";
+    }
+    // Asegurar un mtime estrictamente posterior (gate del hot reload).
+    fs::last_write_time(
+        fuente, fs::last_write_time(fuente) + std::chrono::seconds(1));
+
+    ComportamientoCargado recargado;
+    bool okRecarga = ScriptRuntime::compilarYCargar(
+        fuente, "MiPruebaJava", recargado, error);
+    CHECK(okRecarga, "recompilar Java tras editar el fuente (misma JVM)");
+    if (okRecarga) {
+        ScriptRuntime::llamarInicio(recargado, nullptr);
+        valores = ScriptRuntime::extraer(recargado);
+        const ValorCampo* vid2 = buscar(valores, "vidas");
+        CHECK(vid2 && vid2->como<int>() == 200,
+              "el reload aplica la NUEVA version (iniciar deja vidas=200)");
+        ScriptRuntime::llamarActualizar(recargado, nullptr, 0.016f);
+        valores = ScriptRuntime::extraer(recargado);
+        vid2 = buscar(valores, "vidas");
+        CHECK(vid2 && vid2->como<int>() == 201,
+              "actualizar de la clase nueva corre (vidas=201)");
+        ScriptRuntime::descargar(recargado);
+    }
 
     fs::remove_all(dir, ec);
     std::cout << "ScriptsJava: " << total << " verificaciones, " << fallos
