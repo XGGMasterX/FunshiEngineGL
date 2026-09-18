@@ -60,6 +60,10 @@ public:
     void recargar(GameObject* owner); // forza recompilar + recargar
     void cargarSiNecesario();         // carga (compila) sin arrancar onStart
 
+    // Apagado del motor: libera backend y referencias globales JNI SIN
+    // disparar onStop (si estaba en play, detener() ya hizo el onStop).
+    void liberarComportamiento();
+
     // Cola de compilacion de GameScene (play mode): true si el fuente actual
     // requiere compilarse; aplicarCarga ejecuta esa carga/recompilacion.
     bool necesitaCompilar() const;

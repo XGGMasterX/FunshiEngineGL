@@ -854,6 +854,18 @@ void GameScene::limpiarColaCompilacion() {
     cargaActual_.clear();
 }
 
+void GameScene::descargarScripts() {
+    limpiarColaCompilacion();
+    auto* gameObjects = getGameObjectsScene();
+    if (!gameObjects || gameObjects->isEmpty()) return;
+    Position<GameObject*>* pos = gameObjects->first();
+    while (pos && pos->getElement()) {
+        if (Script* script = pos->getElement()->getComponent<Script>())
+            script->liberarComportamiento();
+        pos = (pos != gameObjects->last()) ? gameObjects->next(pos) : nullptr;
+    }
+}
+
 static bool intersectRayAABB(const glm::vec3& rayOrigin, const glm::vec3& rayDir,
                              const glm::vec3& boxMin, const glm::vec3& boxMax,
                              float& tHit) {

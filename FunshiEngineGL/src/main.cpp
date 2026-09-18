@@ -26,6 +26,7 @@
 #include "../src/Objetos/Modelos3D.h"
 #include "../src/Objetos/Componentes/CameraComponent.h"
 #include "../src/States/ApplicationStateMachine.h"
+#include "../src/Behaviour/ScriptRuntime.h"
 #include "../src/Ventana.h"
 #include "ImGuizmo.h"
 #include "GLCompat.h"
@@ -382,6 +383,13 @@ int main(void)
 #elif defined(__linux__)
     scene->saveScene(proyectoDir+"/Binarios/Scene");
 #endif
+
+    // Apagado ordenado de los scripts antes de salir: primero se liberan las
+    // referencias globales JNI de las instancias y luego se apaga el JVM
+    // (DestroyJavaVM). Sin esto LeakSanitizer reporta cientos de bloques
+    // internos del JVM (nmethods, oopmaps, metaspace) como fugas al cerrar.
+    scene->descargarScripts();
+    ScriptRuntime::apagarScripts();
 
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();

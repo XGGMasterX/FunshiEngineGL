@@ -57,6 +57,11 @@ public:
     static std::string libjvmRuta();
     static bool jvmArrancada();
     static std::string cacheDir();
+
+    // Apaga el JVM embebido (DestroyJavaVM) al cerrar la aplicacion. Libera
+    // todo el estado interno del JVM que, de otro modo, LeakSanitizer reporta
+    // como fugas; debe llamarse DESPUES de descargar todos los scripts.
+    static void apagarJvm();
 };
 
 #endif // BACKENDJAVA_H
