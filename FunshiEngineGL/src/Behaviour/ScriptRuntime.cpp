@@ -152,3 +152,9 @@ ScriptRuntime::EstadoHerramientas ScriptRuntime::estadoHerramientas() {
     e.cache = BackendCpp::cacheDir();
     return e;
 }
+
+void ScriptRuntime::apagarScripts() {
+#if defined(FUNSHI_JAVA)
+    if (BackendJava::jvmArrancada()) BackendJava::apagarJvm();
+#endif
+}

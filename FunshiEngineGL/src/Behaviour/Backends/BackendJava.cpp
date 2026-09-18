@@ -387,6 +387,25 @@ std::string BackendJava::libjvmRuta() { return rutaLibjvm(); }
 bool BackendJava::jvmArrancada() { return jvm().jvm != nullptr; }
 std::string BackendJava::cacheDir() { return directorioCache(); }
 
+void BackendJava::apagarJvm() {
+    Jvm& j = jvm();
+    if (!j.jvm) return;
+
+    // DestroyJavaVM libera todo el estado interno de la JVM (nmethods,
+    // oopmaps, metaspace, tabla de referencias globales). Sin el, al salir
+    // LeakSanitizer lista cientos de bloques internos del JVM como fugas.
+    // Segun la spec JNI debe invocarse desde el hilo que creo la VM (el hilo
+    // principal); los hilos internos (compilador, GC) son "daemon" y no
+    // bloquean el apagado.
+    const jint rc = j.jvm->DestroyJavaVM();
+    (void)rc;
+    j.jvm = nullptr;
+    j.env = nullptr;
+    // libjvm (y la biblioteca) quedan cargadas hasta que muera el proceso:
+    // dlclose ahora liberaria codigo/metadata que aun referencian las pilas
+    // de C++, sin aportar nada en el cierre.
+}
+
 bool BackendJava::compilarYCargar(const std::string& fuente,
                                   const std::string& nombreClase,
                                   ComportamientoCargado& salida,

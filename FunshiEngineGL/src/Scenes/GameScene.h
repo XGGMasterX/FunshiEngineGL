@@ -194,6 +194,11 @@ public:
     const std::vector<ScriptRuntime::ResultadoCarga>& resultadosCarga() const noexcept {
         return resultadosCarga_;
     }
+
+    // Apagado de la aplicacion: descarga el comportamiento de todos los
+    // scripts de la escena (libera referencias globales JNI / handles) sin
+    // disparar onStop. main() la llama antes de apagar la JVM.
+    void descargarScripts();
 };
 
 #endif

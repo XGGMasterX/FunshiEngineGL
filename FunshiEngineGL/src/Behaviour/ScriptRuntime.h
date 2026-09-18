@@ -54,6 +54,10 @@ public:
     // Hot reload: true si el fuente en disco difiere del que fue compilado.
     static bool cambioElFuente(const ComportamientoCargado& c);
 
+    // Cierre de la aplicacion: apaga los backends (p. ej. DestroyJavaVM para
+    // el JVM). Debe invocarse despues de descargar todos los comportamientos.
+    static void apagarScripts();
+
     // Resultado de compilar un script (para la barra "Estado" del editor).
     struct ResultadoCarga {
         std::string nombre;

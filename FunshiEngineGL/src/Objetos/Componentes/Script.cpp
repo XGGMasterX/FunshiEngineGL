@@ -128,6 +128,14 @@ void Script::detener(GameObject* owner) {
     extraerValores(); // que la GUI conserve los ultimos valores editados
 }
 
+void Script::liberarComportamiento() {
+    if (!comportamiento_.cargado) return;
+    ScriptRuntime::descargar(comportamiento_); // sin owner: no dispara onStop
+    cargado_ = false;
+    arrancado_ = false;
+    aplazarCarga_ = false;
+}
+
 void Script::escribirCampo(int indice,
                            const ReflejoScripts::ValorCampo& valor) {
     if (indice < 0 || indice >= static_cast<int>(valores_.size())) return;
