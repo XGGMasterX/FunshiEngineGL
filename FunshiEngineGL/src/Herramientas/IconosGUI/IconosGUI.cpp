@@ -71,7 +71,8 @@ IconosGUI::~IconosGUI() {
         &iconoGameObject, &iconoBlend, &iconoCsv, &iconoExr, &iconoFbx,
         &iconoHdr, &iconoJpeg, &iconoJpg, &iconoJson, &iconoMax, &iconoMaya,
         &iconoMp3, &iconoObj, &iconoOgg, &iconoOtf, &iconoPng, &iconoPsd,
-        &iconoRs, &iconoTga, &iconoTtf, &iconoWav, &iconoXml,
+        &iconoRs, &iconoTga, &iconoTtf, &iconoWav, &iconoXml, &iconoDb,
+        &iconoMtl, &iconoRar, &iconoZip,
     };
     for (ImTextureID* icono : iconos) {
         if (*icono != ImTextureID_Invalid) {
@@ -112,6 +113,10 @@ void IconosGUI::init() {
     iconoTtf = cargarPNG("ttf.png");
     iconoWav = cargarPNG("wav.png");
     iconoXml = cargarPNG("xml.png");
+    iconoDb = cargarPNG("db.png");
+    iconoMtl = cargarPNG("mtl.png");
+    iconoRar = cargarPNG("rar.png");
+    iconoZip = cargarPNG("zip.png");
     inicializado = true;
 }
 
@@ -209,5 +214,9 @@ ImTextureID IconosGUI::getIconoPorExtension(const std::string& extension) const 
     if (ext == ".xml") return iconoXml;
     if (ext == ".csv") return iconoCsv;
     if (ext == ".rs") return iconoRs;                                // Rust
+    if (ext == ".db" || ext == ".sqlite" || ext == ".sqlite3") return iconoDb; // Bases de datos
+    if (ext == ".mtl") return iconoMtl;                              // Material Wavefront junto a .obj
+    if (ext == ".rar" || ext == ".7z" || ext == ".tar" || ext == ".gz") return iconoRar;
+    if (ext == ".zip") return iconoZip;
     return iconoArchivo;
 }
