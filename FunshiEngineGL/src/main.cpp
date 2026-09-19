@@ -27,6 +27,7 @@
 #include "../src/Objetos/Modelos3D.h"
 #include "../src/Objetos/Componentes/CameraComponent.h"
 #include "../src/States/ApplicationStateMachine.h"
+#include "../src/States/OrquestadorEstadoGUI.h"
 #include "../src/Behaviour/ScriptRuntime.h"
 #include "../src/Ventana.h"
 #include "ImGuizmo.h"
@@ -51,6 +52,7 @@ static bool recFilesInit = true;
 // Fuente de verdad del estado de la aplicacion (MainMenu / Editing). El menu
 // de inicio (paquete MenuGUI) informa su decision y aqui se refleja.
 static ApplicationStateMachine appStateMachine;
+static OrquestadorEstadoGUI orquestadorDeGUI(&appStateMachine);
 static float deltaTime = 0.0f;
 // Ruta del imgui.ini (layout de docks/geometria de ventanas): el puntero que
 // guarda ImGui debe vivir toda la app, por eso es una global.
@@ -93,7 +95,9 @@ public:
             }
             else if (appStateMachine.is(ApplicationState::Editing))
             {
-                appStateMachine.transitionTo(ApplicationState::MainMenu);
+                // Escape en el editor: la regla vive en el orquestador de
+                // estados de GUI, no suelta en el callback de main.
+                orquestadorDeGUI.manejarTeclaEscape();
             }
         }
         else if (key == GLFW_KEY_W && (action == GLFW_PRESS || action == GLFW_REPEAT))
@@ -359,15 +363,24 @@ int main(void)
             // Editing). Por frame: se consulta el cierre (consumo unico), se
             // transiciona y se refleja la decision de la maquina en la fachada.
             if (mainMenu->ConsultarCierre()) {  // "Iniciar Estudio"
-                appStateMachine.transitionTo(ApplicationState::Editing);
+                // main solo conversa con la fachada (pregunta si el menu pidio
+                // cerrarse); la DECISION de transicion MainMenu -> Editing vive
+                // en el orquestador, que ademas guarda el resultado por frame.
+                orquestadorDeGUI.iniciarEstudio();
             }
 
             // Sincronizacion con guardia de cambio: SetMenuActivo(true) reinicia
             // la vista del menu a Principal, asi que solo se aplica cuando la
             // maquina efectivamente cambio de estado (evita sacar al usuario de
-            // las sub-vistas Opciones/ConfigProyecto en cada frame).
+            // las sub-vistas Opciones/ConfigProyecto en cada frame). La decision
+            // la da el orquestador de GUI (unica fuente de verdad), no un
+            // appStateMachine.is() suelto aqui.
+            // Reflejo por frame: main pregunta al ORQUESTADOR (no a la maquina
+            // a pelo) que GUI este frame es la correcta. Esta es la unica
+            // fuente de verdad para la fachada; la maquina interna no se filtra
+            // al paquete MenuGUI.
             const bool menuDebeEstarAbierto =
-                appStateMachine.is(ApplicationState::MainMenu);
+                orquestadorDeGUI.menuDebeEstarVisible();
             if (menuDebeEstarAbierto != menuReflejadoEnFachada) {
                 mainMenu->SetMenuActivo(menuDebeEstarAbierto);
                 menuReflejadoEnFachada = menuDebeEstarAbierto;
@@ -385,7 +398,7 @@ int main(void)
             // La escena corre en cualquier estado que no sea el menu (Editing,
             // y futuramente Playing); el menu visible la detiene y dibuja solo.
             const bool sceneRunning =
-                !appStateMachine.is(ApplicationState::MainMenu);
+                orquestadorDeGUI.escenaDebeCorrer();
 
             if (sceneRunning) {
                 if (scene->isEditorActivo())
