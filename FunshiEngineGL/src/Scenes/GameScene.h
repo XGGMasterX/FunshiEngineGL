@@ -27,6 +27,7 @@
 #include "../Estructuras/ListasEnlazadas/ListasDoblementeEnlazada/ListaDE.h"
 #include "../Iluminacion/LightSystem.h"
 #include "../Behaviour/ScriptRuntime.h"
+#include "../Configuracion/Apariencia.h"
 
 class CameraComponent;
 class EditorController;
@@ -89,6 +90,10 @@ private:
     // Sensibilidad global del mouse look, sincronizada desde MenuGUI (vista
     // Opciones). La aplica main al offset del raton antes de updateYaw().
     float sensibilidadCamara = 1.0f;
+    // Perfil de apariencia sincronizado desde MenuGUI. La escena solo usa el
+    // fondo del viewport y el color de la grilla (modo B/N); el estilo ImGui
+    // lo aplica main con TemaEditor.
+    Apariencia apariencia;
     int gizmoOperation = 7; // ImGuizmo::TRANSLATE
     bool gizmoReady = false;
 
@@ -133,6 +138,15 @@ private:
     std::size_t cargaHecha_ = 0;
     std::vector<ScriptRuntime::ResultadoCarga> resultadosCarga_;
     bool compilacionEnCurso_ = false;
+    // Overlay de carga (se dispara al pulsar "Activar"): progreso con un
+    // minimo visible aunque la compilacion venga de cache, y un aviso breve
+    // del resultado al terminar (asi no se depende de la consola).
+    float overlayProgresoTimer_ = 0.0f;
+    float overlayResultadoTimer_ = 0.0f;
+    bool overlayProgresoVisible_ = false;
+    bool overlayResultadoVisible_ = false;
+    bool overlayResultadoPendiente_ = false;
+    bool overlayEnCursoPrev_ = false;
     void encolarScriptsIniciales();
     void procesarColaCompilacion();
     void limpiarColaCompilacion();
@@ -167,6 +181,12 @@ public:
     // Cambia la camara activa (por la que se navega y se ve la escena).
     void setActiveCamera(GameObject* object);
 
+    // Persistencia de la camara activa (EditorConfig): id del GameObject
+    // elegido con "Usar" (-1 = automatica) y restauracion tolerante por id
+    // (si el objeto ya no existe o perdio su camara, se vuelve a automatica).
+    int getActiveCameraId() const noexcept;
+    void setActiveCameraById(int id);
+
     // Crea un GameObject vacio con camara en la posicion/orientacion de la
     // camara activa, activa su vista previa y la deja seleccionada para
     // ubicarla con el gizmo. Ventana "Camaras" -> "Agregar camara".
@@ -181,6 +201,11 @@ public:
     // Sensibilidad del mouse look (la setea main desde MenuGUI/Opciones).
     float getSensibilidadCamara() const noexcept;
     void setSensibilidadCamara(float sensibilidad) noexcept;
+
+    // Perfil de apariencia (lo setea main desde MenuGUI/Opciones). Afecta el
+    // fondo de la vista 3D y el color de la grilla.
+    const Apariencia& getApariencia() const noexcept;
+    void setApariencia(const Apariencia& valor) noexcept;
 
     // Estado de la ventana "Camaras" (persistido por EditorConfig).
     bool getVentanaCamarasAbierta() const noexcept;

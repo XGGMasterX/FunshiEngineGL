@@ -19,6 +19,7 @@
 #include "../src/Scenes/GameScene.h"
 #include "../src/GUIManager/GUIManager.h"
 #include "../src/Configuracion/EditorConfig.h"
+#include "../src/GUI/Tema/TemaEditor.h"
 #include <imgui.h>
 #include "EngineTime.h"
 #include <imgui_impl_glfw.h>
@@ -245,6 +246,7 @@ int main(void)
     mainMenu->setNombreProyecto(editorConfig.datos().nombreProyecto);
     mainMenu->setIdioma(editorConfig.datos().idioma);
     mainMenu->setSensibilidadCamara(editorConfig.datos().sensibilidadCamara);
+    mainMenu->setApariencia(editorConfig.datos().apariencia);
     scene->setVentanaCamarasAbierta(editorConfig.datos().ventanaCamarasAbierta);
     scene->setGizmoOperation(editorConfig.datos().gizmoOperacion);
     managerOfGUI->restaurarEstadosVentanas(editorConfig.datos().estadoVentanas);
@@ -260,7 +262,13 @@ int main(void)
 
 
 
-    glClearColor(0.1, 0.1, 0.1, 1.0); //color de fondo
+    // Fondo del viewport 3D segun el perfil de apariencia; el bucle principal
+    // lo refresca por frame para reflejar cambios en vivo desde Opciones.
+    {
+        float fondoInicial[3];
+        AparienciaUtil::fondoEfectivo(mainMenu->getApariencia(), fondoInicial);
+        glClearColor(fondoInicial[0], fondoInicial[1], fondoInicial[2], 1.0f);
+    }
 
 
     // Configuración de iluminación fija
@@ -283,7 +291,10 @@ int main(void)
     // al proyecto del usuario, no en el directorio actual de lanzamiento.
     g_imguiIniRuta = EditorConfig::directorioProyectoPorDefecto() + "/imgui.ini";
     io.IniFilename = g_imguiIniRuta.c_str();
-    ImGui::StyleColorsDark();
+    // Tema global de ImGui a partir del perfil de apariencia cargado. Se
+    // reaplica en el bucle si el usuario lo cambia desde Opciones.
+    Apariencia aparienciaAplicada = mainMenu->getApariencia();
+    TemaEditor::aplicarEstilo(aparienciaAplicada);
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init("#version 440"); //460 PARA PC , 440 PARA NOTEBOOK
 
@@ -292,7 +303,11 @@ int main(void)
  #elif defined(__linux__)
      scene->loadScene(proyectoDir+"/Binarios/SceneBBDDObjetos.txt",
                 proyectoDir+"/Binarios/Scene/");
- #endif
+  #endif
+
+     // Restaura la camara activa elegida con "Usar" (persistida por id). Si el
+     // id ya no existe, GameScene se queda en modo automatico.
+     scene->setActiveCameraById(editorConfig.datos().camaraActivaId);
 
 
     while (!glfwWindowShouldClose(window)) //BUCLE PRINCIPAL
@@ -303,7 +318,23 @@ int main(void)
         
         
         glfwPollEvents();
-        
+
+        // Apariencia: la vista Opciones escribe en MenuGUI; main la propaga a
+        // la escena (fondo/grilla) y reaplica el estilo global solo cuando el
+        // perfil cambia (comparacion exacta por campos). El acento/el modo B/N
+        // se reflejan al instante en toda la interfaz.
+        {
+            const Apariencia& apariencia = mainMenu->getApariencia();
+            scene->setApariencia(apariencia);
+            if (apariencia != aparienciaAplicada) {
+                TemaEditor::aplicarEstilo(apariencia);
+                aparienciaAplicada = apariencia;
+            }
+            float fondo[3];
+            AparienciaUtil::fondoEfectivo(apariencia, fondo);
+            glClearColor(fondo[0], fondo[1], fondo[2], 1.0f);
+        }
+
         if (scene->isStart()) { //MODIFICAR , si se activa comenzar normal , si se quita volver todo al comienzo.
             //loadNewComponents(); // Buscar y cargar componentes nuevas
             scene->update(deltaTime);
@@ -404,7 +435,9 @@ int main(void)
     cfg.sensibilidadCamara = mainMenu->getSensibilidadCamara();
     cfg.ventanaCamarasAbierta = scene->getVentanaCamarasAbierta();
     cfg.gizmoOperacion = scene->getGizmoOperation();
+    cfg.camaraActivaId = scene->getActiveCameraId();
     cfg.estadoVentanas = managerOfGUI->obtenerEstadosVentanas();
+    cfg.apariencia = mainMenu->getApariencia();
     editorConfig.guardar(EditorConfig::rutaPorDefecto());
 
     glfwTerminate();

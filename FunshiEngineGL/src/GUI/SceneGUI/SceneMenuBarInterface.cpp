@@ -31,15 +31,24 @@ void SceneMenuBarInterface::initGUI() {
 void SceneMenuBarInterface::contentGUI() {
     if (!toggleBool) return;
     ImGui::SetCursorPosX((ImGui::GetWindowWidth() - 100) * 0.5f);
-    const ImVec4 color = *toggleBool ? ImVec4(0.2f,0.8f,0.2f,1) : ImVec4(0.1f,0.5f,0.1f,1);
+    // Boton play/stop: el texto y el color cambian segun el estado para que
+    // quede claro que el mismo boton activa y detiene la simulacion.
+    const bool activo = *toggleBool;
+    const ImVec4 color =
+        activo ? ImVec4(0.72f, 0.22f, 0.22f, 1.0f)   // Detener (rojo)
+               : ImVec4(0.16f, 0.55f, 0.24f, 1.0f);  // Activar (verde)
+    const ImVec4 hover = activo ? ImVec4(0.85f, 0.30f, 0.30f, 1.0f)
+                                : ImVec4(0.24f, 0.68f, 0.32f, 1.0f);
     ImGui::PushStyleColor(ImGuiCol_Button, color);
-    if (ImGui::Button("Activar", ImVec2(100,30))) {
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, hover);
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, color);
+    if (ImGui::Button(activo ? "Detener" : "Activar", ImVec2(100, 30))) {
         *toggleBool = !*toggleBool;
         cargarScripts = true;
     }
-    ImGui::PopStyleColor();
+    ImGui::PopStyleColor(3);
     ImGui::SameLine();
-    ImGui::Text(*toggleBool ? "Estado: ACTIVO" : "Estado: INACTIVO");
+    ImGui::Text(activo ? "Estado: ACTIVO" : "Estado: INACTIVO");
 }
 void SceneMenuBarInterface::endGUI() { ImGui::PopID(); ImGui::End(); }
 void SceneMenuBarInterface::printGUI() {

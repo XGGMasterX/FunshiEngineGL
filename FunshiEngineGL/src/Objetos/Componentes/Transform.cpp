@@ -19,11 +19,19 @@
 #include "Transform.h"
 
 #include <cmath>
+#include <cstdint>
+#include <ios>
 #include "../../GLCompat.h"
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/matrix_decompose.hpp>
 #include <glm/gtc/type_ptr.hpp>
+
+// Marca de version del bloque Transform. Al inicio del bloque permite:
+//  - escribir childsFreeze (que antes se perdia al guardar), y
+//  - leer escenas viejas (sin marca) retrocediendo el cursor y asumiendo el
+//    formato original (solo translate/scale/rotate, childsFreeze por defecto).
+static constexpr std::uint32_t kTransformMagic = 0x54524632u; // "TRF2"
 
 Transform::Transform() {
     // Inicializar arrays auxiliares
@@ -37,21 +45,49 @@ Transform::Transform() {
 }
 
 void Transform::serializeComponent(std::ofstream* fileNamePathContentObject) {
+    fileNamePathContentObject->write(reinterpret_cast<const char*>(&kTransformMagic),
+                                     sizeof(kTransformMagic));
     fileNamePathContentObject->write(
         reinterpret_cast<const char*>(&objectTranslatef), sizeof(float) * 3);
     fileNamePathContentObject->write(
         reinterpret_cast<const char*>(&objectScalef), sizeof(float) * 3);
     fileNamePathContentObject->write(
         reinterpret_cast<const char*>(&objectRotatef), sizeof(float) * 4);
+    const unsigned char freeze = childsFreeze ? 1u : 0u;
+    fileNamePathContentObject->write(reinterpret_cast<const char*>(&freeze),
+                                     sizeof(freeze));
 }
 
 void Transform::deserializeComponent(std::ifstream* fileNamePathContentObject) {
-    fileNamePathContentObject->read(
-        reinterpret_cast<char*>(&objectTranslatef), sizeof(float) * 3);
-    fileNamePathContentObject->read(reinterpret_cast<char*>(&objectScalef),
-                                    sizeof(float) * 3);
-    fileNamePathContentObject->read(reinterpret_cast<char*>(&objectRotatef),
-                                    sizeof(float) * 4);
+    // Formato nuevo: marca + datos + childsFreeze. Formato viejo: arranca
+    // directo con translate. Se detecta por la marca; si no esta, se retrocede
+    // el cursor y se lee el layout original.
+    std::uint32_t marca = 0;
+    fileNamePathContentObject->read(reinterpret_cast<char*>(&marca),
+                                    sizeof(marca));
+
+    if (marca == kTransformMagic) {
+        fileNamePathContentObject->read(
+            reinterpret_cast<char*>(&objectTranslatef), sizeof(float) * 3);
+        fileNamePathContentObject->read(reinterpret_cast<char*>(&objectScalef),
+                                        sizeof(float) * 3);
+        fileNamePathContentObject->read(reinterpret_cast<char*>(&objectRotatef),
+                                        sizeof(float) * 4);
+        unsigned char freeze = 0;
+        fileNamePathContentObject->read(reinterpret_cast<char*>(&freeze),
+                                        sizeof(freeze));
+        childsFreeze = freeze != 0u;
+    } else {
+        fileNamePathContentObject->seekg(-static_cast<std::streamoff>(sizeof(marca)),
+                                         std::ios::cur);
+        fileNamePathContentObject->read(
+            reinterpret_cast<char*>(&objectTranslatef), sizeof(float) * 3);
+        fileNamePathContentObject->read(reinterpret_cast<char*>(&objectScalef),
+                                        sizeof(float) * 3);
+        fileNamePathContentObject->read(reinterpret_cast<char*>(&objectRotatef),
+                                        sizeof(float) * 4);
+        childsFreeze = false;
+    }
 
     // Actualizar los arrays auxiliares
     for (int i = 0; i < 3; i++) {

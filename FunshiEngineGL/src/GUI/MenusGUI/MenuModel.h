@@ -22,6 +22,8 @@
 #include <string>
 #include <vector>
 
+#include "../../Configuracion/Apariencia.h"
+
 // Modelo del paquete MenuGUI: la capa de logica pura del menu de inicio del
 // motor (sin ImGui/GLFW ni rendering). Es el patron MVP de este paquete:
 // - MenuModel    (este archivo): estado + navegacion entre vistas + datos de
@@ -66,12 +68,18 @@ public:
     float getSensibilidadCamara() const noexcept;
     void setSensibilidadCamara(float sensibilidad) noexcept;
 
+    // Perfil de apariencia (tema, modo B/N, acento de la UI y fondo 3D). La
+    // vista Opciones lo edita y main lo aplica a ImGui y a la escena.
+    const Apariencia& getApariencia() const noexcept;
+    void setApariencia(const Apariencia& valor) noexcept;
+
 private:
     Vista vista = Vista::Principal;
     std::string nombreProyecto = "Nuevo Proyecto";
     std::string idioma = "Espanol";
     std::vector<std::string> idiomasDisponibles = {"Espanol", "English"};
     float sensibilidadCamara = 1.0f;
+    Apariencia apariencia;
 };
 
 #endif

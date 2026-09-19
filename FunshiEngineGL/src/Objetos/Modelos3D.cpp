@@ -63,7 +63,9 @@ void Modelos3D::setObject() {
 }
 
 void Modelos3D::dibujar(float deltaTime) {
-    update(deltaTime);
+    // El render NO simula: scripts/fisica se actualizan en GameScene::update
+    // (solo en play). Antes update() aca corria los scripts tambien en editor.
+    (void)deltaTime;
     Transform* transform = getGlobalTransform();
     if (transform) transform->position();
     if (Model* model = getComponent<Model>(); model && model->getPath() != filePath_)
