@@ -309,8 +309,8 @@ int main(void)
     EditorEventBus* eventosGUI = managerOfGUI->getEditorEventBus();
     if (eventosGUI) {
         // Apariencia: aplica el estilo ImGui, el fondo del viewport y la
-        // apariencia de la escena (grilla/vistas previas), y persiste al
-        // instante para que sobreviva un cierre brusco.
+        // apariencia de la escena (grilla/vistas previas), y persiste en la
+        // config GENERAL al instante (no depende del proyecto activo).
         eventosGUI->subscribe([scene, &editorConfig, &proyectoActual](const EditorEvent& ev) {
             if (ev.type != EditorEventType::AparienciaCambio) return;
             scene->setApariencia(ev.apariencia);
@@ -320,22 +320,21 @@ int main(void)
             glClearColor(fondo[0], fondo[1], fondo[2], 1.0f);
             auto& cfg = editorConfig.datos();
             cfg.apariencia = ev.apariencia;
-            editorConfig.guardar(EditorConfig::rutaConfiguracion(proyectoActual));
+            editorConfig.guardarGeneral();
         });
-        // Idioma: se persiste al instante (las etiquetas del menu ya leen el
-        // modelo cada frame; el hook onLanguageChanged queda para ventanas).
-        eventosGUI->subscribe([&editorConfig, &proyectoActual](const EditorEvent& ev) {
+        // Idioma: se persiste en la config general al instante.
+        eventosGUI->subscribe([&editorConfig](const EditorEvent& ev) {
             if (ev.type != EditorEventType::IdiomaCambio) return;
             editorConfig.datos().idioma = ev.idioma;
-            editorConfig.guardar(EditorConfig::rutaConfiguracion(proyectoActual));
+            editorConfig.guardarGeneral();
         });
-        // Ventana Estado: al cerrarla con la 'X' se persiste su visibilidad en
-        // el mapa estadoVentanas al momento, sin esperar el guardado de salida.
+        // Ventana Estado: al cerrarla con la 'X' se persiste en la config
+        // del proyecto activo, no en la general.
         eventosGUI->subscribe([&editorConfig, &proyectoActual](const EditorEvent& ev) {
             if (ev.type != EditorEventType::VentanaEstadoCambio) return;
             if (!ev.nombreVentana) return;
             editorConfig.datos().estadoVentanas[ev.nombreVentana] = ev.abierta;
-            editorConfig.guardar(EditorConfig::rutaConfiguracion(proyectoActual));
+            editorConfig.guardarProyecto(proyectoActual);
         });
     }
 
@@ -478,8 +477,10 @@ int main(void)
     cfg.camaraActivaId = scene->getActiveCameraId();
     cfg.estadoVentanas = managerOfGUI->obtenerEstadosVentanas();
     cfg.apariencia = mainMenu->getApariencia();
-    editorConfig.guardar(EditorConfig::rutaConfiguracion(cfg.nombreProyecto));
-    editorConfig.guardar(EditorConfig::rutaPorDefecto());
+    // Configuracion general: apariencia, idioma, sensibilidad y ultimo proyecto.
+    editorConfig.guardarGeneral();
+    // Configuracion del proyecto: estado de ventanas, gizmo, camara activa.
+    editorConfig.guardarProyecto(cfg.nombreProyecto);
 
     glfwTerminate();
     return 0;
