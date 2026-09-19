@@ -58,8 +58,21 @@ std::string EditorConfig::nombreRaizSrc(const std::string& nombreProyecto) {
     return "src" + nombre;
 }
 
+std::string EditorConfig::rutaConfiguracionGeneral() {
+    // Configuracion general: hermana de las carpetas de proyecto, no dentro de ninguna.
+    // Guarda solo lo independiente del proyecto: apariencia, idioma, sensibilidad,
+    // y el ultimo proyecto abierto para saber cual cargar al arrancar.
+    return directorioBaseMotorGrafico() + "/Configuracion.json";
+}
+
+std::string EditorConfig::rutaConfiguracionProyecto(const std::string& nombreProyecto) {
+    // Configuracion especifica del proyecto: estado de ventanas, gizmo, camara activa.
+    return directorioMemory(nombreProyecto) + "/ConfiguracionProyecto.json";
+}
+
 std::string EditorConfig::rutaConfiguracion(const std::string& nombreProyecto) {
-    return directorioMemory(nombreProyecto) + "/Configuracion.json";
+    // Alias de compatibilidad: apunta a la configuracion del proyecto.
+    return rutaConfiguracionProyecto(nombreProyecto);
 }
 
 std::string EditorConfig::directorioBinarios(const std::string& nombreProyecto) {
@@ -115,66 +128,95 @@ void EditorConfig::asegurarEstructuraProyecto(const std::string& nombreProyecto)
 }
 
 std::string EditorConfig::rutaPorDefecto() {
-    return rutaConfiguracion("Nuevo Proyecto");
+    // La "ruta por defecto" al arrancar sin argumento es la config general,
+    // que vive en la raiz de MotorGrafico junto a las carpetas de proyecto.
+    // Desde ahi se lee el ultimo proyecto abierto para saber que proyecto cargar.
+    return rutaConfiguracionGeneral();
 }
 
 std::string EditorConfig::directorioProyectoPorDefecto() {
     return directorioMemory("Nuevo Proyecto");
 }
 
-void EditorConfig::cargar(const std::string& ruta) {
-    std::ifstream in(ruta);
-    if (!in.is_open()) {
-        if (ruta == rutaPorDefecto()) {
-            const std::string legacyRuta = directorioBaseMotorGrafico() + "/Configuracion.json";
-            in.open(legacyRuta);
-            if (!in.is_open()) return;
-        } else {
-            return;
-        }
-    }
+// ============================================================================
+// Helpers internos de lectura/escritura JSON
+// ============================================================================
 
+// Escribe un bloque JSON en disco, creando los directorios necesarios.
+static void escribirJson(const std::string& ruta, const nlohmann::json& j) {
+    std::error_code ec;
+    const std::string::size_type sep = ruta.find_last_of("/\\");
+    if (sep != std::string::npos)
+        std::filesystem::create_directories(ruta.substr(0, sep), ec);
+    std::ofstream out(ruta);
+    if (!out.is_open()) return;
+    out << j.dump(2) << '\n';
+}
+
+// Intenta abrir `ruta`; retorna el json parseado o un objeto vacio si falla.
+static nlohmann::json leerJson(const std::string& ruta) {
+    std::ifstream in(ruta);
+    if (!in.is_open()) return nlohmann::json::object();
     nlohmann::json j;
     try {
         in >> j;
     } catch (...) {
-        return; // archivo corrupto: defaults
+        return nlohmann::json::object();
     }
-    if (!j.is_object()) return;
+    return j.is_object() ? j : nlohmann::json::object();
+}
+
+// ============================================================================
+// Carga: la funcion publica `cargar` es el punto de entrada historico;
+// delega en cargarGeneral + cargarProyecto para el arranque completo.
+// ============================================================================
+
+void EditorConfig::cargar(const std::string& ruta) {
+    // ruta puede ser la config general (nueva) o la legacy; en ambos casos
+    // cargamos primero la config general para obtener nombreProyecto, y luego
+    // la config especifica de ese proyecto.
+    cargarGeneral(ruta.empty() ? rutaConfiguracionGeneral() : ruta);
+    cargarProyecto(datos_.nombreProyecto);
+}
+
+void EditorConfig::cargarGeneral(const std::string& ruta) {
+    // Determina la ruta a leer: si llega vacia usa la ruta canonica general.
+    const std::string rutaReal = ruta.empty() ? rutaConfiguracionGeneral() : ruta;
+    nlohmann::json j = leerJson(rutaReal);
+
+    // Compatibilidad: si el archivo no existe y se esta usando la ruta canonica,
+    // busca el archivo legacy en la raiz de MotorGrafico (para instalaciones
+    // que todavia tienen Configuracion.json en la raiz, antes de esta separacion).
+    // No aplica si se paso una ruta explicita distinta (p. ej. tests).
+    const std::string rutaCanonica = rutaConfiguracionGeneral();
+    if (j.empty() && rutaReal == rutaCanonica) {
+        // La ruta canonica ya ES la raiz de MotorGrafico/Configuracion.json,
+        // asi que no hay legacy distinto que buscar; simplemente no hay archivo.
+    }
+    if (j.empty()) return;
 
     if (j.contains("version") && j["version"].is_number_integer())
         datos_.version = j["version"].get<int>();
 
-    if (j.contains("menu") && j["menu"].is_object()) {
-        const nlohmann::json& menu = j["menu"];
+    // Ultimo proyecto abierto: permite arrancar directamente en el proyecto
+    // que se estaba editando sin que el usuario tenga que seleccionarlo.
+    if (j.contains("ultimoProyecto") && j["ultimoProyecto"].is_string())
+        datos_.nombreProyecto = j["ultimoProyecto"].get<std::string>();
+    // Compatibilidad con archivos viejos que guardaban el proyecto en "menu/proyecto"
+    else if (j.contains("menu") && j["menu"].is_object()) {
+        const auto& menu = j["menu"];
         if (menu.contains("proyecto") && menu["proyecto"].is_string())
             datos_.nombreProyecto = menu["proyecto"].get<std::string>();
         if (menu.contains("idioma") && menu["idioma"].is_string())
             datos_.idioma = menu["idioma"].get<std::string>();
-        // El slider guarda floats; aceptar tambien enteros (p. ej. 1) por si
-        // el archivo se edito a mano.
         if (menu.contains("sensibilidadCamara") && menu["sensibilidadCamara"].is_number())
             datos_.sensibilidadCamara = menu["sensibilidadCamara"].get<float>();
     }
 
-    if (j.contains("editor") && j["editor"].is_object()) {
-        const nlohmann::json& editor = j["editor"];
-        if (editor.contains("ventanaCamarasAbierta") &&
-            editor["ventanaCamarasAbierta"].is_boolean())
-            datos_.ventanaCamarasAbierta = editor["ventanaCamarasAbierta"].get<bool>();
-        if (editor.contains("gizmoOperacion") && editor["gizmoOperacion"].is_number_integer())
-            datos_.gizmoOperacion = editor["gizmoOperacion"].get<int>();
-        if (editor.contains("camaraActivaId") && editor["camaraActivaId"].is_number_integer())
-            datos_.camaraActivaId = editor["camaraActivaId"].get<int>();
-
-        if (editor.contains("ventanas") && editor["ventanas"].is_object()) {
-            for (auto it = editor["ventanas"].begin();
-                 it != editor["ventanas"].end(); ++it) {
-                if (it.value().is_boolean())
-                    datos_.estadoVentanas[it.key()] = it.value().get<bool>();
-            }
-        }
-    }
+    if (j.contains("idioma") && j["idioma"].is_string())
+        datos_.idioma = j["idioma"].get<std::string>();
+    if (j.contains("sensibilidadCamara") && j["sensibilidadCamara"].is_number())
+        datos_.sensibilidadCamara = j["sensibilidadCamara"].get<float>();
 
     // Apariencia (tema, modo B/N, acento y fondo 3D). Tolerante: cada campo
     // ausente o invalido conserva el default del perfil.
@@ -199,18 +241,60 @@ void EditorConfig::cargar(const std::string& ruta) {
     }
 }
 
+void EditorConfig::cargarProyecto(const std::string& nombreProyecto,
+                                  const std::string& ruta) {
+    const std::string rutaReal =
+        ruta.empty() ? rutaConfiguracionProyecto(nombreProyecto) : ruta;
+    nlohmann::json j = leerJson(rutaReal);
+
+    // Compatibilidad: si el archivo nuevo no existe y se usa la ruta canonica,
+    // intenta el viejo nombre Configuracion.json que vivía en Memory antes de
+    // esta separacion. No aplica con rutas explícitas (p. ej. tests).
+    const std::string rutaCanonica = rutaConfiguracionProyecto(nombreProyecto);
+    if (j.empty() && rutaReal == rutaCanonica) {
+        j = leerJson(directorioMemory(nombreProyecto) + "/Configuracion.json");
+    }
+    if (j.empty()) return;
+
+    if (j.contains("editor") && j["editor"].is_object()) {
+        const nlohmann::json& editor = j["editor"];
+        if (editor.contains("ventanaCamarasAbierta") &&
+            editor["ventanaCamarasAbierta"].is_boolean())
+            datos_.ventanaCamarasAbierta = editor["ventanaCamarasAbierta"].get<bool>();
+        if (editor.contains("gizmoOperacion") && editor["gizmoOperacion"].is_number_integer())
+            datos_.gizmoOperacion = editor["gizmoOperacion"].get<int>();
+        if (editor.contains("camaraActivaId") && editor["camaraActivaId"].is_number_integer())
+            datos_.camaraActivaId = editor["camaraActivaId"].get<int>();
+
+        if (editor.contains("ventanas") && editor["ventanas"].is_object()) {
+            for (auto it = editor["ventanas"].begin();
+                 it != editor["ventanas"].end(); ++it) {
+                if (it.value().is_boolean())
+                    datos_.estadoVentanas[it.key()] = it.value().get<bool>();
+            }
+        }
+    }
+}
+
+// ============================================================================
+// Guardado
+// ============================================================================
+
 void EditorConfig::guardar(const std::string& ruta) {
+    // Guardado completo de compatibilidad: guarda general + proyecto.
+    // En el flujo nuevo, main llama a guardarGeneral/guardarProyecto por separado.
+    guardarGeneral();
+    guardarProyecto(datos_.nombreProyecto);
+}
+
+void EditorConfig::guardarGeneral(const std::string& ruta) {
+    const std::string rutaReal = ruta.empty() ? rutaConfiguracionGeneral() : ruta;
     nlohmann::json j;
     j["version"] = datos_.version;
-    j["menu"]["proyecto"] = datos_.nombreProyecto;
-    j["menu"]["idioma"] = datos_.idioma;
-    j["menu"]["sensibilidadCamara"] = datos_.sensibilidadCamara;
-    j["editor"]["ventanaCamarasAbierta"] = datos_.ventanaCamarasAbierta;
-    j["editor"]["gizmoOperacion"] = datos_.gizmoOperacion;
-    j["editor"]["camaraActivaId"] = datos_.camaraActivaId;
-    for (const auto& [nombre, abierta] : datos_.estadoVentanas)
-        j["editor"]["ventanas"][nombre] = abierta;
-
+    // Ultimo proyecto abierto: al arrancar se retoma este proyecto sin pedir al usuario.
+    j["ultimoProyecto"] = datos_.nombreProyecto;
+    j["idioma"] = datos_.idioma;
+    j["sensibilidadCamara"] = datos_.sensibilidadCamara;
     j["apariencia"]["temaClaro"] = datos_.apariencia.temaClaro;
     j["apariencia"]["blancoYNegro"] = datos_.apariencia.blancoYNegro;
     j["apariencia"]["acento"] = {datos_.apariencia.acento[0],
@@ -220,13 +304,19 @@ void EditorConfig::guardar(const std::string& ruta) {
     j["apariencia"]["fondo"] = {datos_.apariencia.fondo[0],
                                 datos_.apariencia.fondo[1],
                                 datos_.apariencia.fondo[2]};
+    escribirJson(rutaReal, j);
+}
 
-    std::error_code ec;
-    const std::string::size_type sep = ruta.find_last_of("/\\");
-    if (sep != std::string::npos)
-        std::filesystem::create_directories(ruta.substr(0, sep), ec);
-
-    std::ofstream out(ruta);
-    if (!out.is_open()) return;
-    out << j.dump(2) << '\n';
+void EditorConfig::guardarProyecto(const std::string& nombreProyecto,
+                                   const std::string& ruta) {
+    const std::string rutaReal =
+        ruta.empty() ? rutaConfiguracionProyecto(nombreProyecto) : ruta;
+    nlohmann::json j;
+    j["version"] = datos_.version;
+    j["editor"]["ventanaCamarasAbierta"] = datos_.ventanaCamarasAbierta;
+    j["editor"]["gizmoOperacion"] = datos_.gizmoOperacion;
+    j["editor"]["camaraActivaId"] = datos_.camaraActivaId;
+    for (const auto& [nombre, abierta] : datos_.estadoVentanas)
+        j["editor"]["ventanas"][nombre] = abierta;
+    escribirJson(rutaReal, j);
 }
