@@ -234,20 +234,18 @@ int main(void)
     ContentFolderInterface* contentFolderInterface = managerOfGUI->getContentFolderGUI();
     MiAPP* app = new MiAPP(scene);
     Time::start();
-    // Ruta base del proyecto del usuario. getenv("HOME") NO existe en Windows
-    // (ahí se usa USERPROFILE) y construir un std::string desde su nullptr era
-    // comportamiento indefinido -> crash al arrancar justo despues de cargar
-    // las texturas de la GUI. EditorConfig ya resuelve la ruta por plataforma:
-    //  - Windows: C:/MotorGraficoArchivos (creada por el instalador)
-    //  - Linux:   ~/MotorGrafico
-    const std::string proyectoDir = EditorConfig::directorioProyectoPorDefecto();
-
-    // Configuration del editor (interfaz + menu) persistida en JSON junto al
-    // proyecto del usuario. Al arrancar se carga y se aplica a cada capa; al
+    // Configuration del editor (interfaz + menu) persistida en JSON en Memory
+    // del proyecto del usuario. Al arrancar se carga y se aplica a cada capa; al
     // salir se recogen los valores actuales y se guarda (ver fin de main).
     // La escena es independiente: sigue en sus binarios (SceneSerializer).
     EditorConfig editorConfig;
     editorConfig.cargar(EditorConfig::rutaPorDefecto());
+    std::string proyectoActual = editorConfig.datos().nombreProyecto;
+    if (proyectoActual.empty()) proyectoActual = "Nuevo Proyecto";
+
+    EditorConfig::asegurarEstructuraProyecto(proyectoActual);
+    managerOfGUI->configurarProyecto(proyectoActual);
+
     mainMenu->setNombreProyecto(editorConfig.datos().nombreProyecto);
     mainMenu->setIdioma(editorConfig.datos().idioma);
     mainMenu->setSensibilidadCamara(editorConfig.datos().sensibilidadCamara);
@@ -293,9 +291,9 @@ int main(void)
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO(); (void)io;
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
-    // El imgui.ini (layout de docks y geometria de ventanas) se guarda junto
-    // al proyecto del usuario, no en el directorio actual de lanzamiento.
-    g_imguiIniRuta = EditorConfig::directorioProyectoPorDefecto() + "/imgui.ini";
+    // El imgui.ini (layout de docks y geometria de ventanas) se guarda en Memory
+    // del proyecto del usuario, no en el directorio actual de lanzamiento.
+    g_imguiIniRuta = EditorConfig::rutaImguiIni(proyectoActual);
     io.IniFilename = g_imguiIniRuta.c_str();
     // Tema global de ImGui a partir del perfil de apariencia cargado. Los
     // cambios en vivo llegan por el bus de GUI (EditorEventBus/AparienciaCambio),
@@ -313,7 +311,7 @@ int main(void)
         // Apariencia: aplica el estilo ImGui, el fondo del viewport y la
         // apariencia de la escena (grilla/vistas previas), y persiste al
         // instante para que sobreviva un cierre brusco.
-        eventosGUI->subscribe([scene, &editorConfig](const EditorEvent& ev) {
+        eventosGUI->subscribe([scene, &editorConfig, &proyectoActual](const EditorEvent& ev) {
             if (ev.type != EditorEventType::AparienciaCambio) return;
             scene->setApariencia(ev.apariencia);
             TemaEditor::aplicarEstilo(ev.apariencia);
@@ -322,31 +320,28 @@ int main(void)
             glClearColor(fondo[0], fondo[1], fondo[2], 1.0f);
             auto& cfg = editorConfig.datos();
             cfg.apariencia = ev.apariencia;
-            editorConfig.guardar(EditorConfig::rutaPorDefecto());
+            editorConfig.guardar(EditorConfig::rutaConfiguracion(proyectoActual));
         });
         // Idioma: se persiste al instante (las etiquetas del menu ya leen el
         // modelo cada frame; el hook onLanguageChanged queda para ventanas).
-        eventosGUI->subscribe([&editorConfig](const EditorEvent& ev) {
+        eventosGUI->subscribe([&editorConfig, &proyectoActual](const EditorEvent& ev) {
             if (ev.type != EditorEventType::IdiomaCambio) return;
             editorConfig.datos().idioma = ev.idioma;
-            editorConfig.guardar(EditorConfig::rutaPorDefecto());
+            editorConfig.guardar(EditorConfig::rutaConfiguracion(proyectoActual));
         });
         // Ventana Estado: al cerrarla con la 'X' se persiste su visibilidad en
         // el mapa estadoVentanas al momento, sin esperar el guardado de salida.
-        eventosGUI->subscribe([&editorConfig](const EditorEvent& ev) {
+        eventosGUI->subscribe([&editorConfig, &proyectoActual](const EditorEvent& ev) {
             if (ev.type != EditorEventType::VentanaEstadoCambio) return;
             if (!ev.nombreVentana) return;
             editorConfig.datos().estadoVentanas[ev.nombreVentana] = ev.abierta;
-            editorConfig.guardar(EditorConfig::rutaPorDefecto());
+            editorConfig.guardar(EditorConfig::rutaConfiguracion(proyectoActual));
         });
     }
 
- #if defined(_WIN32)
-     scene->loadScene("C:/MotorGraficoArchivos/Binarios/SceneBBDDObjetos.txt", "C:/MotorGraficoArchivos/Binarios/Scene/");
- #elif defined(__linux__)
-     scene->loadScene(proyectoDir+"/Binarios/SceneBBDDObjetos.txt",
-                proyectoDir+"/Binarios/Scene/");
-  #endif
+    const std::string sceneBBDD = EditorConfig::rutaSceneBBDD(proyectoActual);
+    const std::string sceneDir = EditorConfig::rutaSceneDir(proyectoActual);
+    scene->loadScene(sceneBBDD, sceneDir);
 
      // Restaura la camara activa elegida con "Usar" (persistida por id). Si el
      // id ya no existe, GameScene se queda en modo automatico.
@@ -418,6 +413,15 @@ int main(void)
             // asi que la lectura por frame no tiene costo apreciable.
             scene->setSensibilidadCamara(mainMenu->getSensibilidadCamara());
 
+            // Sincroniza cambio de nombre de proyecto si se edito en Config Proyect
+            const std::string nombreMenu = mainMenu->getNombreProyecto();
+            if (!nombreMenu.empty() && nombreMenu != proyectoActual) {
+                proyectoActual = nombreMenu;
+                EditorConfig::asegurarEstructuraProyecto(proyectoActual);
+                managerOfGUI->configurarProyecto(proyectoActual);
+                editorConfig.datos().nombreProyecto = proyectoActual;
+            }
+
             if (mainMenu->ConsultarMenu()) {
                 mainMenu->Renderizar();             // la vista dibuja la vista activa del modelo
             }
@@ -449,11 +453,7 @@ int main(void)
         glfwSwapBuffers(window);    
     }
 
-#if defined(_WIN32)
-    scene->saveScene(proyectoDir+"/Binarios/Scene");
-#elif defined(__linux__)
-    scene->saveScene(proyectoDir+"/Binarios/Scene");
-#endif
+    scene->saveScene(EditorConfig::rutaScenePrefijo(proyectoActual));
 
     // Apagado ordenado de los scripts antes de salir: primero se liberan las
     // referencias globales JNI de las instancias y luego se apaga el JVM
@@ -478,6 +478,7 @@ int main(void)
     cfg.camaraActivaId = scene->getActiveCameraId();
     cfg.estadoVentanas = managerOfGUI->obtenerEstadosVentanas();
     cfg.apariencia = mainMenu->getApariencia();
+    editorConfig.guardar(EditorConfig::rutaConfiguracion(cfg.nombreProyecto));
     editorConfig.guardar(EditorConfig::rutaPorDefecto());
 
     glfwTerminate();

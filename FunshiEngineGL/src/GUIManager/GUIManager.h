@@ -96,6 +96,9 @@ public:
 	DockSpaceInterface* getDockSpaceGUI();
 	StatusBarInterface* getStatusBarGUI();
 
+	// Configura la ruta y el nombre del proyecto en el explorador de archivos
+	void configurarProyecto(const std::string& nombreProyecto);
+
 	// Persistencia del estado de las ventanas (EditorConfig): restaura el
 	// stateGUI de cada ventana persistente por su nombre y recoge el estado
 	// actual. La ventana Settings es dinamica (depende de la seleccion) y se

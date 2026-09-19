@@ -62,13 +62,14 @@ void forEachChild(TNodo<T>* node, Fn&& fn) {
 }
 template <typename T, typename Row, typename OpenSet, typename KeyOf>
 void drawTreeKeyed(ArbolEnlazado<T>* tree, Position<T>* pos,
-                   OpenSet& openState, Row&& drawRow, KeyOf&& keyOf) {
+                   OpenSet& openState, Row&& drawRow, KeyOf&& keyOf,
+                   bool drawRoot = false) {
     if (!tree || !pos) return;
 
-    if (pos == tree->rootOfTree()) {
+    if (pos == tree->rootOfTree() && !drawRoot) {
         if (!((TNodo<T>*)pos)->getChilds()->isEmpty()) {
             forEachChild((TNodo<T>*)pos, [&](Position<T>* child) {
-                drawTreeKeyed(tree, child, openState, drawRow, keyOf);
+                drawTreeKeyed(tree, child, openState, drawRow, keyOf, false);
             });
         }
         return;

@@ -31,11 +31,7 @@
 // pudo leer. El binario solo persiste datos de escena, no configuracion.
 // ============================================================================
 
-std::string EditorConfig::rutaPorDefecto() {
-    return directorioProyectoPorDefecto() + "/Configuracion.json";
-}
-
-std::string EditorConfig::directorioProyectoPorDefecto() {
+std::string EditorConfig::directorioBaseMotorGrafico() {
 #if defined(_WIN32)
     return "C:/MotorGraficoArchivos";
 #else
@@ -44,9 +40,99 @@ std::string EditorConfig::directorioProyectoPorDefecto() {
 #endif
 }
 
+std::string EditorConfig::directorioProyecto(const std::string& nombreProyecto) {
+    const std::string nombre = nombreProyecto.empty() ? "Nuevo Proyecto" : nombreProyecto;
+    return directorioBaseMotorGrafico() + "/" + nombre;
+}
+
+std::string EditorConfig::directorioMemory(const std::string& nombreProyecto) {
+    return directorioProyecto(nombreProyecto) + "/Memory";
+}
+
+std::string EditorConfig::directorioSrc(const std::string& nombreProyecto) {
+    return directorioProyecto(nombreProyecto) + "/" + nombreRaizSrc(nombreProyecto);
+}
+
+std::string EditorConfig::nombreRaizSrc(const std::string& nombreProyecto) {
+    const std::string nombre = nombreProyecto.empty() ? "Nuevo Proyecto" : nombreProyecto;
+    return "src" + nombre;
+}
+
+std::string EditorConfig::rutaConfiguracion(const std::string& nombreProyecto) {
+    return directorioMemory(nombreProyecto) + "/Configuracion.json";
+}
+
+std::string EditorConfig::directorioBinarios(const std::string& nombreProyecto) {
+    return directorioMemory(nombreProyecto) + "/Binarios";
+}
+
+std::string EditorConfig::rutaScenePrefijo(const std::string& nombreProyecto) {
+    return directorioBinarios(nombreProyecto) + "/Scene";
+}
+
+std::string EditorConfig::rutaSceneBBDD(const std::string& nombreProyecto) {
+    return directorioBinarios(nombreProyecto) + "/SceneBBDDObjetos.txt";
+}
+
+std::string EditorConfig::rutaSceneDir(const std::string& nombreProyecto) {
+    return directorioBinarios(nombreProyecto) + "/Scene/";
+}
+
+std::string EditorConfig::rutaImguiIni(const std::string& nombreProyecto) {
+    return directorioMemory(nombreProyecto) + "/imgui.ini";
+}
+
+void EditorConfig::asegurarEstructuraProyecto(const std::string& nombreProyecto) {
+    const std::string nombre = nombreProyecto.empty() ? "Nuevo Proyecto" : nombreProyecto;
+    const std::string dirMemory = directorioMemory(nombre);
+    const std::string dirScene = dirMemory + "/Binarios/Scene";
+    const std::string dirSrc = directorioSrc(nombre);
+
+    std::error_code ec;
+    std::filesystem::create_directories(dirScene, ec);
+    std::filesystem::create_directories(dirSrc, ec);
+
+    // Migracion automatica si venimos de la version anterior donde se guardaba
+    // directamente en MotorGrafico:
+    const std::string base = directorioBaseMotorGrafico();
+    const std::string oldBBDD = base + "/Binarios/SceneBBDDObjetos.txt";
+    const std::string newBBDD = dirMemory + "/Binarios/SceneBBDDObjetos.txt";
+    if (!std::filesystem::exists(newBBDD, ec) && std::filesystem::exists(oldBBDD, ec)) {
+        std::filesystem::copy_file(oldBBDD, newBBDD, std::filesystem::copy_options::overwrite_existing, ec);
+        const std::string oldSceneDir = base + "/Binarios/Scene";
+        if (std::filesystem::exists(oldSceneDir, ec)) {
+            std::filesystem::copy(oldSceneDir, dirScene,
+                                  std::filesystem::copy_options::recursive |
+                                  std::filesystem::copy_options::overwrite_existing, ec);
+        }
+    }
+
+    const std::string oldConfig = base + "/Configuracion.json";
+    const std::string newConfig = dirMemory + "/Configuracion.json";
+    if (!std::filesystem::exists(newConfig, ec) && std::filesystem::exists(oldConfig, ec)) {
+        std::filesystem::copy_file(oldConfig, newConfig, std::filesystem::copy_options::overwrite_existing, ec);
+    }
+}
+
+std::string EditorConfig::rutaPorDefecto() {
+    return rutaConfiguracion("Nuevo Proyecto");
+}
+
+std::string EditorConfig::directorioProyectoPorDefecto() {
+    return directorioMemory("Nuevo Proyecto");
+}
+
 void EditorConfig::cargar(const std::string& ruta) {
     std::ifstream in(ruta);
-    if (!in.is_open()) return; // no existe todavia: defaults
+    if (!in.is_open()) {
+        if (ruta == rutaPorDefecto()) {
+            const std::string legacyRuta = directorioBaseMotorGrafico() + "/Configuracion.json";
+            in.open(legacyRuta);
+            if (!in.is_open()) return;
+        } else {
+            return;
+        }
+    }
 
     nlohmann::json j;
     try {
