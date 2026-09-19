@@ -92,7 +92,14 @@ void trasladarPrefijoEnPaths(std::set<std::string>& paths,
 TreeFilesInterface::TreeFilesInterface(bool stateGUI, FileManager* fileManager)
     : GeneralUserInterface(WindowNames::BrowseFile, stateGUI, ImGuiWindowFlags_MenuBar),
       fileManager(fileManager),
-      arbolDeArchivos(fileManager->getArbol()) {}
+      arbolDeArchivos(fileManager->getArbol()) {
+    if (arbolDeArchivos && !arbolDeArchivos->isEmpty()) {
+        Position<File*>* rootPos = arbolDeArchivos->rootOfTree();
+        if (rootPos && rootPos->getElement()) {
+            openPaths.insert(rutaDeElemento(rootPos->getElement()));
+        }
+    }
+}
 
 void TreeFilesInterface::setIconosGUI(IconosGUI* iconosG) { iconosGUI = iconosG; }
 
@@ -183,7 +190,9 @@ TreeIG::RowResult TreeFilesInterface::drawFolderRow(File* element, bool wasOpen)
         if (ImGui::BeginPopupContextItem("MenuContextualCarpeta")) {
             ImGui::Text("Carpeta: %s", folderRoot->getPathName().c_str());
             ImGui::Separator();
-            if (ImGui::MenuItem("Renombrar Carpeta")) {
+            const bool esRaiz = (arbolDeArchivos && !arbolDeArchivos->isEmpty() &&
+                                 folderRoot == arbolDeArchivos->rootOfTree()->getElement());
+            if (!esRaiz && ImGui::MenuItem("Renombrar Carpeta")) {
                 // R6: se guarda la RUTA (no el puntero: un rescaneo
                 // reconstruye el arbol y deja punteros colgando). Como el
                 // editor se dibuja en la fila que coincide por ruta, su
@@ -204,7 +213,7 @@ TreeIG::RowResult TreeFilesInterface::drawFolderRow(File* element, bool wasOpen)
                     sel->contadorCambios++;
                 }
             }
-            if (ImGui::MenuItem("Eliminar Carpeta")) {
+            if (!esRaiz && ImGui::MenuItem("Eliminar Carpeta")) {
                 carpetaAConfirmar = rutaDe(folderRoot);
                 confirmarEliminar = true;
             }
@@ -329,7 +338,8 @@ void TreeFilesInterface::contentGUI() {
             },
             [](File* element) -> std::string {
                 return rutaDeElemento(element);
-            });
+            },
+            true);
     }
 
     // Borrado diferido (fuera del recorrido del arbol, B4). La ruta se resuelve

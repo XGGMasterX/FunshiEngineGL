@@ -22,9 +22,9 @@
 #include <fstream>
 #include <utility>
 
-GestorDeArchivos::GestorDeArchivos(std::string pathProyect)
-    : treeFilePath(new ArbolEnlazado<File*>()), folderActual(nullptr) {
-    setTreeFilePath(pathProyect, "MotorGrafico");
+GestorDeArchivos::GestorDeArchivos(std::string pathProyect, std::string rootName)
+    : treeFilePath(new ArbolEnlazado<File*>()), folderActual(nullptr), rootName(std::move(rootName)) {
+    setTreeFilePath(pathProyect, this->rootName);
 }
 
 GestorDeArchivos::~GestorDeArchivos() {
@@ -65,9 +65,15 @@ void GestorDeArchivos::recorrerDir(const std::string& path, Position<File*>* par
 }
 
 bool GestorDeArchivos::setTreeFilePath(const std::string& path, std::string name) {
+    if (!name.empty()) rootName = std::move(name);
     auto* newTree = new ArbolEnlazado<File*>();
-    Carpeta* root = new Carpeta(std::move(name));
-    root->setPathRoot(path);
+    Carpeta* root = new Carpeta(rootName);
+    std::filesystem::path fsPath(path);
+    if (!fsPath.empty() && fsPath.filename().string() == rootName) {
+        root->setPathRoot(fsPath.parent_path().string());
+    } else {
+        root->setPathRoot(path);
+    }
     Position<File*>* rootPosition = newTree->createRoot(root);
     auto* original = treeFilePath;
     treeFilePath = newTree;
