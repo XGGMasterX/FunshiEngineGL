@@ -65,3 +65,11 @@ float MenuModel::getSensibilidadCamara() const noexcept {
 void MenuModel::setSensibilidadCamara(float sensibilidad) noexcept {
     if (sensibilidad > 0.0f) sensibilidadCamara = sensibilidad;
 }
+
+const Apariencia& MenuModel::getApariencia() const noexcept {
+    return apariencia;
+}
+
+void MenuModel::setApariencia(const Apariencia& valor) noexcept {
+    apariencia = valor;
+}

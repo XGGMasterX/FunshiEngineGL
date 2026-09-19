@@ -43,10 +43,14 @@ private:
     std::vector<ScriptRuntime::ResultadoCarga> resultados_;
     bool toolchainListo_ = false;
     ScriptRuntime::EstadoHerramientas toolchain_;
+    // Overlay de carga que se dibuja centrado al pulsar "Activar".
+    bool mostrarProgreso_ = false;
+    bool mostrarResultado_ = false;
 
     void dibujarToolchain();
     void dibujarScripts();
     void dibujarResultados();
+    void dibujarOverlayCarga();
 
 public:
     explicit StatusBarInterface(bool stateGUI);
@@ -55,7 +59,8 @@ public:
     void setEstadoCompilacion(
         bool enCurso, const std::string& actual, std::size_t hecha,
         std::size_t total,
-        const std::vector<ScriptRuntime::ResultadoCarga>& resultados);
+        const std::vector<ScriptRuntime::ResultadoCarga>& resultados,
+        bool overlayProgreso, bool overlayResultado);
 
     void contentGUI() override;
     void printGUI() override;

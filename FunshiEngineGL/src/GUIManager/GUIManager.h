@@ -23,6 +23,7 @@
 #include <map>
 #include <memory>
 #include <string>
+#include <vector>
 #include <cstdlib>
 #include "../GUI/MenusGUI/MenuGUI.h"
 #include "../GUI/SceneGUI/SceneSelectedInterface.h"
@@ -65,6 +66,10 @@ private:
 	EditorController* editor = nullptr;
 	std::unique_ptr<ContentFolderInterface> contentOfThisFolder;
 	std::unique_ptr<StatusBarInterface> statusBarGUI;
+
+	// Ventanas cuyo stateGUI se persiste. Helper unico para que restaurar y
+	// obtener no se desincronicen al agregar una ventana nueva.
+	std::vector<GeneralUserInterface*> ventanasPersistentes() const;
 
 public:
 	GUIManager(GLFWwindow* window);

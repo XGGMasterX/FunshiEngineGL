@@ -67,6 +67,12 @@ static bool matrizNoFinita(glm::mat4 m) {
     return false;
 }
 
+// Duracion minima del overlay de carga de scripts: aunque la compilacion venga
+// de cache (instantanea) la barra se ve un instante, y al terminar deja un
+// aviso breve con el resultado para que el usuario no dependa de la consola.
+static constexpr float kOverlayProgresoMin = 0.7f;
+static constexpr float kOverlayResultadoSeg = 2.2f;
+
 GameScene::GameScene(GUIManager* manager)
     : managerGUI(manager),
       sceneRegistry(std::make_unique<SceneRegistry>()),
@@ -212,6 +218,28 @@ void GameScene::setActiveCamera(GameObject* object) {
         return;
     }
     requestedActiveCamera = object;
+}
+
+int GameScene::getActiveCameraId() const noexcept {
+    return requestedActiveCamera ? requestedActiveCamera->getId() : -1;
+}
+
+void GameScene::setActiveCameraById(int id) {
+    if (id < 0 || !sceneRegistry) return;
+
+    auto* gameObjects = getGameObjectsScene();
+    if (!gameObjects || gameObjects->isEmpty()) return;
+
+    Position<GameObject*>* pos = gameObjects->first();
+    while (pos && pos->getElement()) {
+        GameObject* objeto = pos->getElement();
+        if (objeto->getId() == id && objeto->getComponent<CameraComponent>()) {
+            setActiveCamera(objeto);
+            return;
+        }
+        pos = (pos != gameObjects->last()) ? gameObjects->next(pos) : nullptr;
+    }
+    // No se encontro la camara persistida: se deja el modo automatico.
 }
 
 GameObject* GameScene::agregarCamaraEnVistaActiva() {
@@ -461,7 +489,11 @@ void GameScene::dibujarGrilla(GameObject* object) {
     glPushMatrix();
     glMultMatrixf(modelArr);
     glDisable(GL_LIGHTING);
-    glColor3fv(grid->getColor());
+    // Color de la grilla segun el perfil de apariencia: en modo blanco y
+    // negro se ignora el color del componente y se usa el contraste puro.
+    float colorGrilla[3];
+    AparienciaUtil::grillaEfectiva(apariencia, grid->getColor(), colorGrilla);
+    glColor3fv(colorGrilla);
     glBegin(GL_LINES);
     for (float i = -tam; i <= tam; i += sep) {
         glVertex3f(i, 0.f, -tam);
@@ -540,6 +572,12 @@ void GameScene::dibujarViewportsPrevios() {
                 target->resize(kPreviewW, kPreviewH);
                 target->bind();
                 glViewport(0, 0, kPreviewW, kPreviewH);
+                // El FBO hereda el estado GL; se fija el fondo del perfil para
+                // que la vista previa use el mismo color que la pasada principal.
+                float fondoPreview[3];
+                AparienciaUtil::fondoEfectivo(apariencia, fondoPreview);
+                glClearColor(fondoPreview[0], fondoPreview[1], fondoPreview[2],
+                             1.0f);
                 glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
                 float view[16], projection[16];
@@ -672,6 +710,11 @@ void GameScene::update(float value) {
     // pose del collider desde una posicion descartada. Se empuja el body a
     // la pose VISUAL actual antes de arrancar.
     if (start && !previousStart) {
+        // Feedback visual inmediato: aunque no haya nada que recompilar, se ve
+        // que "Activar" disparo la carga/verificacion de scripts.
+        overlayProgresoVisible_ = true;
+        overlayProgresoTimer_ = kOverlayProgresoMin;
+        overlayResultadoPendiente_ = true;
         // Los campos de SerializeField que referencian GameObjects se guardan
         // por nombre; aca se configura el resolver hacia los objetos de ESTA
         // escena (valido mientras se construye el arbol de valores).
@@ -741,12 +784,39 @@ void GameScene::update(float value) {
         }
     }
 
+    // Overlay de carga de scripts: mientras hay trabajo en cola se mantiene
+    // visible un minimo; al terminar deja un aviso breve con el resultado.
+    if (compilacionEnCurso_ && !overlayEnCursoPrev_)
+        overlayResultadoPendiente_ = true;
+    overlayEnCursoPrev_ = compilacionEnCurso_;
+
+    if (compilacionEnCurso_) {
+        overlayProgresoTimer_ = kOverlayProgresoMin;
+        overlayResultadoTimer_ = 0.0f;
+        overlayProgresoVisible_ = true;
+        overlayResultadoVisible_ = false;
+    } else if (overlayProgresoTimer_ > 0.0f) {
+        overlayProgresoTimer_ -= value;
+        if (overlayProgresoTimer_ <= 0.0f) {
+            overlayProgresoVisible_ = false;
+            if (overlayResultadoPendiente_) {
+                overlayResultadoTimer_ = kOverlayResultadoSeg;
+                overlayResultadoVisible_ = true;
+                overlayResultadoPendiente_ = false;
+            }
+        }
+    } else if (overlayResultadoTimer_ > 0.0f) {
+        overlayResultadoTimer_ -= value;
+        if (overlayResultadoTimer_ <= 0.0f) overlayResultadoVisible_ = false;
+    }
+
     // Publicar el estado de la compilacion para la barra "Estado" (se dibuja
     // al final del frame, por eso el "Mostrar" de la cola es visible).
     if (managerGUI)
         managerGUI->getStatusBarGUI()->setEstadoCompilacion(
             compilacionEnCurso_, cargaActual_, cargaHecha_, cargaTotal_,
-            resultadosCarga_);
+            resultadosCarga_, overlayProgresoVisible_,
+            overlayResultadoVisible_);
 }
 
 void GameScene::encolarScriptsIniciales() {
@@ -768,6 +838,8 @@ void GameScene::encolarScriptsIniciales() {
     if (!hayPendientes) {
         compilacionEnCurso_ = false;
         cargaActual_.clear();
+        cargaTotal_ = 0;
+        cargaHecha_ = 0;
         return;
     }
 
@@ -1331,6 +1403,14 @@ float GameScene::getSensibilidadCamara() const noexcept {
 
 void GameScene::setSensibilidadCamara(float sensibilidad) noexcept {
     if (sensibilidad > 0.0f) sensibilidadCamara = sensibilidad;
+}
+
+const Apariencia& GameScene::getApariencia() const noexcept {
+    return apariencia;
+}
+
+void GameScene::setApariencia(const Apariencia& valor) noexcept {
+    apariencia = valor;
 }
 
 bool GameScene::getVentanaCamarasAbierta() const noexcept {

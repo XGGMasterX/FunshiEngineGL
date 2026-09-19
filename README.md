@@ -17,6 +17,12 @@ Motor y editor 3D en tiempo real escrito en C++17, con interfaz ImGui y renderiz
 - **EventBus** con suscripción tipada (creación, eliminación, reparentado, selección y cambios de componentes).
 - **Máquina de estados** de la aplicación: `MainMenu`, `Editing`, `Playing`, `Exiting`.
 - Explorador de archivos del proyecto con fachada propia (`FileManager`), estado de navegación compartido (`FileSelection`) y vigilancia de cambios externos (`FileSystemWatcher`).
+- **Apariencia del editor configurable** (perfil persisto en `Configuracion.json`):
+  tema claro/oscuro, **modo blanco y negro** que acompana al fondo y la grilla
+  del viewport, color de acento de la interfaz y color de fondo de la escena,
+  aplicados en vivo por `TemaEditor`/`AparienciaUtil`.
+- La **cámara activa** elegida con "Usar" se persiste por id en la configuración
+  (default automática si el id ya no existe al cargar).
 - **Cámaras como componente** con vistas previas en vivo (render a FBO) — ver [CAMARAS_VISTAS_PREVIAS.md](CAMARAS_VISTAS_PREVIAS.md).
 - **Iluminación** gestionada por `LightSystem` (slots `GL_LIGHT0..7`, marcadores de luz y cámara en escena) y **materiales** con presets (`MaterialPresets`).
 - Menú de inicio modular (paquete `MenusGUI`, patrón MVP): idioma, nombre del proyecto y sensibilidad de cámara.

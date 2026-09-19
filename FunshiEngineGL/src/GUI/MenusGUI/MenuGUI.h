@@ -94,6 +94,11 @@ public:
     float getSensibilidadCamara() const noexcept;
     void setSensibilidadCamara(float sensibilidad) noexcept;
 
+    // Perfil de apariencia del editor editado en la vista Opciones. main lo
+    // aplica a ImGui (TemaEditor) y a la escena (fondo y grilla).
+    const Apariencia& getApariencia() const noexcept;
+    void setApariencia(const Apariencia& valor) noexcept;
+
     // Datos del menu persistidos por EditorConfig (main los aplica al arrancar
     // y los recoge al salir).
     const std::string& getNombreProyecto() const noexcept;

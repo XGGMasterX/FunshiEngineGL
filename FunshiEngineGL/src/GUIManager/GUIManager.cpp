@@ -91,22 +91,23 @@ DockSpaceInterface* GUIManager::getDockSpaceGUI() { return dockSpaceGUI.get(); }
 StatusBarInterface* GUIManager::getStatusBarGUI() { return statusBarGUI.get(); }
 
 void GUIManager::restaurarEstadosVentanas(const std::map<std::string, bool>& estados) {
-    const std::vector<GeneralUserInterface*> ventanas = {
-        selecteableGUI.get(), menuBarGUI.get(), treeFilesGUI.get(),
-        contentOfThisFolder.get(), dockSpaceGUI.get()};
-    for (GeneralUserInterface* ventana : ventanas) {
+    for (GeneralUserInterface* ventana : ventanasPersistentes()) {
         if (!ventana) continue;
         auto it = estados.find(ventana->getNameGui());
         if (it != estados.end()) ventana->setStateGui(it->second);
     }
 }
 
+std::vector<GeneralUserInterface*> GUIManager::ventanasPersistentes() const {
+    // La ventana Settings es dinamica (depende de la seleccion) y se deja
+    // fuera. El resto se persiste por su WindowName.
+    return {selecteableGUI.get(), menuBarGUI.get(), treeFilesGUI.get(),
+            contentOfThisFolder.get(), dockSpaceGUI.get(), statusBarGUI.get()};
+}
+
 std::map<std::string, bool> GUIManager::obtenerEstadosVentanas() const {
     std::map<std::string, bool> estados;
-    const std::vector<GeneralUserInterface*> ventanas = {
-        selecteableGUI.get(), menuBarGUI.get(), treeFilesGUI.get(),
-        contentOfThisFolder.get(), dockSpaceGUI.get()};
-    for (const GeneralUserInterface* ventana : ventanas) {
+    for (const GeneralUserInterface* ventana : ventanasPersistentes()) {
         if (!ventana) continue;
         estados[ventana->getNameGui()] = ventana->getStateGui();
     }

@@ -53,6 +53,14 @@ void MenuGUI::setSensibilidadCamara(float sensibilidad) noexcept {
     model.setSensibilidadCamara(sensibilidad);
 }
 
+const Apariencia& MenuGUI::getApariencia() const noexcept {
+    return model.getApariencia();
+}
+
+void MenuGUI::setApariencia(const Apariencia& valor) noexcept {
+    model.setApariencia(valor);
+}
+
 const std::string& MenuGUI::getNombreProyecto() const noexcept {
     return model.getNombreProyecto();
 }

@@ -78,6 +78,8 @@ void EditorConfig::cargar(const std::string& ruta) {
             datos_.ventanaCamarasAbierta = editor["ventanaCamarasAbierta"].get<bool>();
         if (editor.contains("gizmoOperacion") && editor["gizmoOperacion"].is_number_integer())
             datos_.gizmoOperacion = editor["gizmoOperacion"].get<int>();
+        if (editor.contains("camaraActivaId") && editor["camaraActivaId"].is_number_integer())
+            datos_.camaraActivaId = editor["camaraActivaId"].get<int>();
 
         if (editor.contains("ventanas") && editor["ventanas"].is_object()) {
             for (auto it = editor["ventanas"].begin();
@@ -85,6 +87,28 @@ void EditorConfig::cargar(const std::string& ruta) {
                 if (it.value().is_boolean())
                     datos_.estadoVentanas[it.key()] = it.value().get<bool>();
             }
+        }
+    }
+
+    // Apariencia (tema, modo B/N, acento y fondo 3D). Tolerante: cada campo
+    // ausente o invalido conserva el default del perfil.
+    if (j.contains("apariencia") && j["apariencia"].is_object()) {
+        const nlohmann::json& ap = j["apariencia"];
+        if (ap.contains("temaClaro") && ap["temaClaro"].is_boolean())
+            datos_.apariencia.temaClaro = ap["temaClaro"].get<bool>();
+        if (ap.contains("blancoYNegro") && ap["blancoYNegro"].is_boolean())
+            datos_.apariencia.blancoYNegro = ap["blancoYNegro"].get<bool>();
+        if (ap.contains("acento") && ap["acento"].is_array() &&
+            ap["acento"].size() == 4) {
+            for (int i = 0; i < 4; ++i)
+                if (ap["acento"][i].is_number())
+                    datos_.apariencia.acento[i] = ap["acento"][i].get<float>();
+        }
+        if (ap.contains("fondo") && ap["fondo"].is_array() &&
+            ap["fondo"].size() == 3) {
+            for (int i = 0; i < 3; ++i)
+                if (ap["fondo"][i].is_number())
+                    datos_.apariencia.fondo[i] = ap["fondo"][i].get<float>();
         }
     }
 }
@@ -97,8 +121,19 @@ void EditorConfig::guardar(const std::string& ruta) {
     j["menu"]["sensibilidadCamara"] = datos_.sensibilidadCamara;
     j["editor"]["ventanaCamarasAbierta"] = datos_.ventanaCamarasAbierta;
     j["editor"]["gizmoOperacion"] = datos_.gizmoOperacion;
+    j["editor"]["camaraActivaId"] = datos_.camaraActivaId;
     for (const auto& [nombre, abierta] : datos_.estadoVentanas)
         j["editor"]["ventanas"][nombre] = abierta;
+
+    j["apariencia"]["temaClaro"] = datos_.apariencia.temaClaro;
+    j["apariencia"]["blancoYNegro"] = datos_.apariencia.blancoYNegro;
+    j["apariencia"]["acento"] = {datos_.apariencia.acento[0],
+                                 datos_.apariencia.acento[1],
+                                 datos_.apariencia.acento[2],
+                                 datos_.apariencia.acento[3]};
+    j["apariencia"]["fondo"] = {datos_.apariencia.fondo[0],
+                                datos_.apariencia.fondo[1],
+                                datos_.apariencia.fondo[2]};
 
     std::error_code ec;
     const std::string::size_type sep = ruta.find_last_of("/\\");

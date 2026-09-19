@@ -36,12 +36,15 @@ void StatusBarInterface::bindScene(SceneRegistry* scene) { scene_ = scene; }
 void StatusBarInterface::setEstadoCompilacion(
     bool enCurso, const std::string& actual, std::size_t hecha,
     std::size_t total,
-    const std::vector<ScriptRuntime::ResultadoCarga>& resultados) {
+    const std::vector<ScriptRuntime::ResultadoCarga>& resultados,
+    bool overlayProgreso, bool overlayResultado) {
     compilando_ = enCurso;
     actual_ = actual;
     hecha_ = hecha;
     total_ = total;
     resultados_ = resultados;
+    mostrarProgreso_ = overlayProgreso;
+    mostrarResultado_ = overlayResultado;
 }
 
 void StatusBarInterface::dibujarToolchain() {
@@ -84,10 +87,15 @@ void StatusBarInterface::dibujarScripts() {
         char buf[128];
         std::snprintf(buf, sizeof(buf), "Compilando... (%zu de %zu)",
                       hecha_ + 1, total_);
+        ImGui::PushStyleColor(ImGuiCol_PlotHistogram,
+                              ImGui::GetStyleColorVec4(ImGuiCol_SliderGrabActive));
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 5.0f);
         ImGui::ProgressBar(total_ > 0 ? static_cast<float>(hecha_) /
                                             static_cast<float>(total_)
                                       : 0.0f,
                            ImVec2(-1.0f, 0.0f), buf);
+        ImGui::PopStyleVar();
+        ImGui::PopStyleColor();
         ImGui::TextWrapped("%s", actual_.c_str());
     }
 
@@ -150,10 +158,108 @@ void StatusBarInterface::contentGUI() {
     dibujarResultados();
 }
 
+// Overlay de carga que se dibuja centrado al pulsar "Activar": barra de
+// progreso bonita mientras la cola trabaja y, al terminar, un aviso breve con
+// el resultado para que el usuario no dependa de la consola.
+void StatusBarInterface::dibujarOverlayCarga() {
+    if (!mostrarProgreso_ && !mostrarResultado_) return;
+
+    ImGuiViewport* viewport = ImGui::GetMainViewport();
+    ImGui::SetNextWindowPos(viewport->GetCenter(), ImGuiCond_Always,
+                            ImVec2(0.5f, 0.5f));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 10.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 1.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(20, 18));
+    // Fondo y borde derivados del tema activo (TemaEditor): el overlay deja
+    // de tener un azul fijo y acompana el acento elegido por el usuario.
+    ImVec4 fondoOverlay = ImGui::GetStyleColorVec4(ImGuiCol_WindowBg);
+    fondoOverlay.w = 0.96f;
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, fondoOverlay);
+    ImVec4 bordeOverlay = ImGui::GetStyleColorVec4(ImGuiCol_ButtonHovered);
+    bordeOverlay.w = 0.6f;
+    ImGui::PushStyleColor(ImGuiCol_Border, bordeOverlay);
+    const ImGuiWindowFlags flags =
+        ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
+        ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollbar |
+        ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing |
+        ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoBringToFrontOnFocus;
+    bool abierto = true;
+    ImGui::Begin("##OverlayCargaScripts", &abierto, flags);
+
+    if (mostrarProgreso_) {
+        const int puntos = 1 + (static_cast<int>(ImGui::GetTime() * 3.0f) % 3);
+        ImGui::PushStyleColor(ImGuiCol_Text,
+                              ImGui::GetStyleColorVec4(ImGuiCol_ButtonHovered));
+        ImGui::TextUnformatted("Compilando scripts");
+        ImGui::PopStyleColor();
+        ImGui::SameLine();
+        ImGui::TextUnformatted(std::string(puntos, '.').c_str());
+
+        char buf[48];
+        if (total_ > 0) {
+            const float frac =
+                static_cast<float>(hecha_) / static_cast<float>(total_);
+            std::snprintf(buf, sizeof(buf), "%.0f%%", frac * 100.0f);
+        } else {
+            std::snprintf(buf, sizeof(buf), "-");
+        }
+
+        ImGui::PushStyleColor(ImGuiCol_PlotHistogram,
+                              ImGui::GetStyleColorVec4(ImGuiCol_SliderGrabActive));
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 8.0f);
+        ImGui::ProgressBar(
+            total_ > 0 ? static_cast<float>(hecha_) /
+                             static_cast<float>(total_)
+                       : 0.0f,
+            ImVec2(360, 18), buf);
+        ImGui::PopStyleVar();
+        ImGui::PopStyleColor();
+
+        ImGui::Spacing();
+        if (total_ > 0) {
+            ImGui::TextDisabled("Script %zu de %zu", hecha_ + 1, total_);
+            ImGui::TextWrapped("%s", actual_.c_str());
+        } else {
+            ImGui::TextDisabled("Verificando que los scripts esten al dia...");
+        }
+    } else if (mostrarResultado_) {
+        std::size_t ok = 0;
+        std::size_t fallo = 0;
+        for (const ScriptRuntime::ResultadoCarga& r : resultados_) {
+            if (r.ok) ++ok;
+            else ++fallo;
+        }
+        char buf[96];
+        if (fallo == 0) {
+            std::snprintf(buf, sizeof(buf), ok == 1 ? "Listo: %zu script actualizado"
+                                                    : "Listo: %zu scripts actualizados",
+                          ok);
+            ImGui::PushStyleColor(ImGuiCol_Text,
+                                  ImVec4(0.35f, 0.85f, 0.5f, 1.0f));
+        } else {
+            std::snprintf(buf, sizeof(buf),
+                          ok == 1 ? "Listo: %zu actualizado, %zu con error"
+                                  : "Listo: %zu actualizados, %zu con error",
+                          ok, fallo);
+            ImGui::PushStyleColor(ImGuiCol_Text,
+                                  ImVec4(0.9f, 0.3f, 0.3f, 1.0f));
+        }
+        ImGui::TextUnformatted(buf);
+        ImGui::PopStyleColor();
+    }
+
+    ImGui::End();
+    ImGui::PopStyleColor(2);
+    ImGui::PopStyleVar(3);
+}
+
 void StatusBarInterface::printGUI() {
     if (stateGUI) {
         initGUI();
         contentGUI();
         endGUI();
     }
+    // El overlay de carga es independiente de la ventana "Estado": se muestra
+    // aunque el usuario haya cerrado la ventana.
+    dibujarOverlayCarga();
 }

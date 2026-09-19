@@ -60,7 +60,11 @@ int main() {
         CHECK(cfg.datos().sensibilidadCamara == 1.0f, "default sensibilidad");
         CHECK(cfg.datos().ventanaCamarasAbierta == true, "default ventanaCamaras");
         CHECK(cfg.datos().gizmoOperacion == 7, "default gizmoOperacion");
+        CHECK(cfg.datos().camaraActivaId == -1, "default camaraActivaId");
         CHECK(cfg.datos().estadoVentanas.empty(), "default sin ventanas");
+        CHECK(cfg.datos().apariencia.temaClaro == false, "default tema oscuro");
+        CHECK(cfg.datos().apariencia.blancoYNegro == false, "default no B/N");
+        CHECK(cfg.datos().apariencia.acento[3] == 1.0f, "default acento opaco");
     }
 
     // 2. Round-trip: los valores cambiados sobreviven a guardar/cargar.
@@ -71,8 +75,18 @@ int main() {
         cfg.datos().sensibilidadCamara = 2.5f;
         cfg.datos().ventanaCamarasAbierta = false;
         cfg.datos().gizmoOperacion = 2;
+        cfg.datos().camaraActivaId = 7;
         cfg.datos().estadoVentanas["BrowseFile"] = false;
         cfg.datos().estadoVentanas["ShowFolder"] = true;
+        cfg.datos().apariencia.temaClaro = true;
+        cfg.datos().apariencia.blancoYNegro = true;
+        cfg.datos().apariencia.acento[0] = 0.9f;
+        cfg.datos().apariencia.acento[1] = 0.1f;
+        cfg.datos().apariencia.acento[2] = 0.2f;
+        cfg.datos().apariencia.acento[3] = 0.5f;
+        cfg.datos().apariencia.fondo[0] = 0.3f;
+        cfg.datos().apariencia.fondo[1] = 0.4f;
+        cfg.datos().apariencia.fondo[2] = 0.5f;
         cfg.guardar(ruta);
         CHECK(fs::exists(ruta), "se escribio el archivo");
 
@@ -83,11 +97,19 @@ int main() {
         CHECK(cfg2.datos().sensibilidadCamara == 2.5f, "roundtrip sensibilidad");
         CHECK(cfg2.datos().ventanaCamarasAbierta == false, "roundtrip ventanaCamaras");
         CHECK(cfg2.datos().gizmoOperacion == 2, "roundtrip gizmoOperacion");
+        CHECK(cfg2.datos().camaraActivaId == 7, "roundtrip camaraActivaId");
         CHECK(cfg2.datos().estadoVentanas.at("BrowseFile") == false,
               "roundtrip ventana BrowseFile");
         CHECK(cfg2.datos().estadoVentanas.at("ShowFolder") == true,
               "roundtrip ventana ShowFolder");
         CHECK(cfg2.datos().estadoVentanas.size() == 2, "cantidad de ventanas");
+        CHECK(cfg2.datos().apariencia.temaClaro == true, "roundtrip temaClaro");
+        CHECK(cfg2.datos().apariencia.blancoYNegro == true, "roundtrip blancoYNegro");
+        CHECK(cfg2.datos().apariencia.acento[0] == 0.9f, "roundtrip acento r");
+        CHECK(cfg2.datos().apariencia.acento[3] == 0.5f, "roundtrip acento a");
+        CHECK(cfg2.datos().apariencia.fondo[2] == 0.5f, "roundtrip fondo b");
+        CHECK(cfg2.datos().apariencia == cfg.datos().apariencia,
+              "roundtrip Apariencia completa");
     }
 
     // 3. Archivo corrupto: defaults (sin crash).

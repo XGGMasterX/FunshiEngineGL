@@ -330,9 +330,10 @@ internamente `GUIManager`, `SceneRegistry`, `EditorController`, `SceneSerializer
 - `GameObject::saveEntity/loadEntity` coordina la serialización binaria propia
   (atributos globales, locales, componentes).
 - `EditorConfig` (JSON via nlohmann) persiste la configuración del editor:
-  menú (proyecto, idioma, sensibilidad de cámara), gizmo, ventana de cámaras y
-  ventanas (estado abierto/cerrado de GUIManager), en `~/MotorGrafico/Configuracion.json`
-  (Linux) / `C:/MotorGraficoArchivos/Configuracion.json` (Windows). Tolerante a
+  menú (proyecto, idioma, sensibilidad de cámara), gizmo, ventana de cámaras,
+  ventanas (estado abierto/cerrado de GUIManager), la cámara activa por id y el
+  perfil de apariencia, en `~/MotorGrafico/Configuracion.json` (Linux) /
+  `C:/MotorGraficoArchivos/Configuracion.json` (Windows). Tolerante a
   archivos ausentes o corruptos: los defaults quedan en `EditorConfig.h`.
   El layout `imgui.ini` también se guarda junto al proyecto (no en el CWD).
 - Limitación conocida: la serialización binaria no tiene versionado ni validación

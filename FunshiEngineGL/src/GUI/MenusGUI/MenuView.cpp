@@ -60,11 +60,15 @@ MenuView::MenuView(MenuModel* model, StartMenuPresenter* presenter, GLFWwindow* 
       nombreProyectoBuffer{0} {}
 
 void MenuView::initGUI() {
-    // Pantalla completa sin decoracion, fondo opaco propio del menu.
+    // Pantalla completa sin decoracion, fondo opaco propio del menu. El color
+    // se deriva del tema activo (TemaEditor) en lugar de un azul fijo, asi el
+    // menu acompana al modo claro/oscuro y al modo blanco y negro.
     ImGui::SetNextWindowPos(ImVec2(0, 0));
     ImGui::SetNextWindowSize(ImGui::GetIO().DisplaySize);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0);
-    ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.1f, 0.1f, 0.12f, 1));
+    ImVec4 fondoMenu = ImGui::GetStyleColorVec4(ImGuiCol_WindowBg);
+    fondoMenu.w = 1.0f;
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, fondoMenu);
     ImGui::Begin(getNameGui().c_str(), &stateGUI, getFlagGui());
 }
 
@@ -129,17 +133,24 @@ void MenuView::renderizarPrincipal() {
 }
 
 void MenuView::renderizarOpciones() {
-    cursorFila(0);
-    ImGui::Text("Opciones");
+    // Columna centrada con scroll: la vista crecio con las opciones de
+    // apariencia y ya no entra en las filas fijas del menu principal.
+    const ImVec2 win = ImGui::GetWindowSize();
+    constexpr float kAncho = 460.0f;
+    constexpr float kAltoInferior = 90.0f; // deja lugar al boton "Volver"
 
-    cursorFila(1);
-    ImGui::Text("Idioma");
-    ImGui::SameLine();
+    ImGui::SetCursorPos(ImVec2((win.x - kAncho) * 0.5f, 50.0f));
+    ImGui::BeginChild("##opciones", ImVec2(kAncho, win.y - 50.0f - kAltoInferior),
+                      false, ImGuiWindowFlags_AlwaysVerticalScrollbar);
 
-    // Selector de idioma: iterar las opciones del modelo y marcar la actual.
+    ImGui::TextUnformatted("Opciones");
+    ImGui::Separator();
+
+    ImGui::SeparatorText("Juego");
+    ImGui::TextUnformatted("Idioma");
     const std::vector<std::string>& idiomas = model->getIdiomas();
     const std::string& actual = model->getIdioma();
-    ImGui::SetNextItemWidth(kBotonAncho);
+    ImGui::SetNextItemWidth(-1.0f);
     if (ImGui::BeginCombo("##idioma", actual.c_str())) {
         for (const std::string& opcion : idiomas) {
             const bool seleccionada = (opcion == actual);
@@ -151,18 +162,44 @@ void MenuView::renderizarOpciones() {
         ImGui::EndCombo();
     }
 
-    cursorFila(2);
-    ImGui::Text("Sensibilidad de camara");
-    ImGui::SameLine();
-
-    // Slider del multiplicador del mouse look (1.0 = 1:1, valor historico).
+    ImGui::TextUnformatted("Sensibilidad de camara");
     float sensibilidad = model->getSensibilidadCamara();
-    ImGui::SetNextItemWidth(kBotonAncho);
-    if (ImGui::SliderFloat("##sensibilidad", &sensibilidad, 0.02f, 5.0f, "%.2f")) {
+    ImGui::SetNextItemWidth(-1.0f);
+    if (ImGui::SliderFloat("##sensibilidad", &sensibilidad, 0.02f, 5.0f,
+                           "%.2f")) {
         model->setSensibilidadCamara(sensibilidad);
     }
 
-    cursorFila(3);
+    ImGui::SeparatorText("Apariencia");
+    // Se edita una copia y se delega al modelo UNA vez si hubo cambios; asi
+    // el modelo sigue siendo la unica fuente de verdad (patron MVP).
+    Apariencia ap = model->getApariencia();
+    bool cambio = false;
+
+    cambio |= ImGui::Checkbox("Tema claro de la interfaz", &ap.temaClaro);
+    cambio |= ImGui::Checkbox("Modo blanco y negro (fondo y grilla)",
+                              &ap.blancoYNegro);
+    ImGui::TextUnformatted("Color de acento de la interfaz");
+    cambio |= ImGui::ColorEdit4("##acento", ap.acento,
+                                ImGuiColorEditFlags_AlphaBar);
+    ImGui::TextUnformatted("Color de fondo de la escena");
+    cambio |= ImGui::ColorEdit3("##fondo", ap.fondo);
+    ImGui::TextDisabled(
+        "El modo blanco y negro ignora estos colores y usa\n"
+        "blanco/negro segun el tema claro u oscuro.");
+
+    if (ImGui::Button("Restablecer apariencia", ImVec2(-1.0f, 0.0f))) {
+        ap.restablecer();
+        cambio = true;
+    }
+
+    if (cambio) model->setApariencia(ap);
+
+    ImGui::EndChild();
+
+    // Boton "Volver" fijo abajo, centrado, fuera del area con scroll.
+    ImGui::SetCursorPos(ImVec2((win.x - kBotonAncho) * 0.5f,
+                               win.y - kAltoInferior + 20.0f));
     if (ImGui::Button("Volver", ImVec2(kBotonAncho, kBotonAlto))) {
         model->volver();
     }

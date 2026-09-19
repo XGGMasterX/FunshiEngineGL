@@ -141,11 +141,10 @@ void Script::escribirCampo(int indice,
     if (indice < 0 || indice >= static_cast<int>(valores_.size())) return;
     valores_[indice] = valor;
     // Si la instancia esta viva (play mode) reflejar el cambio inmediato.
-    if (comportamiento_.valido() && indice <
-        static_cast<int>(comportamiento_.campos.size()))
-        ReflejoScripts::escribirCampo(
-            comportamiento_.campos[static_cast<std::size_t>(indice)],
-            comportamiento_.instancia, valor);
+    // Se despacha por backend: en Java los DefCampo no exponen `acceder` (las
+    // variables viven en la JVM), invocar ReflejoScripts::escribirCampo directo
+    // lanzaria std::bad_function_call al mover un slider.
+    if (comportamiento_.valido()) ScriptRuntime::inyectar(comportamiento_, valores_);
 }
 
 void Script::serializeComponent(std::ofstream* f) {

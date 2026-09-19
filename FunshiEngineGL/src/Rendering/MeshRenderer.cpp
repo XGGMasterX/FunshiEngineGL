@@ -236,11 +236,16 @@ bool MeshRenderer::intentarRender(Modelos3D* objeto, const float view[16],
                                   float deltaTime) {
     if (!inicializar()) return false;
 
-    // Igual que Modelos3D::dibujar: la fisica/etc. se actualiza y el
-    // componente Model (path) manda sobre el path actual. Se toma el puntero
-    // a la malla DESPUES de estos pasos, porque setPath() puede reemplazar la
-    // malla compartida (y el AssetManager eviccionar la anterior).
-    objeto->update(deltaTime);
+    // El render NO simula: los scripts y la fisica se actualizan una sola vez
+    // por frame en GameScene::update (y solo en play). Antes se llamaba aca a
+    // objeto->update(), lo que corria los scripts tambien en el editor, los
+    // duplicaba en play y reactivaba el loop al detener el play.
+    (void)deltaTime;
+
+    // El componente Model (path) manda sobre el path actual. Se toma el
+    // puntero a la malla DESPUES de este paso, porque setPath() puede
+    // reemplazar la malla compartida (y el AssetManager eviccionar la
+    // anterior).
     if (Model* model = objeto->getComponent<Model>();
         model && model->getPath() != objeto->getPath())
         objeto->setPath(model->getPath());

@@ -22,6 +22,8 @@
 #include <map>
 #include <string>
 
+#include "Apariencia.h"
+
 // Configuracion global del editor (interfaz + menu), persistida en JSON junto
 // al proyecto del usuario. Los datos de escena siguen guardandose en binarios
 // (SceneSerializer); el texto estructurado es solo para configuracion:
@@ -34,7 +36,7 @@
 class EditorConfig {
 public:
     struct Datos {
-        int version = 1;
+        int version = 2;
         // Seccion "menu": MenuModel (vista Opciones).
         std::string nombreProyecto = "Nuevo Proyecto";
         std::string idioma = "Espanol";
@@ -42,8 +44,15 @@ public:
         // Seccion "editor": estado de interfaz (GameScene).
         bool ventanaCamarasAbierta = true;
         int gizmoOperacion = 7;
+        // Id del GameObject elegido como camara activa ("Usar"), -1 = automatico
+        // (GameScene usa la primera camara). Se persiste por id porque los
+        // archivos de escena ya usan ese id estable.
+        int camaraActivaId = -1;
         // stateGUI de cada ventana por su WindowName.
         std::map<std::string, bool> estadoVentanas;
+        // Apariencia del editor (tema, modo B/N, acento de la UI y fondo 3D).
+        // En la version 2 del archivo para permitir migracion tolerante.
+        Apariencia apariencia;
     };
 
     // Ruta del archivo por plataforma, junto al proyecto del usuario:
