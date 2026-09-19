@@ -36,6 +36,7 @@
 #include "../Herramientas/IconosGUI/IconosGUI.h"
 #include "../FileManager/FileManager.h"
 #include "../Estructuras/ListasEnlazadas/ListasConPrioridad/PriorityListaDE.h"
+#include "../Events/EditorEventBus.h"
 
 // Forward declarations
 class SceneRegistry;
@@ -67,6 +68,11 @@ private:
 	std::unique_ptr<ContentFolderInterface> contentOfThisFolder;
 	std::unique_ptr<StatusBarInterface> statusBarGUI;
 
+	// Canal de eventos de GUI interna (ARQUITECTURA_ESTADOS_GUI.md §4.2B).
+	// El dueño del bus es GUIManager (su registro central de ventanas): el
+	// menu, la escena y main publican/suscriben sin conocerse entre si.
+	EditorEventBus eventosEditor;
+
 	// Ventanas cuyo stateGUI se persiste. Helper unico para que restaurar y
 	// obtener no se desincronicen al agregar una ventana nueva.
 	std::vector<GeneralUserInterface*> ventanasPersistentes() const;
@@ -76,6 +82,8 @@ public:
 	~GUIManager();
 
 	void bindScene(SceneRegistry* scene, EditorController* editor, EventBus* events);
+
+	EditorEventBus* getEditorEventBus() noexcept { return &eventosEditor; }
 
 	MenuGUI* getMenuGUI();
 	TreeFilesInterface* getTreeFilesGUI();

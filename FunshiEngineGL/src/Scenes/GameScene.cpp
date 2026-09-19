@@ -19,6 +19,7 @@
 #include "GameScene.h"
 
 #include "../GUIManager/GUIManager.h"
+#include "../Events/EditorEventBus.h"
 #include "../GUI/SceneGUI/SceneMenuBarInterface.h"
 #include "../GUI/SceneGUI/SceneSelectedInterface.h"
 #include "../Objetos/Componentes/CameraComponent.h"
@@ -665,7 +666,16 @@ void GameScene::pintarVentanaCamaras() {
                 ImGui::PushID(static_cast<int>(objeto->getId()));
                 if (ImGui::Selectable(nombre.c_str(), esActiva)) {
                     setActiveCamera(objeto);
-                    if (editorController) editorController->selectObject(objeto);
+                    // "Usar" una camara publica el cambio en el bus de GUI: la
+                    // fachada (GUIManager) selecciona el objeto para el
+                    // inspector y los demas suscriptores reaccionan sin que la
+                    // escena conozca a las ventanas.
+                    if (managerGUI) {
+                        EditorEvent ev;
+                        ev.type = EditorEventType::CamaraActivaCambio;
+                        ev.camara = objeto;
+                        managerGUI->getEditorEventBus()->publish(ev);
+                    }
                 }
                 if (ImGui::IsItemHovered()) {
                     ImGui::SetTooltip("Usar esta camara (navegacion + vista)");

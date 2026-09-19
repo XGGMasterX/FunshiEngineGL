@@ -29,6 +29,7 @@
 #include "../src/States/ApplicationStateMachine.h"
 #include "../src/States/OrquestadorEstadoGUI.h"
 #include "../src/Behaviour/ScriptRuntime.h"
+#include "../src/Events/EditorEventBus.h"
 #include "../src/Ventana.h"
 #include "ImGuizmo.h"
 #include "GLCompat.h"
@@ -253,6 +254,7 @@ int main(void)
     mainMenu->setApariencia(editorConfig.datos().apariencia);
     scene->setVentanaCamarasAbierta(editorConfig.datos().ventanaCamarasAbierta);
     scene->setGizmoOperation(editorConfig.datos().gizmoOperacion);
+    scene->setApariencia(editorConfig.datos().apariencia);
     managerOfGUI->restaurarEstadosVentanas(editorConfig.datos().estadoVentanas);
 
     // Ultimo estado de la maquina reflejado en la fachada del paquete MenuGUI
@@ -295,12 +297,49 @@ int main(void)
     // al proyecto del usuario, no en el directorio actual de lanzamiento.
     g_imguiIniRuta = EditorConfig::directorioProyectoPorDefecto() + "/imgui.ini";
     io.IniFilename = g_imguiIniRuta.c_str();
-    // Tema global de ImGui a partir del perfil de apariencia cargado. Se
-    // reaplica en el bucle si el usuario lo cambia desde Opciones.
-    Apariencia aparienciaAplicada = mainMenu->getApariencia();
-    TemaEditor::aplicarEstilo(aparienciaAplicada);
+    // Tema global de ImGui a partir del perfil de apariencia cargado. Los
+    // cambios en vivo llegan por el bus de GUI (EditorEventBus/AparienciaCambio),
+    // ya no por relectura por frame del menu.
+    TemaEditor::aplicarEstilo(mainMenu->getApariencia());
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init("#version 440"); //460 PARA PC , 440 PARA NOTEBOOK
+
+    // Suscriptores del canal de GUI interna (Fase 2): main reacciona a los
+    // cambios que publican el menu (apariencia/idioma) y la ventana Estado;
+    // la escena y las ventanas no se pasan punteros entre si. El bus lo posee
+    // GUIManager y ya esta cableado a los publicadores.
+    EditorEventBus* eventosGUI = managerOfGUI->getEditorEventBus();
+    if (eventosGUI) {
+        // Apariencia: aplica el estilo ImGui, el fondo del viewport y la
+        // apariencia de la escena (grilla/vistas previas), y persiste al
+        // instante para que sobreviva un cierre brusco.
+        eventosGUI->subscribe([scene, &editorConfig](const EditorEvent& ev) {
+            if (ev.type != EditorEventType::AparienciaCambio) return;
+            scene->setApariencia(ev.apariencia);
+            TemaEditor::aplicarEstilo(ev.apariencia);
+            float fondo[3];
+            AparienciaUtil::fondoEfectivo(ev.apariencia, fondo);
+            glClearColor(fondo[0], fondo[1], fondo[2], 1.0f);
+            auto& cfg = editorConfig.datos();
+            cfg.apariencia = ev.apariencia;
+            editorConfig.guardar(EditorConfig::rutaPorDefecto());
+        });
+        // Idioma: se persiste al instante (las etiquetas del menu ya leen el
+        // modelo cada frame; el hook onLanguageChanged queda para ventanas).
+        eventosGUI->subscribe([&editorConfig](const EditorEvent& ev) {
+            if (ev.type != EditorEventType::IdiomaCambio) return;
+            editorConfig.datos().idioma = ev.idioma;
+            editorConfig.guardar(EditorConfig::rutaPorDefecto());
+        });
+        // Ventana Estado: al cerrarla con la 'X' se persiste su visibilidad en
+        // el mapa estadoVentanas al momento, sin esperar el guardado de salida.
+        eventosGUI->subscribe([&editorConfig](const EditorEvent& ev) {
+            if (ev.type != EditorEventType::VentanaEstadoCambio) return;
+            if (!ev.nombreVentana) return;
+            editorConfig.datos().estadoVentanas[ev.nombreVentana] = ev.abierta;
+            editorConfig.guardar(EditorConfig::rutaPorDefecto());
+        });
+    }
 
  #if defined(_WIN32)
      scene->loadScene("C:/MotorGraficoArchivos/Binarios/SceneBBDDObjetos.txt", "C:/MotorGraficoArchivos/Binarios/Scene/");
@@ -323,21 +362,9 @@ int main(void)
         
         glfwPollEvents();
 
-        // Apariencia: la vista Opciones escribe en MenuGUI; main la propaga a
-        // la escena (fondo/grilla) y reaplica el estilo global solo cuando el
-        // perfil cambia (comparacion exacta por campos). El acento/el modo B/N
-        // se reflejan al instante en toda la interfaz.
-        {
-            const Apariencia& apariencia = mainMenu->getApariencia();
-            scene->setApariencia(apariencia);
-            if (apariencia != aparienciaAplicada) {
-                TemaEditor::aplicarEstilo(apariencia);
-                aparienciaAplicada = apariencia;
-            }
-            float fondo[3];
-            AparienciaUtil::fondoEfectivo(apariencia, fondo);
-            glClearColor(fondo[0], fondo[1], fondo[2], 1.0f);
-        }
+        // La apariencia se aplica por eventos (EditorEventBus/AparienciaCambio)
+        // cuando el usuario la cambia en Opciones; ya no se relee el menu y se
+        // reaplica estilo/fondo cada frame.
 
         if (scene->isStart()) { //MODIFICAR , si se activa comenzar normal , si se quita volver todo al comienzo.
             //loadNewComponents(); // Buscar y cargar componentes nuevas
