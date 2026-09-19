@@ -255,6 +255,21 @@ set_target_properties(configuracion-tests PROPERTIES
 )
 add_test(NAME configuracion-tests COMMAND configuracion-tests)
 
+# EditorEventBus (canal tipado de GUI interna, Fase 2) se prueba headless como
+# los anteriores: subscribe/publish/unsubscribe con payload declarativo, sin
+# pila grafica.
+add_executable(eventbus-tests
+    ${SRC_DIR}/Events/EditorEventBus.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../tests/EditorEventBusTests.cpp
+)
+target_include_directories(eventbus-tests PRIVATE ${SRC_DIR})
+set_target_properties(eventbus-tests PROPERTIES
+    CXX_STANDARD 17
+    CXX_STANDARD_REQUIRED ON
+    CXX_EXTENSIONS OFF
+)
+add_test(NAME eventbus-tests COMMAND eventbus-tests)
+
 # AssetManager (cache Flyweight de meshes CPU) tambien headless y portatil:
 # rutas (AssetPath), geometria (Mesh) y el registro compartido con un loader
 # artificial, sin Assimp ni pila grafica.
