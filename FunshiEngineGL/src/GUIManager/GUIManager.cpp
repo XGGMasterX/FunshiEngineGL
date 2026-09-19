@@ -45,6 +45,18 @@ GUIManager::GUIManager(GLFWwindow* window)
     treeFilesGUI->setIconosGUI(iconosGUI.get());
     contentOfThisFolder->setIconosGUI(iconosGUI.get());
     selecteableGUI->setIconosGUI(iconosGUI.get());
+    // El bus de GUI interna se inyecta a los publicadores internos del paquete
+    // (menu fachada, ventana Estado); el resto del motor lo alcanza con
+    // getEditorEventBus().
+    menuGUI->setEditorEventBus(&eventosEditor);
+    statusBarGUI->setEditorEventBus(&eventosEditor);
+    // "Usar" una camara en la ventana Camaras: la escena publica y la fachada
+    // reacciona seleccionando el objeto para el inspector (antes GameScene
+    // llamaba a EditorController directamente).
+    eventosEditor.subscribe([this](const EditorEvent& ev) {
+        if (ev.type != EditorEventType::CamaraActivaCambio) return;
+        if (editor && ev.camara) editor->selectObject(ev.camara);
+    });
 }
 
 GUIManager::~GUIManager() {

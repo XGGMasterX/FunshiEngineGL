@@ -60,6 +60,8 @@
 #include "MenuView.h"
 #include "StartMenuPresenter.h"
 
+class EditorEventBus;
+
 // Fachada del paquete: la interfaz publica con la que el resto del motor
 // conversa. Encapsula las clases internas y su ensamblado.
 class MenuGUI {
@@ -106,6 +108,11 @@ public:
     const std::string& getIdioma() const noexcept;
     void setIdioma(const std::string& valor) noexcept;
 
+    // Canal de GUI interna (bus tipado que posee GUIManager). La fachada lo
+    // usa para publicar los cambios de apariencia/idioma; las ventanas
+    // internas no se pasan punteros entre si.
+    void setEditorEventBus(EditorEventBus* bus) noexcept;
+
 private:
     // Orden de membresia = orden de construccion: el presentador se construye
     // ANTES que la vista porque la vista recibe su direccion (el presentador
@@ -114,6 +121,8 @@ private:
     MenuModel model;
     StartMenuPresenter presenter;
     MenuView view;
+    // Puntero NO propietario al bus de GUI interna (lo posee GUIManager).
+    EditorEventBus* busEditor = nullptr;
 };
 
 #endif

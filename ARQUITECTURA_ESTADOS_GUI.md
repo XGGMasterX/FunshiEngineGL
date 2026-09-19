@@ -7,8 +7,10 @@ gobierne ambas superficies. Se basa en lo observado en el código real, en las
 buenas prácticas para proyectos grandes y en patrones de editores consolidados
 (revisados en internet, ver §3).
 
-Nada de lo propuesto está implementado todavía: es la hoja de ruta que se
-ejecutará por fases, cada una con su propia revisión en `main`.
+El documento describe el diseño y la hoja de ruta por fases. Las **Fases 1 y 2
+ya están implementadas** (orquestador de estado GUI y EditorEventBus); las
+Fases 3 y 4 quedan como plan. Cada fase aterriza en su propia revisión en
+`main`.
 
 ---
 
@@ -143,11 +145,28 @@ proyecto ya usa de forma puntual, pero ahora **declarado para todas las GUI**.
      tenía (evita sacar al usuario de las sub-vistas cada frame).
    - Verificación: compilar, `ctest` (tests headless del orquestador junto a
      `configuracion-tests`), arrancar y probar menú→Iniciar Estudio→Escape→menú.
-3. **Fase 2 — GUI internas conectadas por `EditorEventBus`**:
-   - Definir los 4-5 mensajes clave del §4.2B.
-   - Migrar vínculos directos conocidos (apariencia→grilla/fondo; cámara
-     activa→previews; idioma→etiquetas; ventana Estado) al bus.
-   - Verificación: cambiar apariencia/idioma/cámara en vivo, persistir, reiniciar.
+3. **Fase 2 — GUI internas conectadas por `EditorEventBus` (implementada en
+   `feature/gui-internas-bus`)**:
+   - Definir los 4-5 mensajes clave del §4.2B. Ya están en
+     `src/Events/EditorEventBus.{h,cpp}`: `VentanaEstadoCambio`,
+     `AparienciaCambio`, `CamaraActivaCambio`, `IdiomaCambio` y
+     `VentanaActivaCambio` (reservado para Settings futuro).
+   - Migrar vínculos directos conocidos al bus:
+     - `AparienciaCambio` — el menú (fachada `MenuGUI::setApariencia`) publica
+       el perfil; main suscribe y aplica estilo ImGui + fondo/grilla de la
+       escena + persistencia al instante (antes releía el perfil cada frame).
+     - `IdiomaCambio` — el menú publica; main persiste al instante.
+     - `CamaraActivaCambio` — "Usar" en la ventana Camaras publica el objeto;
+       GUIManager (dueño del bus) selecciona el objeto para el inspector (antes
+       GameScene llamaba a `EditorController` directamente).
+     - `VentanaEstadoCambio` — la ventana Estado publica su propia visibilidad
+       (el cierre con "X" muda `stateGUI` sin que nadie más la vea); main
+       persiste en `estadoVentanas`.
+   - El bus lo posee `GUIManager` (`getEditorEventBus()`); menú, escena y main
+     publican/suscriben sin conocerse entre sí.
+   - Verificación: `eventbus-tests` (headless) + cambiar apariencia/idioma/
+     cámara/ventana en vivo, persistir al instante, reiniciar y comprobar que
+     sobreviven.
 4. **Fase 3 — Pulir opciones del menú**:
    - Revisar y completar las opciones presentes en `MenusGUI` (el menú ya expone
      apariencia, idioma, sensibilidad): unificar con lo que calladamente

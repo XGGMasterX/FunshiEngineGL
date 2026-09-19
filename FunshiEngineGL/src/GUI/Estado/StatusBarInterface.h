@@ -26,6 +26,7 @@
 
 class SceneRegistry;
 class Script;
+class EditorEventBus;
 
 // Ventana "Estado": muestra el toolchain externo (compilador C++, javac,
 // libjvm, cache de artefactos) y el estado de los scripts de la escena
@@ -46,6 +47,11 @@ private:
     // Overlay de carga que se dibuja centrado al pulsar "Activar".
     bool mostrarProgreso_ = false;
     bool mostrarResultado_ = false;
+    // Ultimo estado publicado en el bus (evita republicar en cada frame);
+    // se inicializa con el estado de fabrica para no notificar la restauracion.
+    bool estadoPublicado_ = false;
+    // Canal de GUI interna (lo posee GUIManager; puntero NO propietario).
+    EditorEventBus* busEditor = nullptr;
 
     void dibujarToolchain();
     void dibujarScripts();
@@ -56,6 +62,7 @@ public:
     explicit StatusBarInterface(bool stateGUI);
 
     void bindScene(SceneRegistry* scene);
+    void setEditorEventBus(EditorEventBus* bus);
     void setEstadoCompilacion(
         bool enCurso, const std::string& actual, std::size_t hecha,
         std::size_t total,
