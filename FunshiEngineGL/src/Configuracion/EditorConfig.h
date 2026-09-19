@@ -58,6 +58,50 @@ public:
     // Ruta del archivo por plataforma, junto al proyecto del usuario:
     //   Linux:   <HOME>/MotorGrafico/Configuracion.json
     //   Windows: C:/MotorGraficoArchivos/Configuracion.json
+    // Directorio base de MotorGrafico donde viven todos los proyectos:
+    //   Linux:   <HOME>/MotorGrafico
+    //   Windows: C:/MotorGraficoArchivos
+    static std::string directorioBaseMotorGrafico();
+
+    // Directorio raiz de un proyecto especifico: <directorioBase>/<nombreProyecto>
+    static std::string directorioProyecto(const std::string& nombreProyecto = "Nuevo Proyecto");
+
+    // Directorio Memory del proyecto (contiene lo que antes se guardaba en MotorGrafico):
+    // <directorioProyecto>/Memory
+    static std::string directorioMemory(const std::string& nombreProyecto = "Nuevo Proyecto");
+
+    // Directorio src del proyecto (raiz del explorador de archivos, hermano de Memory):
+    // <directorioProyecto>/src<nombreProyecto>
+    static std::string directorioSrc(const std::string& nombreProyecto = "Nuevo Proyecto");
+
+    // Nombre de la raiz del explorador de archivos: "src" + nombreProyecto
+    static std::string nombreRaizSrc(const std::string& nombreProyecto = "Nuevo Proyecto");
+
+    // Ruta de Configuracion.json dentro de Memory del proyecto:
+    static std::string rutaConfiguracion(const std::string& nombreProyecto = "Nuevo Proyecto");
+
+    // Directorio de binarios de la escena: <directorioMemory>/Binarios
+    static std::string directorioBinarios(const std::string& nombreProyecto = "Nuevo Proyecto");
+
+    // Prefijo para guardar la escena (saveScene): <directorioMemory>/Binarios/Scene
+    static std::string rutaScenePrefijo(const std::string& nombreProyecto = "Nuevo Proyecto");
+
+    // Ruta del descriptor de escena: <directorioMemory>/Binarios/SceneBBDDObjetos.txt
+    static std::string rutaSceneBBDD(const std::string& nombreProyecto = "Nuevo Proyecto");
+
+    // Directorio de archivos binarios individuales: <directorioMemory>/Binarios/Scene/
+    static std::string rutaSceneDir(const std::string& nombreProyecto = "Nuevo Proyecto");
+
+    // Ruta del layout de ventanas de ImGui: <directorioMemory>/imgui.ini
+    static std::string rutaImguiIni(const std::string& nombreProyecto = "Nuevo Proyecto");
+
+    // Crea en disco la estructura de carpetas requerida para el proyecto:
+    //   <directorioBase>/<nombreProyecto>/Memory/Binarios/Scene
+    //   <directorioBase>/<nombreProyecto>/src<nombreProyecto>
+    // Y migra archivos previos si existian en la raiz de MotorGrafico.
+    static void asegurarEstructuraProyecto(const std::string& nombreProyecto = "Nuevo Proyecto");
+
+    // Ruta por defecto (compatibilidad): apunta a la configuracion en Memory de Nuevo Proyecto
     static std::string rutaPorDefecto();
 
     // Directorio base del proyecto por plataforma (mismo patron que la escena).

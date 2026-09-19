@@ -17,6 +17,7 @@
     SPDX-License-Identifier: Apache-2.0
 */
 #include "GUIManager.h"
+#include "../Configuracion/EditorConfig.h"
 #include "../Objetos/Modelos3D.h"
 #include "../Scenes/EditorController.h"
 #include "../Scenes/SceneRegistry.h"
@@ -31,11 +32,13 @@ GUIManager::GUIManager(GLFWwindow* window)
       selecteableGUI(new SceneSelectedInterface(true)),
       menuBarGUI(std::make_unique<SceneMenuBarInterface>(true)),
       treeFilesGUI(nullptr), contentOfThisFolder(nullptr) {
-    const char* homeDir = std::getenv("HOME");
-    const std::string path = std::string(homeDir ? homeDir : ".") + "/MotorGrafico";
+    const std::string defaultProject = "Nuevo Proyecto";
+    EditorConfig::asegurarEstructuraProyecto(defaultProject);
+    const std::string path = EditorConfig::directorioSrc(defaultProject);
+    const std::string rootName = EditorConfig::nombreRaizSrc(defaultProject);
     // El FileManager (fachada + modelo + seleccion) viva tanto como los
-    // paneles que lo consumen.
-    fileManager = std::make_unique<FileManager>(path);
+    // paneles que lo consumen. La raiz es el folder src<nombreProyecto>.
+    fileManager = std::make_unique<FileManager>(path, rootName);
     treeFilesGUI = std::make_unique<TreeFilesInterface>(true, fileManager.get());
     contentOfThisFolder = std::make_unique<ContentFolderInterface>(false, fileManager.get());
     dockSpaceGUI = std::make_unique<DockSpaceInterface>(true);
@@ -124,4 +127,13 @@ std::map<std::string, bool> GUIManager::obtenerEstadosVentanas() const {
         estados[ventana->getNameGui()] = ventana->getStateGui();
     }
     return estados;
+}
+
+void GUIManager::configurarProyecto(const std::string& nombreProyecto) {
+    EditorConfig::asegurarEstructuraProyecto(nombreProyecto);
+    const std::string path = EditorConfig::directorioSrc(nombreProyecto);
+    const std::string rootName = EditorConfig::nombreRaizSrc(nombreProyecto);
+    if (fileManager) {
+        fileManager->setProyecto(path, rootName);
+    }
 }

@@ -36,6 +36,7 @@ class GestorDeArchivos {
 private:
     ArbolEnlazado<File*>* treeFilePath;
     Position<File*>* folderActual;
+    std::string rootName;
 
     void recorrerDir(const std::string& path, Position<File*>* parent);
     // Borra los File* (elementos) de un arbol en pre-orden. El arbol de
@@ -48,7 +49,7 @@ private:
                              Position<File*>* left, Position<File*>* right);
 
 public:
-    explicit GestorDeArchivos(std::string pathProyect);
+    explicit GestorDeArchivos(std::string pathProyect, std::string rootName = "MotorGrafico");
     ~GestorDeArchivos();
 
     GestorDeArchivos(const GestorDeArchivos&) = delete;
@@ -56,6 +57,7 @@ public:
 
     ArbolEnlazado<File*>* getTreeFilePath();
     bool setTreeFilePath(const std::string& path, std::string name);
+    const std::string& getRootName() const noexcept { return rootName; }
     bool eliminarCarpeta(const std::string& path);
     bool crearCarpeta(const std::string& path);
     bool crearArchivo(const std::string& path, const std::string& contenido);

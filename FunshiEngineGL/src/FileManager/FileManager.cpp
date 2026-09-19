@@ -26,14 +26,13 @@
 #include "../Herramientas/TreeGUI/TreeGUI.h"
 
 namespace {
-// Busca pre-orden la primera Carpeta cuya ruta completa coincida. La raiz se
-// trata como contenedor (su pathRoot+pathName no es una ruta real).
+// Busca pre-orden la primera Carpeta cuya ruta completa coincida.
 Carpeta* buscarPreOrden(ArbolEnlazado<File*>* arbol,
                         Position<File*>* current,
                         const std::string& ruta) {
     if (!arbol || !current) return nullptr;
     File* elemento = current->getElement();
-    if (elemento && current != arbol->rootOfTree()) {
+    if (elemento) {
         // Comparacion de rutas como std::filesystem::path, NO de string crudo:
         // en Windows '/' y '\\' son equivalentes pero la representacion puede
         // diferir segun quien armo la ruta (el arbol vs una ingresada a mano),
@@ -54,23 +53,51 @@ Carpeta* buscarPreOrden(ArbolEnlazado<File*>* arbol,
 }
 } // namespace
 
-FileManager::FileManager(const std::string& pathProyect)
+FileManager::FileManager(const std::string& pathProyect, const std::string& rootName)
     : pathProyect(pathProyect),
-      gestor(new GestorDeArchivos(pathProyect)),
+      rootName(rootName.empty() ? "MotorGrafico" : rootName),
+      gestor(new GestorDeArchivos(pathProyect, this->rootName)),
       vigilante(new FileSystemWatcher(pathProyect)) {}
 
 FileManager::~FileManager() = default;
+
+void FileManager::setProyecto(const std::string& nuevoPath, const std::string& nuevoRootName) {
+    if (pathProyect == nuevoPath && rootName == nuevoRootName) return;
+    pathProyect = nuevoPath;
+    rootName = nuevoRootName.empty() ? "MotorGrafico" : nuevoRootName;
+    std::error_code ec;
+    std::filesystem::create_directories(pathProyect, ec);
+    vigilante = std::make_unique<FileSystemWatcher>(pathProyect);
+    gestor->setTreeFilePath(pathProyect, rootName);
+    FileSelection* sel = getSelection();
+    sel->rutaVisible = pathProyect;
+    sel->carpetaActual = nullptr;
+    if (gestor->getTreeFilePath() && !gestor->getTreeFilePath()->isEmpty()) {
+        Position<File*>* rootPos = gestor->getTreeFilePath()->rootOfTree();
+        if (rootPos && rootPos->getElement())
+            sel->carpetaActual = dynamic_cast<Carpeta*>(rootPos->getElement());
+    }
+    sel->navegacionPendiente.clear();
+    sel->contadorCambios++;
+}
 
 void FileManager::refrescar() {
     FileSelection* sel = getSelection();
     const std::string rutaVisible = sel->rutaVisible;
     // GestorDeArchivos ya comprueba por rutas y solo reconstruye si cambio.
-    gestor->setTreeFilePath(pathProyect, "MotorGrafico");
+    gestor->setTreeFilePath(pathProyect, rootName);
     // Los punteros al arbol viejo quedaron liberados (o apuntarian a una
     // seleccion caducada): re-resolvemos la carpeta visible por su ruta.
     sel->carpetaActual = nullptr;
     if (!rutaVisible.empty())
         sel->carpetaActual = buscarCarpetaPorRuta(rutaVisible);
+    if (!sel->carpetaActual && gestor->getTreeFilePath() && !gestor->getTreeFilePath()->isEmpty()) {
+        Position<File*>* rootPos = gestor->getTreeFilePath()->rootOfTree();
+        if (rootPos && rootPos->getElement()) {
+            sel->carpetaActual = dynamic_cast<Carpeta*>(rootPos->getElement());
+            if (sel->carpetaActual) sel->rutaVisible = pathProyect;
+        }
+    }
 }
 
 bool FileManager::huboCambiosExternos() {
