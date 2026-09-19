@@ -44,12 +44,36 @@ public:
 private:
     ImTextureID cargarPNG(const char* nombrePNG);
 
+    // Iconos base del explorador de archivos (ya existentes).
     ImTextureID iconoCarpeta = ImTextureID_Invalid;
     ImTextureID iconoArchivo = ImTextureID_Invalid;
     ImTextureID iconoCpp = ImTextureID_Invalid;
     ImTextureID iconoHpp = ImTextureID_Invalid;
     ImTextureID iconoJava = ImTextureID_Invalid;
     ImTextureID iconoGameObject = ImTextureID_Invalid;
+
+    // Iconos por extension de asset/formato (Imagenes/ + nombre.png).
+    ImTextureID iconoBlend = ImTextureID_Invalid;
+    ImTextureID iconoCsv = ImTextureID_Invalid;
+    ImTextureID iconoExr = ImTextureID_Invalid;
+    ImTextureID iconoFbx = ImTextureID_Invalid;
+    ImTextureID iconoHdr = ImTextureID_Invalid;
+    ImTextureID iconoJpeg = ImTextureID_Invalid;
+    ImTextureID iconoJpg = ImTextureID_Invalid;
+    ImTextureID iconoJson = ImTextureID_Invalid;
+    ImTextureID iconoMax = ImTextureID_Invalid;
+    ImTextureID iconoMaya = ImTextureID_Invalid;
+    ImTextureID iconoMp3 = ImTextureID_Invalid;
+    ImTextureID iconoObj = ImTextureID_Invalid;
+    ImTextureID iconoOgg = ImTextureID_Invalid;
+    ImTextureID iconoOtf = ImTextureID_Invalid;
+    ImTextureID iconoPng = ImTextureID_Invalid;
+    ImTextureID iconoPsd = ImTextureID_Invalid;
+    ImTextureID iconoRs = ImTextureID_Invalid;
+    ImTextureID iconoTga = ImTextureID_Invalid;
+    ImTextureID iconoTtf = ImTextureID_Invalid;
+    ImTextureID iconoWav = ImTextureID_Invalid;
+    ImTextureID iconoXml = ImTextureID_Invalid;
     bool inicializado = false;
 };
 
