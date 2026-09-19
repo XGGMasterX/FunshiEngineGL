@@ -74,6 +74,10 @@ private:
     ImTextureID iconoTtf = ImTextureID_Invalid;
     ImTextureID iconoWav = ImTextureID_Invalid;
     ImTextureID iconoXml = ImTextureID_Invalid;
+    ImTextureID iconoDb = ImTextureID_Invalid;
+    ImTextureID iconoMtl = ImTextureID_Invalid;
+    ImTextureID iconoRar = ImTextureID_Invalid;
+    ImTextureID iconoZip = ImTextureID_Invalid;
     bool inicializado = false;
 };
 
