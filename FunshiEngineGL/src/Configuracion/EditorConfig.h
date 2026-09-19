@@ -77,7 +77,15 @@ public:
     // Nombre de la raiz del explorador de archivos: "src" + nombreProyecto
     static std::string nombreRaizSrc(const std::string& nombreProyecto = "Nuevo Proyecto");
 
-    // Ruta de Configuracion.json dentro de Memory del proyecto:
+    // Ruta de la configuracion general en la raiz de MotorGrafico (hermana de los proyectos):
+    // <directorioBase>/Configuracion.json
+    static std::string rutaConfiguracionGeneral();
+
+    // Ruta de la configuracion especifica del proyecto (dentro de Memory):
+    // <directorioProyecto>/Memory/ConfiguracionProyecto.json
+    static std::string rutaConfiguracionProyecto(const std::string& nombreProyecto = "Nuevo Proyecto");
+
+    // Ruta de compatibilidad: alias de rutaConfiguracionProyecto
     static std::string rutaConfiguracion(const std::string& nombreProyecto = "Nuevo Proyecto");
 
     // Directorio de binarios de la escena: <directorioMemory>/Binarios
@@ -101,14 +109,22 @@ public:
     // Y migra archivos previos si existian en la raiz de MotorGrafico.
     static void asegurarEstructuraProyecto(const std::string& nombreProyecto = "Nuevo Proyecto");
 
-    // Ruta por defecto (compatibilidad): apunta a la configuracion en Memory de Nuevo Proyecto
+    // Ruta por defecto: apunta a Configuracion.json en la raiz de MotorGrafico
     static std::string rutaPorDefecto();
 
-    // Directorio base del proyecto por plataforma (mismo patron que la escena).
+    // Directorio base por defecto (compatibilidad): directorio Memory de Nuevo Proyecto
     static std::string directorioProyectoPorDefecto();
 
+    // Carga general y del proyecto activo si corresponde
     void cargar(const std::string& ruta);
+    // Guarda general y del proyecto activo si corresponde
     void guardar(const std::string& ruta);
+
+    // Guardado y carga independientes para no mezclar configuraciones generales y de proyecto:
+    void guardarGeneral(const std::string& ruta = "");
+    void cargarGeneral(const std::string& ruta = "");
+    void guardarProyecto(const std::string& nombreProyecto, const std::string& ruta = "");
+    void cargarProyecto(const std::string& nombreProyecto, const std::string& ruta = "");
 
     const Datos& datos() const noexcept { return datos_; }
     Datos& datos() noexcept { return datos_; }

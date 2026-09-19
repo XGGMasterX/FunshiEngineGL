@@ -19,6 +19,12 @@
 // Pruebas headless de EditorConfig (la configuracion del editor en JSON):
 // tolerancia ante archivo ausente/corrupto/parcial y round-trip escrito-leido.
 // Sin pila grafica: solo std C++17 + nlohmann/json del intermedio.
+//
+// Separacion de archivos (nueva arquitectura):
+//   - Configuracion.json (general): apariencia, idioma, sensibilidad, ultimo proyecto.
+//   - ConfiguracionProyecto.json (por proyecto): ventanas, gizmo, camara activa.
+// Los metodos guardarGeneral/cargarGeneral y guardarProyecto/cargarProyecto
+// permiten escribir/leer cada archivo por separado.
 
 #include <cstdio>
 #include <filesystem>
@@ -39,7 +45,7 @@ int fallos = 0;
         ++total;                                                              \
         if (!(cond)) {                                                        \
             ++fallos;                                                         \
-            std::cout << "FALLO: " << msg << " (linea " << __LINE__ << ")"    \
+            std::cout << "FALLO: " << msg << " (linea " << __LINE__ << ")"  \
                       << std::endl;                                           \
         }                                                                     \
     } while (0)
@@ -49,12 +55,15 @@ int main() {
     const fs::path base = fs::temp_directory_path() / "funshi_editorconfig_tests";
     fs::remove_all(base);
     fs::create_directories(base);
-    const std::string ruta = (base / "editor_config.json").string();
+    const std::string rutaGeneral  = (base / "Configuracion.json").string();
+    const std::string proyNombreTest = "TestProyecto";
+    const std::string rutaProyecto = (base / "ConfiguracionProyecto.json").string();
 
     // 1. Sin archivo: todo default, sin crashear.
     {
         EditorConfig cfg;
-        cfg.cargar(ruta);
+        cfg.cargarGeneral(rutaGeneral);
+        cfg.cargarProyecto(proyNombreTest, rutaProyecto);
         CHECK(cfg.datos().nombreProyecto == "Nuevo Proyecto", "default nombreProyecto");
         CHECK(cfg.datos().idioma == "Espanol", "default idioma");
         CHECK(cfg.datos().sensibilidadCamara == 1.0f, "default sensibilidad");
@@ -68,6 +77,7 @@ int main() {
     }
 
     // 2. Round-trip: los valores cambiados sobreviven a guardar/cargar.
+    //    Config general y config de proyecto se guardan en archivos separados.
     {
         EditorConfig cfg;
         cfg.datos().nombreProyecto = "MiEscena";
@@ -87,27 +97,31 @@ int main() {
         cfg.datos().apariencia.fondo[0] = 0.3f;
         cfg.datos().apariencia.fondo[1] = 0.4f;
         cfg.datos().apariencia.fondo[2] = 0.5f;
-        cfg.guardar(ruta);
-        CHECK(fs::exists(ruta), "se escribio el archivo");
+        // Guardar en dos archivos separados (nuevo flujo)
+        cfg.guardarGeneral(rutaGeneral);
+        cfg.guardarProyecto(proyNombreTest, rutaProyecto);
+        CHECK(fs::exists(rutaGeneral),  "se escribio el archivo general");
+        CHECK(fs::exists(rutaProyecto), "se escribio el archivo de proyecto");
 
         EditorConfig cfg2;
-        cfg2.cargar(ruta);
-        CHECK(cfg2.datos().nombreProyecto == "MiEscena", "roundtrip nombreProyecto");
-        CHECK(cfg2.datos().idioma == "English", "roundtrip idioma");
-        CHECK(cfg2.datos().sensibilidadCamara == 2.5f, "roundtrip sensibilidad");
-        CHECK(cfg2.datos().ventanaCamarasAbierta == false, "roundtrip ventanaCamaras");
-        CHECK(cfg2.datos().gizmoOperacion == 2, "roundtrip gizmoOperacion");
-        CHECK(cfg2.datos().camaraActivaId == 7, "roundtrip camaraActivaId");
+        cfg2.cargarGeneral(rutaGeneral);
+        cfg2.cargarProyecto(proyNombreTest, rutaProyecto);
+        CHECK(cfg2.datos().nombreProyecto == "MiEscena",  "roundtrip nombreProyecto");
+        CHECK(cfg2.datos().idioma == "English",           "roundtrip idioma");
+        CHECK(cfg2.datos().sensibilidadCamara == 2.5f,    "roundtrip sensibilidad");
+        CHECK(cfg2.datos().ventanaCamarasAbierta == false,"roundtrip ventanaCamaras");
+        CHECK(cfg2.datos().gizmoOperacion == 2,           "roundtrip gizmoOperacion");
+        CHECK(cfg2.datos().camaraActivaId == 7,           "roundtrip camaraActivaId");
         CHECK(cfg2.datos().estadoVentanas.at("BrowseFile") == false,
               "roundtrip ventana BrowseFile");
         CHECK(cfg2.datos().estadoVentanas.at("ShowFolder") == true,
               "roundtrip ventana ShowFolder");
-        CHECK(cfg2.datos().estadoVentanas.size() == 2, "cantidad de ventanas");
-        CHECK(cfg2.datos().apariencia.temaClaro == true, "roundtrip temaClaro");
-        CHECK(cfg2.datos().apariencia.blancoYNegro == true, "roundtrip blancoYNegro");
+        CHECK(cfg2.datos().estadoVentanas.size() == 2,   "cantidad de ventanas");
+        CHECK(cfg2.datos().apariencia.temaClaro == true,  "roundtrip temaClaro");
+        CHECK(cfg2.datos().apariencia.blancoYNegro == true,"roundtrip blancoYNegro");
         CHECK(cfg2.datos().apariencia.acento[0] == 0.9f, "roundtrip acento r");
         CHECK(cfg2.datos().apariencia.acento[3] == 0.5f, "roundtrip acento a");
-        CHECK(cfg2.datos().apariencia.fondo[2] == 0.5f, "roundtrip fondo b");
+        CHECK(cfg2.datos().apariencia.fondo[2] == 0.5f,  "roundtrip fondo b");
         CHECK(cfg2.datos().apariencia == cfg.datos().apariencia,
               "roundtrip Apariencia completa");
     }
@@ -115,52 +129,62 @@ int main() {
     // 3. Archivo corrupto: defaults (sin crash).
     {
         {
-            std::ofstream f(ruta, std::ios::trunc);
+            std::ofstream f(rutaGeneral, std::ios::trunc);
             f << "{ json roto";
         }
         EditorConfig cfg;
-        cfg.cargar(ruta);
+        cfg.cargarGeneral(rutaGeneral);
         CHECK(cfg.datos().nombreProyecto == "Nuevo Proyecto", "corrupto -> defaults");
         CHECK(cfg.datos().idioma == "Espanol", "corrupto -> defaults idioma");
     }
 
     // 4. Parcial: el campo presente se aplica, el ausente conserva el default.
+    //    El campo "editor" (ventanaCamarasAbierta) vive en el archivo de proyecto.
     {
         {
-            std::ofstream f(ruta, std::ios::trunc);
+            std::ofstream f(rutaProyecto, std::ios::trunc);
             f << "{\n  \"version\": 1,\n  \"editor\": {\n"
                  "    \"ventanaCamarasAbierta\": false\n  }\n}\n";
         }
         EditorConfig cfg;
-        cfg.cargar(ruta);
+        cfg.cargarProyecto(proyNombreTest, rutaProyecto);
         CHECK(cfg.datos().ventanaCamarasAbierta == false,
               "parcial: campo presente se aplica");
         CHECK(cfg.datos().sensibilidadCamara == 1.0f,
               "parcial: campo ausente conserva default");
         CHECK(cfg.datos().nombreProyecto == "Nuevo Proyecto",
-              "parcial: sin seccion menu -> default");
+              "parcial: sin seccion general -> default");
     }
 
     // 5. Nuevo sistema de guardado por proyecto:
     // Cada proyecto genera su carpeta en MotorGrafico, con Memory (escena, config, imgui)
     // y su hermano srcProyectName como raiz del explorador de archivos.
+    // La config general vive en la raiz de MotorGrafico (hermana de los proyectos).
     {
         const std::string baseMotor = EditorConfig::directorioBaseMotorGrafico();
         CHECK(!baseMotor.empty(), "directorioBaseMotorGrafico no vacio");
 
         const std::string proyNombre = "JuegoPrueba";
-        const std::string proyDir = EditorConfig::directorioProyecto(proyNombre);
-        const std::string memDir = EditorConfig::directorioMemory(proyNombre);
-        const std::string srcDir = EditorConfig::directorioSrc(proyNombre);
+        const std::string proyDir  = EditorConfig::directorioProyecto(proyNombre);
+        const std::string memDir   = EditorConfig::directorioMemory(proyNombre);
+        const std::string srcDir   = EditorConfig::directorioSrc(proyNombre);
         const std::string rootName = EditorConfig::nombreRaizSrc(proyNombre);
 
-        CHECK(rootName == "srcJuegoPrueba", "nombreRaizSrc correcto");
-        CHECK(proyDir == baseMotor + "/" + proyNombre, "directorioProyecto correcto");
-        CHECK(memDir == proyDir + "/Memory", "directorioMemory dentro del proyecto");
-        CHECK(srcDir == proyDir + "/srcJuegoPrueba", "directorioSrc hermano de Memory");
-        CHECK(EditorConfig::rutaConfiguracion(proyNombre) == memDir + "/Configuracion.json",
-              "rutaConfiguracion dentro de Memory");
-        CHECK(EditorConfig::rutaSceneBBDD(proyNombre) == memDir + "/Binarios/SceneBBDDObjetos.txt",
+        CHECK(rootName == "srcJuegoPrueba",              "nombreRaizSrc correcto");
+        CHECK(proyDir == baseMotor + "/" + proyNombre,   "directorioProyecto correcto");
+        CHECK(memDir  == proyDir + "/Memory",            "directorioMemory dentro del proyecto");
+        CHECK(srcDir  == proyDir + "/srcJuegoPrueba",    "directorioSrc hermano de Memory");
+
+        // Config general: en la raiz de MotorGrafico, hermana de las carpetas de proyecto.
+        CHECK(EditorConfig::rutaConfiguracionGeneral() == baseMotor + "/Configuracion.json",
+              "rutaConfiguracionGeneral en raiz de MotorGrafico");
+        // Config del proyecto: dentro de Memory del proyecto.
+        CHECK(EditorConfig::rutaConfiguracionProyecto(proyNombre) ==
+              memDir + "/ConfiguracionProyecto.json",
+              "rutaConfiguracionProyecto dentro de Memory");
+
+        CHECK(EditorConfig::rutaSceneBBDD(proyNombre) ==
+              memDir + "/Binarios/SceneBBDDObjetos.txt",
               "rutaSceneBBDD dentro de Memory/Binarios");
         CHECK(EditorConfig::rutaSceneDir(proyNombre) == memDir + "/Binarios/Scene/",
               "rutaSceneDir dentro de Memory/Binarios/Scene/");

@@ -213,22 +213,54 @@ void MenuView::renderizarConfigProyecto() {
     ImGui::Text("Nombre");
     ImGui::SameLine();
 
-    // Estado de UI: el buffer arranca vacio y se refresca desde el modelo la
-    // primera vez; cada cambio validado se delega al modelo.
-    if (nombreProyectoBuffer[0] == '\0') {
+    // El buffer se rellena desde el modelo la primera vez que se abre la
+    // vista (o cuando no hay cambios pendientes). Mientras el usuario escribe,
+    // solo se actualiza el buffer local; el modelo no se toca hasta Confirmar.
+    if (nombreProyectoBuffer[0] == '\0' && !nombreProyectoPendiente) {
         std::strncpy(nombreProyectoBuffer,
                      model->getNombreProyecto().c_str(),
                      sizeof(nombreProyectoBuffer) - 1);
         nombreProyectoBuffer[sizeof(nombreProyectoBuffer) - 1] = '\0';
     }
+
     ImGui::SetNextItemWidth(kBotonAncho);
+    // El InputText modifica solo el buffer local y marca cambios pendientes.
     if (ImGui::InputText("##nombreProyecto", nombreProyectoBuffer,
                          sizeof(nombreProyectoBuffer))) {
-        model->setNombreProyecto(nombreProyectoBuffer);
+        nombreProyectoPendiente = true;
+    }
+
+    // Indicador visual: si hay un cambio sin confirmar se muestra el nombre
+    // actual del modelo como referencia.
+    if (nombreProyectoPendiente) {
+        ImGui::SameLine();
+        ImGui::TextDisabled("(actual: %s)", model->getNombreProyecto().c_str());
     }
 
     cursorFila(2);
+    // Confirmar: solo aqui se notifica al modelo (lo que dispara la creacion
+    // de carpetas en main la proxima vez que se lea getNombreProyecto).
+    const bool confirmarDeshabilitado =
+        !nombreProyectoPendiente || nombreProyectoBuffer[0] == '\0';
+    if (confirmarDeshabilitado) {
+        ImGui::BeginDisabled();
+    }
+    if (ImGui::Button("Confirmar", ImVec2(kBotonAncho, kBotonAlto))) {
+        model->setNombreProyecto(nombreProyectoBuffer);
+        nombreProyectoPendiente = false;
+    }
+    if (confirmarDeshabilitado) {
+        ImGui::EndDisabled();
+    }
+
+    cursorFila(3);
     if (ImGui::Button("Volver", ImVec2(kBotonAncho, kBotonAlto))) {
+        // Descartar cambios pendientes: resetear el buffer para que la proxima
+        // apertura lo rellene desde el modelo (que no fue modificado).
+        if (nombreProyectoPendiente) {
+            nombreProyectoBuffer[0] = '\0';
+            nombreProyectoPendiente = false;
+        }
         model->volver();
     }
 }
