@@ -19,6 +19,7 @@
 #include "StatusBarInterface.h"
 
 #include "../WindowNames.h"
+#include "../../Events/EditorEventBus.h"
 #include "../../Objetos/GameObject.h"
 #include "../../Objetos/Componentes/Script.h"
 #include "../../Scenes/SceneRegistry.h"
@@ -29,9 +30,14 @@
 
 StatusBarInterface::StatusBarInterface(bool stateGUI)
     : GeneralUserInterface(WindowNames::Status, stateGUI,
-                           ImGuiWindowFlags_MenuBar) {}
+                           ImGuiWindowFlags_MenuBar),
+      estadoPublicado_(stateGUI) {}
 
 void StatusBarInterface::bindScene(SceneRegistry* scene) { scene_ = scene; }
+
+void StatusBarInterface::setEditorEventBus(EditorEventBus* bus) {
+    busEditor = bus;
+}
 
 void StatusBarInterface::setEstadoCompilacion(
     bool enCurso, const std::string& actual, std::size_t hecha,
@@ -262,4 +268,16 @@ void StatusBarInterface::printGUI() {
     // El overlay de carga es independiente de la ventana "Estado": se muestra
     // aunque el usuario haya cerrado la ventana.
     dibujarOverlayCarga();
+
+    // Notificar cambios de visibilidad al bus de GUI: cerrar con la 'X' muda
+    // stateGUI por dentro de ImGui::Begin y nadie mas la veria. El overlay no
+    // cambia la visibilidad de la ventana, asi que aqui no hay ruido extra.
+    if (busEditor && stateGUI != estadoPublicado_) {
+        EditorEvent ev;
+        ev.type = EditorEventType::VentanaEstadoCambio;
+        ev.nombreVentana = WindowNames::Status;
+        ev.abierta = stateGUI;
+        busEditor->publish(ev);
+        estadoPublicado_ = stateGUI;
+    }
 }

@@ -17,6 +17,7 @@
     SPDX-License-Identifier: Apache-2.0
 */
 #include "MenuGUI.h"
+#include "../../Events/EditorEventBus.h"
 
 MenuGUI::MenuGUI(GLFWwindow* window)
     : view(&model, &presenter, window), presenter(&model) {}
@@ -59,6 +60,15 @@ const Apariencia& MenuGUI::getApariencia() const noexcept {
 
 void MenuGUI::setApariencia(const Apariencia& valor) noexcept {
     model.setApariencia(valor);
+    // Publicar el perfil al canal de GUI: los suscriptores (main: estilo de
+    // ImGui, fondo/grilla de la escena y persistencia) reaccionan al cambio
+    // en vivo sin que nadie relea el modelo a mano.
+    if (busEditor) {
+        EditorEvent ev;
+        ev.type = EditorEventType::AparienciaCambio;
+        ev.apariencia = valor;
+        busEditor->publish(ev);
+    }
 }
 
 const std::string& MenuGUI::getNombreProyecto() const noexcept {
@@ -75,4 +85,16 @@ const std::string& MenuGUI::getIdioma() const noexcept {
 
 void MenuGUI::setIdioma(const std::string& valor) noexcept {
     model.setIdioma(valor);
+    // El idioma viaja por el bus: main lo persiste al instante (sobrevive un
+    // cierre brusco) y las etiquetas sensibles se refrescan via onLanguageChanged.
+    if (busEditor) {
+        EditorEvent ev;
+        ev.type = EditorEventType::IdiomaCambio;
+        ev.idioma = valor;
+        busEditor->publish(ev);
+    }
+}
+
+void MenuGUI::setEditorEventBus(EditorEventBus* bus) noexcept {
+    busEditor = bus;
 }
