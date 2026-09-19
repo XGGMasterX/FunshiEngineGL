@@ -141,6 +141,44 @@ int main() {
               "parcial: sin seccion menu -> default");
     }
 
+    // 5. Nuevo sistema de guardado por proyecto:
+    // Cada proyecto genera su carpeta en MotorGrafico, con Memory (escena, config, imgui)
+    // y su hermano srcProyectName como raiz del explorador de archivos.
+    {
+        const std::string baseMotor = EditorConfig::directorioBaseMotorGrafico();
+        CHECK(!baseMotor.empty(), "directorioBaseMotorGrafico no vacio");
+
+        const std::string proyNombre = "JuegoPrueba";
+        const std::string proyDir = EditorConfig::directorioProyecto(proyNombre);
+        const std::string memDir = EditorConfig::directorioMemory(proyNombre);
+        const std::string srcDir = EditorConfig::directorioSrc(proyNombre);
+        const std::string rootName = EditorConfig::nombreRaizSrc(proyNombre);
+
+        CHECK(rootName == "srcJuegoPrueba", "nombreRaizSrc correcto");
+        CHECK(proyDir == baseMotor + "/" + proyNombre, "directorioProyecto correcto");
+        CHECK(memDir == proyDir + "/Memory", "directorioMemory dentro del proyecto");
+        CHECK(srcDir == proyDir + "/srcJuegoPrueba", "directorioSrc hermano de Memory");
+        CHECK(EditorConfig::rutaConfiguracion(proyNombre) == memDir + "/Configuracion.json",
+              "rutaConfiguracion dentro de Memory");
+        CHECK(EditorConfig::rutaSceneBBDD(proyNombre) == memDir + "/Binarios/SceneBBDDObjetos.txt",
+              "rutaSceneBBDD dentro de Memory/Binarios");
+        CHECK(EditorConfig::rutaSceneDir(proyNombre) == memDir + "/Binarios/Scene/",
+              "rutaSceneDir dentro de Memory/Binarios/Scene/");
+        CHECK(EditorConfig::rutaImguiIni(proyNombre) == memDir + "/imgui.ini",
+              "rutaImguiIni dentro de Memory");
+
+        // Asegurar que la creacion de estructura crea las carpetas en disco
+        EditorConfig::asegurarEstructuraProyecto(proyNombre);
+        CHECK(fs::is_directory(memDir + "/Binarios/Scene"),
+              "asegurarEstructuraProyecto creo Memory/Binarios/Scene");
+        CHECK(fs::is_directory(srcDir),
+              "asegurarEstructuraProyecto creo srcJuegoPrueba");
+
+        // Limpieza de prueba
+        std::error_code ec;
+        fs::remove_all(proyDir, ec);
+    }
+
     fs::remove_all(base);
     std::cout << "Pruebas: " << total << ", fallos: " << fallos << std::endl;
     if (fallos == 0) std::cout << "EDITORCONFIG TESTS OK" << std::endl;

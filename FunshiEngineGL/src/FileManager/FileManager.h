@@ -36,7 +36,7 @@ class FileSystemWatcher;
 // nunca con GestorDeArchivos ni con el Filesystem directamente.
 class FileManager {
 public:
-    explicit FileManager(const std::string& pathProyect);
+    explicit FileManager(const std::string& pathProyect, const std::string& rootName = "MotorGrafico");
     ~FileManager();
 
     FileManager(const FileManager&) = delete;
@@ -44,6 +44,11 @@ public:
 
     FileSelection* getSelection() { return &selection; }
     ArbolEnlazado<File*>* getArbol() { return gestor->getTreeFilePath(); }
+    const std::string& getPathProyect() const noexcept { return pathProyect; }
+    const std::string& getRootName() const noexcept { return rootName; }
+
+    // Cambia la raiz del proyecto que vigila y explora el FileManager
+    void setProyecto(const std::string& nuevoPath, const std::string& nuevoRootName);
 
     // Rescanea el Filesystem y reconstruye el arbol si cambio. Re-resuelve
     // rutaVisible en el nuevo arbol (los punteros al arbol viejo quedarian
@@ -69,6 +74,7 @@ public:
 
 private:
     std::string pathProyect;
+    std::string rootName;
     std::unique_ptr<GestorDeArchivos> gestor;
     std::unique_ptr<FileSystemWatcher> vigilante;
     FileSelection selection;
