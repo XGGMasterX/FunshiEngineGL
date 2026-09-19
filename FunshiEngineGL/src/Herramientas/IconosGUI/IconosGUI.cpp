@@ -64,29 +64,21 @@ std::string directorioEjecutable() {
 IconosGUI::IconosGUI() {}
 
 IconosGUI::~IconosGUI() {
-    if (iconoCarpeta != ImTextureID_Invalid) {
-        GLuint id = (GLuint)(intptr_t)iconoCarpeta;
-        glDeleteTextures(1, &id);
-    }
-    if (iconoArchivo != ImTextureID_Invalid) {
-        GLuint id = (GLuint)(intptr_t)iconoArchivo;
-        glDeleteTextures(1, &id);
-    }
-    if (iconoCpp != ImTextureID_Invalid) {
-        GLuint id = (GLuint)(intptr_t)iconoCpp;
-        glDeleteTextures(1, &id);
-    }
-    if (iconoHpp != ImTextureID_Invalid) {
-        GLuint id = (GLuint)(intptr_t)iconoHpp;
-        glDeleteTextures(1, &id);
-    }
-    if (iconoJava != ImTextureID_Invalid) {
-        GLuint id = (GLuint)(intptr_t)iconoJava;
-        glDeleteTextures(1, &id);
-    }
-    if (iconoGameObject != ImTextureID_Invalid) {
-        GLuint id = (GLuint)(intptr_t)iconoGameObject;
-        glDeleteTextures(1, &id);
+    // Todos los iconos cargados se liberan igual; conviene recorrer el array
+    // en vez de repetir el bloque glDeleteTextures para cada miembro.
+    ImTextureID* iconos[] = {
+        &iconoCarpeta, &iconoArchivo, &iconoCpp, &iconoHpp, &iconoJava,
+        &iconoGameObject, &iconoBlend, &iconoCsv, &iconoExr, &iconoFbx,
+        &iconoHdr, &iconoJpeg, &iconoJpg, &iconoJson, &iconoMax, &iconoMaya,
+        &iconoMp3, &iconoObj, &iconoOgg, &iconoOtf, &iconoPng, &iconoPsd,
+        &iconoRs, &iconoTga, &iconoTtf, &iconoWav, &iconoXml,
+    };
+    for (ImTextureID* icono : iconos) {
+        if (*icono != ImTextureID_Invalid) {
+            GLuint id = (GLuint)(intptr_t)*icono;
+            glDeleteTextures(1, &id);
+            *icono = ImTextureID_Invalid;
+        }
     }
 }
 
@@ -98,6 +90,28 @@ void IconosGUI::init() {
     iconoHpp = cargarPNG("hpp.png");
     iconoJava = cargarPNG("java.png");
     iconoGameObject = cargarPNG("cubo.png");
+    // Iconos por extension de asset/formato (mismo nombre que el archivo en Imagenes/).
+    iconoBlend = cargarPNG("blend.png");
+    iconoCsv = cargarPNG("csv.png");
+    iconoExr = cargarPNG("exr.png");
+    iconoFbx = cargarPNG("fbx.png");
+    iconoHdr = cargarPNG("hdr.png");
+    iconoJpeg = cargarPNG("jpeg.png");
+    iconoJpg = cargarPNG("jpg.png");
+    iconoJson = cargarPNG("json.png");
+    iconoMax = cargarPNG("max.png");
+    iconoMaya = cargarPNG("maya.png");
+    iconoMp3 = cargarPNG("mp3.png");
+    iconoObj = cargarPNG("obj.png");
+    iconoOgg = cargarPNG("ogg.png");
+    iconoOtf = cargarPNG("otf.png");
+    iconoPng = cargarPNG("png.png");
+    iconoPsd = cargarPNG("psd.png");
+    iconoRs = cargarPNG("rs.png");
+    iconoTga = cargarPNG("tga.png");
+    iconoTtf = cargarPNG("ttf.png");
+    iconoWav = cargarPNG("wav.png");
+    iconoXml = cargarPNG("xml.png");
     inicializado = true;
 }
 
@@ -172,5 +186,28 @@ ImTextureID IconosGUI::getIconoPorExtension(const std::string& extension) const 
     if (ext == ".cpp" || ext == ".cc" || ext == ".cxx" || ext == ".c") return iconoCpp;
     if (ext == ".h" || ext == ".hpp" || ext == ".hh" || ext == ".hxx") return iconoHpp;
     if (ext == ".java") return iconoJava;
+
+    // Assets y formatos: modelos, imagenes, audio, fuentes y datos.
+    if (ext == ".blend" || ext == ".blend1") return iconoBlend;      // Blender
+    if (ext == ".max" || ext == ".3ds") return iconoMax;             // 3ds Max
+    if (ext == ".ma" || ext == ".mb") return iconoMaya;              // Maya
+    if (ext == ".fbx") return iconoFbx;
+    if (ext == ".obj") return iconoObj;
+    if (ext == ".png") return iconoPng;
+    if (ext == ".jpg" || ext == ".jpe") return iconoJpg;
+    if (ext == ".jpeg") return iconoJpeg;
+    if (ext == ".tga") return iconoTga;
+    if (ext == ".hdr") return iconoHdr;                              // HDR/OpenEXR legacy
+    if (ext == ".exr") return iconoExr;
+    if (ext == ".psd") return iconoPsd;
+    if (ext == ".mp3") return iconoMp3;
+    if (ext == ".wav") return iconoWav;
+    if (ext == ".ogg") return iconoOgg;
+    if (ext == ".ttf") return iconoTtf;
+    if (ext == ".otf") return iconoOtf;
+    if (ext == ".json") return iconoJson;
+    if (ext == ".xml") return iconoXml;
+    if (ext == ".csv") return iconoCsv;
+    if (ext == ".rs") return iconoRs;                                // Rust
     return iconoArchivo;
 }
