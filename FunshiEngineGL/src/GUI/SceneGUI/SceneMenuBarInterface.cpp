@@ -40,6 +40,7 @@ void SceneMenuBarInterface::initGUI() {
 // ventanas que no se pueden alternar desde aqui (dock, propia barra, settings).
 static const char* etiquetaVentana(const std::string& nombre) {
     if (nombre == WindowNames::BrowseFile) return "Explorador de archivos";
+    if (nombre == WindowNames::ShowFolder) return "Vista de contenido";
     if (nombre == WindowNames::SelectedObjects) return "Objetos seleccionados";
     if (nombre == WindowNames::Status) return "Barra de estado";
     return nullptr;
@@ -52,8 +53,8 @@ void SceneMenuBarInterface::contentGUI() {
     ImGui::BeginMenuBar();
     if (ImGui::BeginMenu("Ventanas")) {
         static const char* kVentanasEditables[] = {
-            WindowNames::BrowseFile, WindowNames::SelectedObjects,
-            WindowNames::Status};
+            WindowNames::BrowseFile, WindowNames::ShowFolder,
+            WindowNames::SelectedObjects, WindowNames::Status};
         for (const char* nombre : kVentanasEditables) {
             const char* etiqueta = etiquetaVentana(nombre);
             if (!etiqueta) continue;
