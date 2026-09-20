@@ -132,7 +132,7 @@ void GameScene::asegurarGrilla() {
     
     // Buscar grilla existente en la escena (sin importar si la escena esta vacia o no)
     bool tieneGrilla = false;
-    if (lista) {
+    if (lista && !lista->isEmpty()) {
         Position<GameObject*>* pos = lista->first();
         while (pos && pos->getElement()) {
             if (std::string(pos->getElement()->inputName) == "Grilla") {
@@ -1255,7 +1255,7 @@ void GameScene::gameScene() {
         int diagObjs = 0;
         int diagConMalla = 0;
         int diagConMallaYNormales = 0;
-        if (diagObjects) {
+        if (diagObjects && !diagObjects->isEmpty()) {
             Position<GameObject*>* pos = diagObjects->first();
             while (pos && pos->getElement()) {
                 GameObject* o = pos->getElement();
