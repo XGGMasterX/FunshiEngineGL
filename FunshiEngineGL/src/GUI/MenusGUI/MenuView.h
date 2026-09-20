@@ -50,6 +50,7 @@ private:
     bool nombreProyectoPendiente = false;
 
     void renderizarPrincipal();
+    void renderizarListaProyectos();
     void renderizarOpciones();
     void renderizarConfigProyecto();
 

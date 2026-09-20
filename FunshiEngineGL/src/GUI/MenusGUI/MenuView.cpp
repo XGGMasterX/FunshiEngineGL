@@ -76,6 +76,7 @@ void MenuView::contentGUI() {
     // Un solo Begin por frame: switch sobre la vista activa del modelo.
     switch (model->getVista()) {
     case MenuModel::Vista::Principal:
+        renderizarListaProyectos();
         renderizarPrincipal();
         break;
     case MenuModel::Vista::Opciones:
@@ -104,6 +105,14 @@ void MenuView::printGUI() {
 }
 
 void MenuView::renderizarPrincipal() {
+    // Sin proyecto elegido no se puede entrar al editor: "Iniciar Estudio"
+    // queda deshabilitado hasta que se seleccione una carpeta de la lista
+    // (o se tipee/confirme un nombre en Config Proyect). Obliga a elegir
+    // proyecto antes de abrir el estudio y evita crear "Nuevo Proyecto" solo.
+    const bool sinProyectoElegido = model->getNombreProyecto().empty();
+    if (sinProyectoElegido) {
+        ImGui::BeginDisabled();
+    }
     cursorFila(0);
     if (ImGui::Button(model->traducir("iniciar_estudio").c_str(),
                       ImVec2(kBotonAncho, kBotonAlto))) {
@@ -111,6 +120,9 @@ void MenuView::renderizarPrincipal() {
         // presenter (DebeCerrar -> ConsultarCierre en main), que hace la
         // transicion real. La vista solo informa la intencion.
         presenter->PedirCierre();
+    }
+    if (sinProyectoElegido) {
+        ImGui::EndDisabled();
     }
 
     cursorFila(1);
@@ -134,6 +146,30 @@ void MenuView::renderizarPrincipal() {
                       ImVec2(kBotonAncho, kBotonAlto))) {
         glfwSetWindowShouldClose(window, GLFW_TRUE);
     }
+}
+
+void MenuView::renderizarListaProyectos() {
+    // Lista de proyectos a la izquierda: los proyectos son las carpetas de
+    // <directorioBase>/MotorGrafico. Elegir una carpeta la vuelve el proyecto
+    // activo (setNombreProyecto); main sincroniza el FileManager al detectar
+    // el cambio de nombre. La lista se rellena desde la fachada por frame.
+    const ImVec2 win = ImGui::GetWindowSize();
+    ImGui::SetCursorPos(ImVec2(40.0f, 60.0f));
+    ImGui::BeginChild("##listaProyectos", ImVec2(300.0f, win.y - 140.0f), true);
+    ImGui::TextUnformatted(model->traducir("proyectos").c_str());
+    ImGui::Separator();
+    const std::vector<std::string>& proyectos = model->getProyectosDisponibles();
+    if (proyectos.empty()) {
+        ImGui::TextDisabled("%s", model->traducir("sin_proyectos").c_str());
+    } else {
+        for (const std::string& nombre : proyectos) {
+            const bool seleccionado = (nombre == model->getNombreProyecto());
+            if (ImGui::Selectable(nombre.c_str(), seleccionado)) {
+                model->setNombreProyecto(nombre);
+            }
+        }
+    }
+    ImGui::EndChild();
 }
 
 void MenuView::renderizarOpciones() {

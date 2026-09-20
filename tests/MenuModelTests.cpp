@@ -141,6 +141,32 @@ int main() {
               "sensibilidad cero se ignora");
     }
 
+    // 7. Listado de proyectos disponibles (carpetas de MotorGrafico): se guarda
+    //    tal cual lo rellena la fachada y se devuelve en el mismo orden.
+    {
+        MenuModel m;
+        CHECK(m.getProyectosDisponibles().empty(),
+              "sin lista asignada no hay proyectos");
+
+        const std::vector<std::string> proyectos = {"SegundoProyecto", "MiProyecto"};
+        m.setProyectosDisponibles(proyectos);
+        CHECK(m.getProyectosDisponibles().size() == 2, "lista de dos proyectos");
+        CHECK(m.getProyectosDisponibles()[0] == "SegundoProyecto",
+              "conserva el primer proyecto");
+        CHECK(m.getProyectosDisponibles()[1] == "MiProyecto",
+              "conserva el segundo proyecto");
+    }
+
+    // 8. Etiquetas del selector de proyectos traducidas.
+    {
+        MenuModel m;
+        CHECK(m.traducir("proyectos") == "Proyectos", "clave proyectos es");
+        CHECK(m.traducir("sin_proyectos").find("Config Proyect") != std::string::npos,
+              "aviso de lista vacia menciona Config Proyect");
+        m.setIdioma("English");
+        CHECK(m.traducir("proyectos") == "Projects", "clave proyectos en");
+    }
+
     std::cout << "Pruebas: " << total << ", fallos: " << fallos << std::endl;
     std::cout << (fallos == 0 ? "MENUMODEL TESTS OK" : "MENUMODEL TESTS FALLO")
               << std::endl;
