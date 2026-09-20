@@ -122,12 +122,15 @@ private:
     // tocar nada manual.
     void asegurarGrilla();
 
-    // Cache de la grilla del editor como display list: los ~280 segmentos se
-    // generan una sola vez y se recompilan solo si cambian tamano, separacion
-    // o el color efectivo (perfil B/N). Se compila dentro de la llamada de la
-    // grilla, asi el transform del objeto "Grilla" se aplica igual. El tipo es
+    // Cache de la grilla del editor como display lists: los segmentos se
+    // generan una vez y se recompilan solo si cambian tamano, separacion
+    // o el color efectivo (perfil B/N). Se separan en 3 lists (principal, secundaria, ejes)
+    // porque glLineWidth no se guarda en display lists. Se compila dentro de la llamada de
+    // la grilla, asi el transform del objeto "Grilla" se aplica igual. El tipo es
     // unsigned int (no GLuint) para que la cabecera no dependa de gl.h.
-    unsigned int cacheGrilla_ = 0;
+    unsigned int cacheGrillaMajor_ = 0;  // Lineas principales (cada 5 unidades)
+    unsigned int cacheGrillaMinor_ = 0;  // Lineas secundarias
+    unsigned int cacheGrillaAxes_ = 0;   // Ejes X y Z
     float cacheGrillaTam_ = 0.0f;
     float cacheGrillaSep_ = 0.0f;
     float cacheGrillaColor_[3] = {0.0f, 0.0f, 0.0f};
