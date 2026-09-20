@@ -105,5 +105,12 @@ public:
 	// deja fuera.
 	void restaurarEstadosVentanas(const std::map<std::string, bool>& estados);
 	std::map<std::string, bool> obtenerEstadosVentanas() const;
+	// Cambia la visibilidad de una sola ventana persistente por su nombre
+	// (responsive del menu "Ventanas" y del cierre con 'X'). No esta en el
+	// mapa persistido: no crea la entrada, solo la aplica.
+	void setEstadoVentana(const std::string& nombre, bool abierta);
+	// Refresca las casillas del menu "Ventanas" de la barra con el estado
+	// actual de los paneles (se llama una vez por frame).
+	void sincronizarVentanasMenu();
 };
 #endif

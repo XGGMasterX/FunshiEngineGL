@@ -330,11 +330,15 @@ int main(void)
             editorConfig.guardarGeneral();
         });
         // Ventana Estado: al cerrarla con la 'X' se persiste en la config
-        // del proyecto activo, no en la general.
-        eventosGUI->subscribe([&editorConfig, &proyectoActual](const EditorEvent& ev) {
+        // del proyecto activo, no en la general. El mismo canal sirve para el
+        // menu "Ventanas" de la barra: al tildar/destildar un panel se aplica
+        // su visibilidad aqui y se persiste (asi el explorador reabre).
+        eventosGUI->subscribe([&editorConfig, &proyectoActual, managerOfGUI](
+                                  const EditorEvent& ev) {
             if (ev.type != EditorEventType::VentanaEstadoCambio) return;
             if (!ev.nombreVentana) return;
             editorConfig.datos().estadoVentanas[ev.nombreVentana] = ev.abierta;
+            managerOfGUI->setEstadoVentana(ev.nombreVentana, ev.abierta);
             editorConfig.guardarProyecto(proyectoActual);
         });
         // Sensibilidad: la aplica a la escena al instante y la persiste en la
@@ -419,7 +423,20 @@ int main(void)
                 // main solo conversa con la fachada (pregunta si el menu pidio
                 // cerrarse); la DECISION de transicion MainMenu -> Editing vive
                 // en el orquestador, que ademas guarda el resultado por frame.
-                orquestadorDeGUI.iniciarEstudio();
+                if (orquestadorDeGUI.iniciarEstudio()) {
+                    // Al entrar al editor se enciende el modo editor: los
+                    // paneles (explorador, jerarquia, settings) quedan visibles
+                    // en vez de esperar a apretar E o seleccionar un objeto
+                    // (antes solo aparecia la vista 3D "navegacion libre" y el
+                    // browser parecia no existir).
+                    scene->setMenuActivo(true);
+                    // Se descarta el delta de look acumulado del clic en
+                    // "Iniciar Estudio": sin esto el primer movimiento del
+                    // mouse "teletransporta" el look y la camara queda mirando
+                    // al cielo (la grilla nunca se ve).
+                    firstTimeMouseX = true;
+                    firstTimeMouseY = true;
+                }
             }
 
             // Sincronizacion con guardia de cambio: SetMenuActivo(true) reinicia
@@ -460,6 +477,10 @@ int main(void)
             // y futuramente Playing); el menu visible la detiene y dibuja solo.
             const bool sceneRunning =
                 orquestadorDeGUI.escenaDebeCorrer();
+
+            // Estado actual de los paneles para las casillas del menu
+            // "Ventanas" (incluye cierres con 'X' del frame anterior).
+            managerOfGUI->sincronizarVentanasMenu();
 
             if (sceneRunning) {
                 if (scene->isEditorActivo())
