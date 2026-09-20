@@ -291,8 +291,11 @@ void EditorConfig::guardarGeneral(const std::string& ruta) {
     const std::string rutaReal = ruta.empty() ? rutaConfiguracionGeneral() : ruta;
     nlohmann::json j;
     j["version"] = datos_.version;
-    // Ultimo proyecto abierto: al arrancar se retoma este proyecto sin pedir al usuario.
-    j["ultimoProyecto"] = datos_.nombreProyecto;
+    // Ultimo proyecto abierto: al arrancar se retoma este proyecto sin pedir al
+    // usuario. Con el nombre vacio (primer arranque sin proyecto elegido) la
+    // clave no se escribe: de lo contrario al releer quedaria "Nuevo Proyecto"
+    // y se crearían sus carpetas solas la proxima vez.
+    if (!datos_.nombreProyecto.empty()) j["ultimoProyecto"] = datos_.nombreProyecto;
     j["idioma"] = datos_.idioma;
     j["sensibilidadCamara"] = datos_.sensibilidadCamara;
     j["apariencia"]["temaClaro"] = datos_.apariencia.temaClaro;

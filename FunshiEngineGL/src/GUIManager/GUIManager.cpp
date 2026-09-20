@@ -32,10 +32,12 @@ GUIManager::GUIManager(GLFWwindow* window)
       selecteableGUI(new SceneSelectedInterface(true)),
       menuBarGUI(std::make_unique<SceneMenuBarInterface>(true)),
       treeFilesGUI(nullptr), contentOfThisFolder(nullptr) {
-    const std::string defaultProject = "Nuevo Proyecto";
-    EditorConfig::asegurarEstructuraProyecto(defaultProject);
-    const std::string path = EditorConfig::directorioSrc(defaultProject);
-    const std::string rootName = EditorConfig::nombreRaizSrc(defaultProject);
+    // No se crea ningun proyecto aqui: antes se corria
+    // asegurarEstructuraProyecto("Nuevo Proyecto") al arrancar y ese proyecto
+    // aparecia aunque ya existiera el proyecto del usuario. La raiz del
+    // FileManager se configura en main con configurarProyecto(proyectoActual).
+    const std::string path = EditorConfig::directorioSrc("Nuevo Proyecto");
+    const std::string rootName = EditorConfig::nombreRaizSrc("Nuevo Proyecto");
     // El FileManager (fachada + modelo + seleccion) viva tanto como los
     // paneles que lo consumen. La raiz es el folder src<nombreProyecto>.
     fileManager = std::make_unique<FileManager>(path, rootName);
