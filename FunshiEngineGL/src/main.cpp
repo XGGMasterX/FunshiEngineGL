@@ -19,6 +19,7 @@
 #include "../src/Scenes/GameScene.h"
 #include "../src/GUIManager/GUIManager.h"
 #include "../src/Configuracion/EditorConfig.h"
+#include "../src/GUI/WindowNames.h"
 #include "../src/GUI/Tema/TemaEditor.h"
 #include <imgui.h>
 #include "EngineTime.h"
@@ -430,6 +431,12 @@ int main(void)
                     // (antes solo aparecia la vista 3D "navegacion libre" y el
                     // browser parecia no existir).
                     scene->setMenuActivo(true);
+                    // El explorador se abre aunque la config del proyecto lo
+                    // tenga persistido cerrado: sin el arbol no hay forma de
+                    // navegar las carpetas ni de que muestre su contenido el
+                    // panel "ShowFolder" (que se auto-oculta sin seleccion).
+                    // Al salir, la config recoge el estado real y lo persiste.
+                    managerOfGUI->setEstadoVentana(WindowNames::BrowseFile, true);
                     // Se descarta el delta de look acumulado del clic en
                     // "Iniciar Estudio": sin esto el primer movimiento del
                     // mouse "teletransporta" el look y la camara queda mirando
