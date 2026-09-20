@@ -35,6 +35,7 @@
 #include "ImGuizmo.h"
 #include "GLCompat.h"
 #include <iostream>
+#include <filesystem>
 #include <string>
 
 //VENTANA
@@ -242,10 +243,24 @@ int main(void)
     EditorConfig editorConfig;
     editorConfig.cargar(EditorConfig::rutaPorDefecto());
     std::string proyectoActual = editorConfig.datos().nombreProyecto;
-    if (proyectoActual.empty()) proyectoActual = "Nuevo Proyecto";
+    // Primer arranque (sin Configuracion.json todavia): no hay proyecto abierto.
+    // Se deja el nombre vacio para OBLIGAR a elegir (o crear) un proyecto en el
+    // menu — "Iniciar Estudio" queda deshabilitado — y evitar que las carpetas
+    // de "Nuevo Proyecto" se creen solas al arrancar. Si ya hay config, el
+    // ultimo proyecto vuelve preseleccionado en el menu.
+    const bool primerArranque =
+        !std::filesystem::exists(EditorConfig::rutaPorDefecto());
+    if (primerArranque) {
+        proyectoActual.clear();
+        mainMenu->setNombreProyecto("");
+    } else if (proyectoActual.empty()) {
+        proyectoActual = "Nuevo Proyecto";
+    }
 
-    EditorConfig::asegurarEstructuraProyecto(proyectoActual);
-    managerOfGUI->configurarProyecto(proyectoActual);
+    if (!proyectoActual.empty()) {
+        EditorConfig::asegurarEstructuraProyecto(proyectoActual);
+        managerOfGUI->configurarProyecto(proyectoActual);
+    }
 
     mainMenu->setNombreProyecto(editorConfig.datos().nombreProyecto);
     mainMenu->setIdioma(editorConfig.datos().idioma);
@@ -294,9 +309,13 @@ int main(void)
     ImGuiIO& io = ImGui::GetIO(); (void)io;
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
     // El imgui.ini (layout de docks y geometria de ventanas) se guarda en Memory
-    // del proyecto del usuario, no en el directorio actual de lanzamiento.
-    g_imguiIniRuta = EditorConfig::rutaImguiIni(proyectoActual);
-    io.IniFilename = g_imguiIniRuta.c_str();
+    // del proyecto del usuario, no en el directorio actual de lanzamiento. Sin
+    // proyecto aun (primer arranque) no se fija: ImGui queda sin ini en disco y
+    // no crea carpetas de "Nuevo Proyecto" por el camino.
+    if (!proyectoActual.empty()) {
+        g_imguiIniRuta = EditorConfig::rutaImguiIni(proyectoActual);
+    }
+    io.IniFilename = g_imguiIniRuta.empty() ? nullptr : g_imguiIniRuta.c_str();
     // Tema global de ImGui a partir del perfil de apariencia cargado. Los
     // cambios en vivo llegan por el bus de GUI (EditorEventBus/AparienciaCambio),
     // ya no por relectura por frame del menu.
@@ -468,15 +487,46 @@ int main(void)
             // ya no se relee el menu y se escribe en la escena cada frame.
 
             // Sincroniza cambio de nombre de proyecto si se edito en Config Proyect
+            // (o se eligio una carpeta en el listado del menu). Reconfigura el
+            // FileManager y, si aun no habia proyecto, fija el imgui.ini del
+            // nuevo proyecto en lugar de quedarse sin ini.
             const std::string nombreMenu = mainMenu->getNombreProyecto();
             if (!nombreMenu.empty() && nombreMenu != proyectoActual) {
+                // Guardar el estado del proyecto actual antes de cambiar
+                // (solo si ya habia un proyecto cargado)
+                if (!proyectoActual.empty()) {
+                    editorConfig.datos().ventanaCamarasAbierta = scene->getVentanaCamarasAbierta();
+                    editorConfig.datos().gizmoOperacion = scene->getGizmoOperation();
+                    editorConfig.datos().camaraActivaId = scene->getActiveCameraId();
+                    editorConfig.datos().estadoVentanas = managerOfGUI->obtenerEstadosVentanas();
+                    editorConfig.guardarProyecto(proyectoActual);
+                }
+
+                // Cambiar al nuevo proyecto
                 proyectoActual = nombreMenu;
                 EditorConfig::asegurarEstructuraProyecto(proyectoActual);
                 managerOfGUI->configurarProyecto(proyectoActual);
                 editorConfig.datos().nombreProyecto = proyectoActual;
+                g_imguiIniRuta = EditorConfig::rutaImguiIni(proyectoActual);
+                io.IniFilename = g_imguiIniRuta.c_str();
+
+                // Cargar la escena del nuevo proyecto si existe
+                const std::string sceneBBDD = EditorConfig::rutaSceneBBDD(proyectoActual);
+                const std::string sceneDir = EditorConfig::rutaSceneDir(proyectoActual);
+                scene->loadScene(sceneBBDD, sceneDir);
+
+                // Cargar la configuracion del nuevo proyecto (si existe)
+                editorConfig.cargarProyecto(proyectoActual);
+                scene->setVentanaCamarasAbierta(editorConfig.datos().ventanaCamarasAbierta);
+                scene->setGizmoOperation(editorConfig.datos().gizmoOperacion);
+                scene->setActiveCameraById(editorConfig.datos().camaraActivaId);
+                managerOfGUI->restaurarEstadosVentanas(editorConfig.datos().estadoVentanas);
             }
 
             if (mainMenu->ConsultarMenu()) {
+                // Refresca el listado de proyectos (carpetas de MotorGrafico):
+                // recoge proyectos creados/borrados mientras el menu esta abierto.
+                mainMenu->actualizarProyectos();
                 mainMenu->Renderizar();             // la vista dibuja la vista activa del modelo
             }
 
@@ -511,7 +561,11 @@ int main(void)
         glfwSwapBuffers(window);    
     }
 
-    scene->saveScene(EditorConfig::rutaScenePrefijo(proyectoActual));
+    // Sin proyecto elegido (primer arranque cerrado desde el menu sin entrar
+    // al estudio) ninguna ruta debe escribir bajo un "Nuevo Proyecto" fantasma.
+    if (!proyectoActual.empty()) {
+        scene->saveScene(EditorConfig::rutaScenePrefijo(proyectoActual));
+    }
 
     // Apagado ordenado de los scripts antes de salir: primero se liberan las
     // referencias globales JNI de las instancias y luego se apaga el JVM
@@ -539,7 +593,11 @@ int main(void)
     // Configuracion general: apariencia, idioma, sensibilidad y ultimo proyecto.
     editorConfig.guardarGeneral();
     // Configuracion del proyecto: estado de ventanas, gizmo, camara activa.
-    editorConfig.guardarProyecto(cfg.nombreProyecto);
+    // Sin proyecto creado/abierto no hay config de proyecto que persistir (y
+    // guardarla crearia las carpetas de "Nuevo Proyecto" en un primer arranque).
+    if (!cfg.nombreProyecto.empty()) {
+        editorConfig.guardarProyecto(cfg.nombreProyecto);
+    }
 
     glfwTerminate();
     return 0;
