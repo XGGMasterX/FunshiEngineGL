@@ -419,7 +419,20 @@ int main(void)
                 // main solo conversa con la fachada (pregunta si el menu pidio
                 // cerrarse); la DECISION de transicion MainMenu -> Editing vive
                 // en el orquestador, que ademas guarda el resultado por frame.
-                orquestadorDeGUI.iniciarEstudio();
+                if (orquestadorDeGUI.iniciarEstudio()) {
+                    // Al entrar al editor se enciende el modo editor: los
+                    // paneles (explorador, jerarquia, settings) quedan visibles
+                    // en vez de esperar a apretar E o seleccionar un objeto
+                    // (antes solo aparecia la vista 3D "navegacion libre" y el
+                    // browser parecia no existir).
+                    scene->setMenuActivo(true);
+                    // Se descarta el delta de look acumulado del clic en
+                    // "Iniciar Estudio": sin esto el primer movimiento del
+                    // mouse "teletransporta" el look y la camara queda mirando
+                    // al cielo (la grilla nunca se ve).
+                    firstTimeMouseX = true;
+                    firstTimeMouseY = true;
+                }
             }
 
             // Sincronizacion con guardia de cambio: SetMenuActivo(true) reinicia
