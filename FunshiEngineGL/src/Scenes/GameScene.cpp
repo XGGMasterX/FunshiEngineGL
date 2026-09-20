@@ -147,8 +147,15 @@ void GameScene::asegurarGrilla() {
 
     // Usar SimpleObject en lugar de Modelos3D para evitar que el dibujado
     // de la grilla se ancle a un modelo inexistente. SimpleObject no tiene malla.
+    GameObject* root = sceneRegistry->getRoot();
+    // Si no hay root, asegurarse de que exista (createObject lo crea si entitys esta vacia)
+    if (!root) {
+        // Forzar la creacion del root llamando con parent = nullptr
+        root = editorController->createGameObject(
+            std::make_unique<SimpleObject>(), nullptr);
+    }
     GameObject* crea = editorController->createGameObject(
-        std::make_unique<SimpleObject>(), sceneRegistry->getRoot());
+        std::make_unique<SimpleObject>(), root);
     if (!crea) return;
     std::snprintf(crea->inputName, sizeof(crea->inputName), "Grilla");
     Transform* transform = crea->getComponent<Transform>();
