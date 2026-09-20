@@ -110,6 +110,14 @@ public:
     // y los recoge al salir).
     const std::string& getNombreProyecto() const noexcept;
     void setNombreProyecto(const std::string& nombre) noexcept;
+
+    // Refresca el listado de proyectos disponibles mostrado en el menu: los
+    // proyectos SON las carpetas del directorio base de MotorGrafico. La
+    // fachada lo lee del disco y lo vuelca al modelo (nunca la vista); main lo
+    // invoca mientras el menu esta visible para reflejar carpetas creadas o
+    // borradas externamente.
+    void actualizarProyectos();
+
     const std::string& getIdioma() const noexcept;
     void setIdioma(const std::string& valor) noexcept;
 

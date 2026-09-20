@@ -17,7 +17,13 @@
     SPDX-License-Identifier: Apache-2.0
 */
 #include "MenuGUI.h"
+#include "../../Configuracion/EditorConfig.h"
 #include "../../Events/EditorEventBus.h"
+
+#include <algorithm>
+#include <filesystem>
+#include <string>
+#include <vector>
 
 MenuGUI::MenuGUI(GLFWwindow* window)
     : view(&model, &presenter, window), presenter(&model) {
@@ -80,6 +86,25 @@ const std::string& MenuGUI::getNombreProyecto() const noexcept {
 
 void MenuGUI::setNombreProyecto(const std::string& nombre) noexcept {
     model.setNombreProyecto(nombre);
+}
+
+void MenuGUI::actualizarProyectos() {
+    // Los proyectos son carpetas del directorio base de MotorGrafico (una por
+    // proyecto: Memory + src<Nombre>). Vista unica, sin duplicar la logica;
+    // los accesos fallidos se toleran silenciosamente (no hay proyectos).
+    std::vector<std::string> proyectos;
+    const std::string base = EditorConfig::directorioBaseMotorGrafico();
+    std::error_code ec;
+    std::filesystem::directory_iterator it(base, ec);
+    const std::filesystem::directory_iterator fin;
+    for (; it != fin; it.increment(ec)) {
+        if (ec) break;
+        if (it->is_directory(ec)) {
+            proyectos.push_back(it->path().filename().string());
+        }
+    }
+    std::sort(proyectos.begin(), proyectos.end());
+    model.setProyectosDisponibles(std::move(proyectos));
 }
 
 const std::string& MenuGUI::getIdioma() const noexcept {

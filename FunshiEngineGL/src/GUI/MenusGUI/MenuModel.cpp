@@ -53,6 +53,14 @@ void MenuModel::setNombreProyecto(const std::string& nombre) {
     if (onCampoCambio) onCampoCambio(Campo::Nombre);
 }
 
+const std::vector<std::string>& MenuModel::getProyectosDisponibles() const noexcept {
+    return proyectosDisponibles;
+}
+
+void MenuModel::setProyectosDisponibles(const std::vector<std::string>& proyectos) {
+    proyectosDisponibles = proyectos;
+}
+
 const std::string& MenuModel::getIdioma() const noexcept { return idioma; }
 
 void MenuModel::setIdioma(const std::string& valor) {
@@ -107,6 +115,10 @@ std::string MenuModel::traducir(const std::string& clave) const {
     };
     static const std::pair<std::string, Entrada> diccionario[] = {
         {"iniciar_estudio", {"Iniciar Estudio", "Start Studio"}},
+        {"proyectos", {"Proyectos", "Projects"}},
+        {"sin_proyectos",
+         {"(no hay proyectos: crea uno en Config Proyect)",
+          "(no projects: create one in Config Project)"}},
         {"config_proyecto", {"Config Proyect", "Config Project"}},
         {"opciones", {"Opciones", "Options"}},
         {"configuracion", {"Configuracion", "Settings"}},
