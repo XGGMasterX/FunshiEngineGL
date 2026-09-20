@@ -18,17 +18,58 @@
 */
 #include "SceneMenuBarInterface.h"
 
+#include "../WindowNames.h"
+
 SceneMenuBarInterface::SceneMenuBarInterface(bool state)
     : GeneralUserInterface("MenuBar", state, ImGuiWindowFlags_MenuBar), toggleBool(nullptr) {}
 void SceneMenuBarInterface::setActivador(bool* target) { toggleBool = target; }
 bool* SceneMenuBarInterface::getActivador() { return toggleBool; }
 bool SceneMenuBarInterface::getCargarScripts() { return cargarScripts; }
 void SceneMenuBarInterface::setCargarScripts(bool value) { cargarScripts = value; }
+void SceneMenuBarInterface::setEditorEventBus(EditorEventBus* bus) {
+    busEditor = bus;
+}
+void SceneMenuBarInterface::setVentanas(const std::map<std::string, bool>& estados) {
+    ventanas_ = estados;
+}
 void SceneMenuBarInterface::initGUI() {
     ImGui::Begin(getNameGui().c_str(), &stateGUI, getFlagGui());
     ImGui::PushID(this);
 }
+// Etiqueta en espanol por WindowName para el menu "Ventanas"; nullptr para las
+// ventanas que no se pueden alternar desde aqui (dock, propia barra, settings).
+static const char* etiquetaVentana(const std::string& nombre) {
+    if (nombre == WindowNames::BrowseFile) return "Explorador de archivos";
+    if (nombre == WindowNames::SelectedObjects) return "Objetos seleccionados";
+    if (nombre == WindowNames::Status) return "Barra de estado";
+    return nullptr;
+}
 void SceneMenuBarInterface::contentGUI() {
+    // Menu "Ventanas": permite reabrir los paneles cerrados (p. ej. el
+    // explorador, que la config persistia cerrado y no se podia volver a
+    // mostrar). Al tildar/destildar se publica VentanaEstadoCambio; main lo
+    // aplica a la ventana y lo persiste en la config del proyecto.
+    ImGui::BeginMenuBar();
+    if (ImGui::BeginMenu("Ventanas")) {
+        static const char* kVentanasEditables[] = {
+            WindowNames::BrowseFile, WindowNames::SelectedObjects,
+            WindowNames::Status};
+        for (const char* nombre : kVentanasEditables) {
+            const char* etiqueta = etiquetaVentana(nombre);
+            if (!etiqueta) continue;
+            auto it = ventanas_.find(nombre);
+            const bool abierta = it != ventanas_.end() ? it->second : true;
+            if (ImGui::MenuItem(etiqueta, nullptr, abierta) && busEditor) {
+                EditorEvent ev;
+                ev.type = EditorEventType::VentanaEstadoCambio;
+                ev.nombreVentana = nombre;
+                ev.abierta = !abierta;
+                busEditor->publish(ev);
+            }
+        }
+        ImGui::EndMenu();
+    }
+    ImGui::EndMenuBar();
     if (!toggleBool) return;
     ImGui::SetCursorPosX((ImGui::GetWindowWidth() - 100) * 0.5f);
     // Boton play/stop: el texto y el color cambian segun el estado para que
