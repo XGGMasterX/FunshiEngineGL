@@ -161,6 +161,8 @@ void GameScene::asegurarGrilla() {
         if (!crea) return;
     }
     std::snprintf(crea->inputName, sizeof(crea->inputName), "Grilla");
+    // Forzar actualizacion de la vista de objetos para incluir la grilla recien creada
+    getGameObjectsScene();
     Transform* transform = crea->getComponent<Transform>();
     if (!transform) {
         crea->addComponent(std::make_unique<Transform>());
