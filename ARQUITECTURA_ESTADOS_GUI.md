@@ -7,9 +7,9 @@ gobierne ambas superficies. Se basa en lo observado en el código real, en las
 buenas prácticas para proyectos grandes y en patrones de editores consolidados
 (revisados en internet, ver §3).
 
-El documento describe el diseño y la hoja de ruta por fases. Las **Fases 1 y 2
-ya están implementadas** (orquestador de estado GUI y EditorEventBus); las
-Fases 3 y 4 quedan como plan. Cada fase aterriza en su propia revisión en
+El documento describe el diseño y la hoja de ruta por fases. Las **Fases 1, 2 y 3
+ya están implementadas** (orquestador de estado GUI, EditorEventBus y opciones
+del menú); la Fase 4 queda como plan. Cada fase aterriza en su propia revisión en
 `main`.
 
 ---
@@ -104,6 +104,13 @@ responsabilidad de:
 - `AparienciaCambio(perfil)` — menú ↔ editor comparten perfil sin punteros.
 - `CamaraActivaCambio(id)` — inspector/previews se enteran.
 - `IdiomaCambio(locale)` — todas las etiquetas se refrescan vía un `onLanguageChanged`.
+- `SensibilidadCambio(valor)` — el slider de Opciones publica; main aplica a la
+  escena y persiste (reemplaza la lectura por frame).
+- `ReiniciarConfiguracion` — "Restablecer configuracion" publica; main reapica
+  defaults generales y de proyecto conservando el nombre del proyecto.
+
+El catálogo final vive en `EditorEventBus.h` (los del §4.2B + estos dos de la
+Fase 3; `VentanaActivaCambio` queda reservado para un `Settings` futuro).
 
 Cada ventana **se subscribe a lo que necesita** y **publica lo que produce**;
 ninguna se pasa un puntero a otra. Es el patrón Mediator/Observer que el
@@ -167,13 +174,26 @@ proyecto ya usa de forma puntual, pero ahora **declarado para todas las GUI**.
    - Verificación: `eventbus-tests` (headless) + cambiar apariencia/idioma/
      cámara/ventana en vivo, persistir al instante, reiniciar y comprobar que
      sobreviven.
-4. **Fase 3 — Pulir opciones del menú**:
-   - Revisar y completar las opciones presentes en `MenusGUI` (el menú ya expone
-     apariencia, idioma, sensibilidad): unificar con lo que calladamente
-     gestiona el editor para que toda opción tenga su efecto en vivo y su
-     persistencia. Documentar cada opción (¿efecto inmediato? ¿persistencia?).
-   - Añadir cualquier opción "global" nueva (p. ej. reset de configuración) como
-     estado/acción con su test.
+4. **Fase 3 — Pulir opciones del menú (implementada en
+   `feature/fase3-opciones-menu`)**:
+   - **Observer en `MenuModel` (`Campo`/`setOnCampoCambio`)**: la fachada se
+     suscribe y traduce cada mutación del modelo a un evento del bus
+     (`MenuGUI::publicarCambio`). Cierra el hueco de la Fase 2: las vistas
+     mutan el modelo directo, y ahora eso también publica en el bus (los
+     cambios de la vista Opciones llegan en vivo a escena/persistencia).
+   - **`SensibilidadCambio`**: el slider publica y main aplica a la escena +
+     persiste en la config general; se eliminó el polling por frame de
+     `scene->setSensibilidadCamara(...)` en el bucle y se setea al arrancar.
+   - **Idioma con efecto en vivo**: `MenuModel::traducir(clave)` (diccionario
+     declarativo es/en) y las etiquetas del menú se renderizan desde el idioma
+     actual (antes el selector no cambiaba nada visible).
+   - **Reset de configuración**: botón "Restablecer configuracion" en Opciones
+     → `restablecerConfiguracion()` (modelo) + `ReiniciarConfiguracion` (bus);
+     main reaplica defaults generales y de proyecto (`EditorConfig::restablecer`)
+     conservando el nombre del proyecto (no cambia de carpeta/escena).
+   - Documentadas las opciones en el `README.md` del paquete.
+   - Verificación: `menu-tests` (traducción/reset/observer) + `eventbus-tests`
+     (+Sensibilidad/Reiniciar) + `EditorConfigTests` (+`restablecer`); ctest 10/10.
 5. **Fase 4 — (futuro) estados superiores**: si hace falta `Settings`/`About`
    como pantallas, lo resuelve la misma máquina + un overlay, sin tocar las
    fachadas.

@@ -19,6 +19,7 @@
 #ifndef MENUMODEL_H
 #define MENUMODEL_H
 
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -62,16 +63,47 @@ public:
     void setIdioma(const std::string& valor);
     const std::vector<std::string>& getIdiomas() const noexcept;
 
+    // Traduccion declarativa de las etiquetas del menu (idioma actual). Vive
+    // en el modelo para que el efecto del idioma sea probable y no dependa de
+    // ImGui: la vista solo pregunta el texto de la clave. Un clave inexistente
+    // se devuelve tal cual (nunca rompe). Codigos: "iniciar_estudio",
+    // "config_proyecto", "opciones", "salir", "volver", "juego", "idioma",
+    // "sensibilidad_camara", "apariencia", "tema_claro", "modo_bn",
+    // "color_acento", "color_fondo", "ayuda_bn", "restablecer_apariencia",
+    // "restablecer_configuracion", "ayuda_reset", "nombre".
+    std::string traducir(const std::string& clave) const;
+
     // Sensibilidad global del mouse look de la camara (vista Opciones del
     // menu). Multiplicador aplicado en main al offset del raton; 1.0 = 1:1
     // pixel/grado (comportamiento historico).
     float getSensibilidadCamara() const noexcept;
-    void setSensibilidadCamara(float sensibilidad) noexcept;
+    void setSensibilidadCamara(float sensibilidad);
 
     // Perfil de apariencia (tema, modo B/N, acento de la UI y fondo 3D). La
     // vista Opciones lo edita y main lo aplica a ImGui y a la escena.
     const Apariencia& getApariencia() const noexcept;
-    void setApariencia(const Apariencia& valor) noexcept;
+    void setApariencia(const Apariencia& valor);
+
+    // Vuelve idioma, sensibilidad y apariencia a los valores de fabrica (accion
+    // "Restablecer configuracion" de Opciones). El nombre del proyecto se
+    // conserva: define la carpeta/proyecto y un reset lo destruiria. El resto
+    // del motor (estado de ventanas, gizmo, camara) lo reaplica main via
+    // ReiniciarConfiguracion.
+    void restablecerConfiguracion();
+
+    // Campo modificado (patron observer simple y testeable): la fachada se
+    // suscribe para publicar el cambio en el bus de GUI (EditorEventBus) SIN
+    // que la vista conozca el bus. Asi toda mutacion del modelo (vista o main)
+    // fluye por un unico lugar y los cambios en vivo llegan a la escena.
+    enum class Campo {
+        Nombre,
+        Idioma,
+        SensibilidadCamara,
+        Apariencia,
+        Reiniciar, // restablecerConfiguracion() completo
+    };
+    using OnCampoCambio = std::function<void(Campo)>;
+    void setOnCampoCambio(OnCampoCambio cb);
 
 private:
     Vista vista = Vista::Principal;
@@ -80,6 +112,9 @@ private:
     std::vector<std::string> idiomasDisponibles = {"Espanol", "English"};
     float sensibilidadCamara = 1.0f;
     Apariencia apariencia;
+    // Un solo observador (la fachada). Puntero a funcion/closure NO propietario;
+    // si no hay observador, no hacer nada.
+    OnCampoCambio onCampoCambio;
 };
 
 #endif

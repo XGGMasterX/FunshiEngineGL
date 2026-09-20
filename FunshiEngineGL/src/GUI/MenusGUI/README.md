@@ -6,8 +6,10 @@ responsabilidades** (SRP), **bajo acoplamiento** entre capas, **alta cohesión**
 dentro de cada clase, **inversión de dependencias** (DIP) y **abierto/cerrado**
 (OCP) para extender pantallas sin reescribir lógica.
 
-> Sin funcionalidad nueva: reproduce exactamente el comportamiento del menú
-> anterior (`MenuInterface` + sub-interfaces). Es solo re-organización.
+> Originalmente solo reorganizaba el menú previo; la **Fase 3** sumó
+> funcionalidad real al paquete: traducción en vivo de etiquetas, observer de
+> cambios (pub al bus) y reset de configuración. El modelo sigue siendo puro y
+> testeable (sin ImGui/GLFW).
 
 ## Archivos del paquete
 
@@ -50,8 +52,10 @@ void volver();             // de Opciones/ConfigProyecto → Principal
 
 bool estaVisible() const noexcept;
 Vista getVista() const noexcept;
-// datos: nombreProyecto (get/set), idioma (get/set), idiomas (get) y
-// sensibilidadCamara (get/set, multiplicador del mouse look en Opciones)
+// datos: nombreProyecto (get/set), idioma (get/set), idiomas (get),
+// sensibilidadCamara (get/set, multiplicador del mouse look en Opciones),
+// traducir(clave) (diccionario es/en segun el idioma activo),
+// setOnCampoCambio(observer) y restablecerConfiguracion() (reset de opciones)
 ```
 
 Todas las transiciones son asignaciones triviales del enum `vista`.
@@ -64,6 +68,26 @@ Todas las transiciones son asignaciones triviales del enum `vista`.
 | `Opciones` | Título "Opciones", selector de idioma (`BeginCombo` sobre las opciones del modelo) y slider de sensibilidad de cámara, "Volver". |
 | `ConfigProyecto` | Título "Config Proyect", `InputText` del nombre del proyecto (buffer de 128 en la vista), "Volver". |
 | `Ninguna` | Menú oculto → corre el editor (equivale a "Iniciar Estudio"). |
+
+## Opciones del menú (vista Opciones) — efecto en vivo y persistencia
+
+| Opción | Efecto inmediato | Persistencia | Canal / test |
+|---|---|---|---|
+| **Idioma** (`setIdioma`) | Las etiquetas del menú se traducen al instante (`MenuModel::traducir`) | Config **general** al cambio (`guardarGeneral`) | `IdiomaCambio`; `menu-tests` (traducción) |
+| **Sensibilidad de cámara** (`setSensibilidadCamara`) | Se aplica a la escena al soltar el slider (mouse look) | Config **general** al cambio | `SensibilidadCambio`; `eventbus-tests` |
+| **Apariencia** | Estilo ImGui, fondo y grilla del viewport al instante | Config **general** al cambio | `AparienciaCambio`; `eventbus-tests` |
+| **Restablecer apariencia** | Vuelve el perfil a los valores de fábrica | Config **general** | Evento `AparienciaCambio` con perfil default; `menu-tests` |
+| **Restablecer configuracion** | Vuelve idioma/sensibilidad/apariencia a fábrica + estado del proyecto (ventanas, gizmo, cámara) | General + proyecto al instante | `ReiniciarConfiguracion`; `menu-tests` (reset) y `EditorConfigTests` (`restablecer`) |
+
+Reglas del flujo:
+- Toda mutación del modelo (vista o fachada) notifica a `MenuModel::Campo`;
+  la fachada traduce el campo a un evento del bus (`MenuGUI::publicarCambio`) y
+  **main** es quien aplica a la escena/persiste. La vista no conoce el bus.
+- El **nombre del proyecto** se conserva en el reset: define la carpeta/proyecto
+  (`src<Nombre>` + `Memory`) y un reset no debe cambiar de proyecto.
+- Persistencia: `apariencia`, `idioma`, `sensibilidadCamara` viven en la config
+  **general**; `estadoVentanas`, `gizmoOperacion`, `camaraActivaId` en la del
+  **proyecto** (ver `EditorConfig`).
 
 ## Integración con `main.cpp`
 

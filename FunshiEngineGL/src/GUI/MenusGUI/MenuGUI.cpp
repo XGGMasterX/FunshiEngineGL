@@ -20,7 +20,15 @@
 #include "../../Events/EditorEventBus.h"
 
 MenuGUI::MenuGUI(GLFWwindow* window)
-    : view(&model, &presenter, window), presenter(&model) {}
+    : view(&model, &presenter, window), presenter(&model) {
+    // Observer del modelo: TODA mutacion (setter de la fachada o clic del
+    // usuario en la vista, que toca el modelo directo) publica su evento en el
+    // bus. Sin esto, las ediciones de la vista Opciones nunca llegarian a la
+    // escena/persistencia (las vistas solo mutan el modelo, no conocen el bus).
+    model.setOnCampoCambio([this](MenuModel::Campo campo) {
+        publicarCambio(campo);
+    });
+}
 
 bool MenuGUI::ConsultarMenu() const noexcept {
     // Delegado en el presentador: main no interpreta el modelo directamente.
@@ -50,25 +58,20 @@ float MenuGUI::getSensibilidadCamara() const noexcept {
     return model.getSensibilidadCamara();
 }
 
-void MenuGUI::setSensibilidadCamara(float sensibilidad) noexcept {
-    model.setSensibilidadCamara(sensibilidad);
+void MenuGUI::setSensibilidadCamara(float sensibilidad) {
+    model.setSensibilidadCamara(sensibilidad); // publica SensibilidadCambio
 }
 
 const Apariencia& MenuGUI::getApariencia() const noexcept {
     return model.getApariencia();
 }
 
-void MenuGUI::setApariencia(const Apariencia& valor) noexcept {
-    model.setApariencia(valor);
-    // Publicar el perfil al canal de GUI: los suscriptores (main: estilo de
-    // ImGui, fondo/grilla de la escena y persistencia) reaccionan al cambio
-    // en vivo sin que nadie relea el modelo a mano.
-    if (busEditor) {
-        EditorEvent ev;
-        ev.type = EditorEventType::AparienciaCambio;
-        ev.apariencia = valor;
-        busEditor->publish(ev);
-    }
+void MenuGUI::setApariencia(const Apariencia& valor) {
+    model.setApariencia(valor); // publica AparienciaCambio
+}
+
+void MenuGUI::reiniciarConfiguracion() {
+    model.restablecerConfiguracion(); // publica ReiniciarConfiguracion
 }
 
 const std::string& MenuGUI::getNombreProyecto() const noexcept {
@@ -83,18 +86,37 @@ const std::string& MenuGUI::getIdioma() const noexcept {
     return model.getIdioma();
 }
 
-void MenuGUI::setIdioma(const std::string& valor) noexcept {
-    model.setIdioma(valor);
-    // El idioma viaja por el bus: main lo persiste al instante (sobrevive un
-    // cierre brusco) y las etiquetas sensibles se refrescan via onLanguageChanged.
-    if (busEditor) {
-        EditorEvent ev;
-        ev.type = EditorEventType::IdiomaCambio;
-        ev.idioma = valor;
-        busEditor->publish(ev);
-    }
+void MenuGUI::setIdioma(const std::string& valor) {
+    model.setIdioma(valor); // publica IdiomaCambio
 }
 
 void MenuGUI::setEditorEventBus(EditorEventBus* bus) noexcept {
     busEditor = bus;
+}
+
+void MenuGUI::publicarCambio(MenuModel::Campo campo) {
+    if (!busEditor) return;
+    EditorEvent ev;
+    switch (campo) {
+    case MenuModel::Campo::Idioma:
+        ev.type = EditorEventType::IdiomaCambio;
+        ev.idioma = model.getIdioma();
+        break;
+    case MenuModel::Campo::SensibilidadCamara:
+        ev.type = EditorEventType::SensibilidadCambio;
+        ev.sensibilidad = model.getSensibilidadCamara();
+        break;
+    case MenuModel::Campo::Apariencia:
+        ev.type = EditorEventType::AparienciaCambio;
+        ev.apariencia = model.getApariencia();
+        break;
+    case MenuModel::Campo::Reiniciar:
+        ev.type = EditorEventType::ReiniciarConfiguracion;
+        break;
+    case MenuModel::Campo::Nombre:
+        // El nombre del proyecto se recoge al salir (EditorConfig); no tiene
+        // consumidor en vivo en el bus.
+        return;
+    }
+    busEditor->publish(ev);
 }
