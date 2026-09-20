@@ -100,6 +100,13 @@ GameScene::GameScene(GUIManager* manager)
 }
 
 GameScene::~GameScene() {
+    // Libera la display list de la grilla si se llego a compilar. En el flujo
+    // normal main() crea GameScene con new y no la destruye antes de
+    // glfwTerminate, asi que esto es higiene defensiva (contexto GL vivo).
+    if (cacheGrilla_ != 0) {
+        glDeleteLists(cacheGrilla_, 1);
+        cacheGrilla_ = 0;
+    }
     if (editorController) editorController->clearScene();
     if (selecteableGUI) selecteableGUI->bindScene(nullptr, nullptr, nullptr);
 }
@@ -475,6 +482,51 @@ void GameScene::dibujarMarcadorCamara(GameObject* object) {
     glPopMatrix();
 }
 
+// Recompila el cache de la grilla como display list. La geometria y los
+// colores quedan grabados en la lista (GL_COMPILE); afuera solo se aplica el
+// transform del objeto y el estado GL de lineas finas, asi el rebarruntado no
+// repite los ~280 segmentos cada frame.
+void GameScene::recompilarGrilla(const float colorGrilla[3]) {
+    if (cacheGrilla_ != 0) {
+        glDeleteLists(cacheGrilla_, 1);
+        cacheGrilla_ = 0;
+    }
+    cacheGrillaColor_[0] = colorGrilla[0];
+    cacheGrillaColor_[1] = colorGrilla[1];
+    cacheGrillaColor_[2] = colorGrilla[2];
+
+    const float tam = cacheGrillaTam_;
+    const float sep = cacheGrillaSep_;
+    if (tam <= 0.f || sep <= 0.f) return;
+
+    GLuint list = glGenLists(1);
+    if (list == 0) return;
+    glNewList(list, GL_COMPILE);
+    glColor3fv(colorGrilla);
+    glBegin(GL_LINES);
+    for (float i = -tam; i <= tam; i += sep) {
+        glVertex3f(i, 0.f, -tam);
+        glVertex3f(i, 0.f, tam);
+        glVertex3f(-tam, 0.f, i);
+        glVertex3f(tam, 0.f, i);
+    }
+    glEnd();
+    // Ejes del origen: +X rojo y +Z verde. Son la referencia de orientacion
+    // del mundo; un color firme que no compita con la trama de la grilla.
+    glColor3f(0.85f, 0.25f, 0.2f);
+    glBegin(GL_LINES);
+    glVertex3f(0.f, 0.f, 0.f);
+    glVertex3f(tam, 0.f, 0.f);
+    glEnd();
+    glColor3f(0.2f, 0.8f, 0.3f);
+    glBegin(GL_LINES);
+    glVertex3f(0.f, 0.f, 0.f);
+    glVertex3f(0.f, 0.f, tam);
+    glEnd();
+    glEndList();
+    cacheGrilla_ = list;
+}
+
 void GameScene::dibujarGrilla(GameObject* object) {
     Grid* grid = object->getComponent<Grid>();
     Transform* transform = object->getGlobalTransform();
@@ -487,22 +539,32 @@ void GameScene::dibujarGrilla(GameObject* object) {
     float modelArr[16];
     buildMatrixFromTransform(transform, modelArr);
 
+    // Color efectivo de la grilla segun el perfil de apariencia: en modo
+    // blanco y negro se ignora el color del componente y se usa el contraste
+    // puro (la display list debe recompilarse si cambia el perfil).
+    float colorGrilla[3];
+    AparienciaUtil::grillaEfectiva(apariencia, grid->getColor(), colorGrilla);
+
+    // Reconstrue la lista solo si cambian tamano, separacion o color efectivo;
+    // mientras nada cambie, la geometria se reutiliza (glCallList).
+    if (cacheGrilla_ == 0 || cacheGrillaTam_ != tam ||
+        cacheGrillaSep_ != sep || cacheGrillaColor_[0] != colorGrilla[0] ||
+        cacheGrillaColor_[1] != colorGrilla[1] ||
+        cacheGrillaColor_[2] != colorGrilla[2]) {
+        cacheGrillaTam_ = tam;
+        cacheGrillaSep_ = sep;
+        recompilarGrilla(colorGrilla);
+    }
+
     glPushMatrix();
     glMultMatrixf(modelArr);
     glDisable(GL_LIGHTING);
-    // Color de la grilla segun el perfil de apariencia: en modo blanco y
-    // negro se ignora el color del componente y se usa el contraste puro.
-    float colorGrilla[3];
-    AparienciaUtil::grillaEfectiva(apariencia, grid->getColor(), colorGrilla);
-    glColor3fv(colorGrilla);
-    glBegin(GL_LINES);
-    for (float i = -tam; i <= tam; i += sep) {
-        glVertex3f(i, 0.f, -tam);
-        glVertex3f(i, 0.f, tam);
-        glVertex3f(-tam, 0.f, i);
-        glVertex3f(tam, 0.f, i);
-    }
-    glEnd();
+    // Lineas finas (1px) y suavizadas: GL_LINE_SMOOTH + hint de mejor calidad.
+    glLineWidth(1.f);
+    glEnable(GL_LINE_SMOOTH);
+    glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
+    if (cacheGrilla_ != 0) glCallList(cacheGrilla_);
+    glDisable(GL_LINE_SMOOTH);
     glEnable(GL_LIGHTING);
     glPopMatrix();
 }
