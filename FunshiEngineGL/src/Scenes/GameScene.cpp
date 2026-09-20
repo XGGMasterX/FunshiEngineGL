@@ -199,7 +199,14 @@ CameraComponent* GameScene::getActiveCamera() {
     }
 
     // Si la escena no tiene camara, se siembra "CamaraPrincipal": un objeto
-    // vacio con Transform + CameraComponent (misma posicion que la vieja).
+    // vacio con Transform + CameraComponent, encarando la grilla. La camara
+    // nueva nace sin rotacion y mira en -Z (convencion del CameraComponent),
+    // asi que se coloca en +Z mirando hacia el origen: la posicion vieja
+    // (1, 1, -50) quedaba DE ESPALDAS a la grilla (que vive en el origen y
+    // con tam 70 se extiende varios metros a la redonda) y al entrar al
+    // editor parecia que la grilla "no se imprimia". Como en modo editor el
+    // mouse no rota la camara (main.onMouse solo mira con !isEditorActivo),
+    // esa orientacion inicial es la que ve el usuario hasta salir al menu.
     if (editorController) {
         GameObject* creada = editorController->createGameObject(
             std::make_unique<Modelos3D>(nullptr), nullptr);
@@ -208,7 +215,7 @@ CameraComponent* GameScene::getActiveCamera() {
                           "CamaraPrincipal");
             creada->addComponent(std::make_unique<Transform>());
             Transform* transform = creada->getComponent<Transform>();
-            if (transform) transform->setTranslatef(1.f, 1.f, -50.f);
+            if (transform) transform->setTranslatef(0.f, 8.f, 40.f);
             creada->addComponent(std::make_unique<CameraComponent>());
             return getActiveCamera();
         }
