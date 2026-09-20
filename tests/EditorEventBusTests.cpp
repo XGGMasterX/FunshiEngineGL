@@ -137,6 +137,39 @@ int main() {
         CHECK(t1 != t2, "tokens de suscripcion unicos");
     }
 
+    // 6. SensibilidadCambio transporta el multiplicador del mouse look.
+    {
+        EditorEventBus bus;
+        float recibida = 0.0f;
+        bus.subscribe([&](const EditorEvent& ev) {
+            if (ev.type != EditorEventType::SensibilidadCambio) return;
+            recibida = ev.sensibilidad;
+        });
+
+        EditorEvent ev;
+        ev.type = EditorEventType::SensibilidadCambio;
+        ev.sensibilidad = 2.5f;
+        bus.publish(ev);
+        CHECK(recibida == 2.5f, "se transporta el multiplicador de sensibilidad");
+    }
+
+    // 7. ReiniciarConfiguracion llega sin payload y no confunde tipos.
+    {
+        EditorEventBus bus;
+        bool reinicio = false;
+        bool apariencia = false;
+        bus.subscribe([&](const EditorEvent& ev) {
+            if (ev.type == EditorEventType::ReiniciarConfiguracion) reinicio = true;
+            if (ev.type == EditorEventType::AparienciaCambio) apariencia = true;
+        });
+
+        EditorEvent ev;
+        ev.type = EditorEventType::ReiniciarConfiguracion;
+        bus.publish(ev);
+        CHECK(reinicio, "el evento de reset llega a sus suscriptores");
+        CHECK(!apariencia, "no se confunde con AparienciaCambio");
+    }
+
     std::cout << "Pruebas: " << total << ", fallos: " << fallos << std::endl;
     std::cout << (fallos == 0 ? "EDITOREVENTBUS TESTS OK"
                               : "EDITOREVENTBUS TESTS FALLO")

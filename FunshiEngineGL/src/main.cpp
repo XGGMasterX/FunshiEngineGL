@@ -253,6 +253,7 @@ int main(void)
     scene->setVentanaCamarasAbierta(editorConfig.datos().ventanaCamarasAbierta);
     scene->setGizmoOperation(editorConfig.datos().gizmoOperacion);
     scene->setApariencia(editorConfig.datos().apariencia);
+    scene->setSensibilidadCamara(editorConfig.datos().sensibilidadCamara);
     managerOfGUI->restaurarEstadosVentanas(editorConfig.datos().estadoVentanas);
 
     // Ultimo estado de la maquina reflejado en la fachada del paquete MenuGUI
@@ -336,6 +337,37 @@ int main(void)
             editorConfig.datos().estadoVentanas[ev.nombreVentana] = ev.abierta;
             editorConfig.guardarProyecto(proyectoActual);
         });
+        // Sensibilidad: la aplica a la escena al instante y la persiste en la
+        // config general (junto a idioma/apariencia). Reemplaza al polling por
+        // frame que leia el menu a mano.
+        eventosGUI->subscribe([scene, &editorConfig](const EditorEvent& ev) {
+            if (ev.type != EditorEventType::SensibilidadCambio) return;
+            scene->setSensibilidadCamara(ev.sensibilidad);
+            editorConfig.datos().sensibilidadCamara = ev.sensibilidad;
+            editorConfig.guardarGeneral();
+        });
+        // Restablecer configuracion: se reaplican los defaults en general
+        // (idioma/apariencia/sensibilidad) y en el estado del proyecto
+        // (ventanas, gizmo, camara). El nombre del proyecto se conserva: el
+        // reset no cambia de carpeta/proyecto ni destruye la escena.
+        eventosGUI->subscribe(
+            [scene, mainMenu, managerOfGUI, &editorConfig](const EditorEvent& ev) {
+                if (ev.type != EditorEventType::ReiniciarConfiguracion) return;
+                const std::string nombreConservado = mainMenu->getNombreProyecto();
+                editorConfig.restablecer();
+                auto& cfg = editorConfig.datos();
+                cfg.nombreProyecto = nombreConservado;
+                // Reaplicar: los setters del menu publican sus eventos
+                // (conservan persistencia/efecto vivo sin duplicar logica).
+                mainMenu->setIdioma(cfg.idioma);
+                mainMenu->setSensibilidadCamara(cfg.sensibilidadCamara);
+                mainMenu->setApariencia(cfg.apariencia);
+                scene->setVentanaCamarasAbierta(cfg.ventanaCamarasAbierta);
+                scene->setGizmoOperation(cfg.gizmoOperacion);
+                scene->setActiveCameraById(cfg.camaraActivaId);
+                managerOfGUI->restaurarEstadosVentanas(cfg.estadoVentanas);
+                editorConfig.guardarProyecto(cfg.nombreProyecto);
+            });
     }
 
     const std::string sceneBBDD = EditorConfig::rutaSceneBBDD(proyectoActual);
@@ -407,10 +439,9 @@ int main(void)
                 menuReflejadoEnFachada = menuDebeEstarAbierto;
             }
 
-            // La sensibilidad del mouse look se configura en Opciones (menu) y
-            // se propaga a la escena; el menu esta pausado mientras es visible,
-            // asi que la lectura por frame no tiene costo apreciable.
-            scene->setSensibilidadCamara(mainMenu->getSensibilidadCamara());
+            // La sensibilidad del mouse look se aplica por eventos
+            // (EditorEventBus/SensibilidadCambio) cuando cambia en Opciones;
+            // ya no se relee el menu y se escribe en la escena cada frame.
 
             // Sincroniza cambio de nombre de proyecto si se edito en Config Proyect
             const std::string nombreMenu = mainMenu->getNombreProyecto();

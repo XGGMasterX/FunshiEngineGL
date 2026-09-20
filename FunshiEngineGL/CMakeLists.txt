@@ -270,6 +270,20 @@ set_target_properties(eventbus-tests PROPERTIES
 )
 add_test(NAME eventbus-tests COMMAND eventbus-tests)
 
+# MenuModel (logica pura del menu: traduccion, observer de cambios y reset) se
+# prueba headless como los demas: no depende de ImGui/GLFW.
+add_executable(menu-tests
+    ${SRC_DIR}/GUI/MenusGUI/MenuModel.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../tests/MenuModelTests.cpp
+)
+target_include_directories(menu-tests PRIVATE ${SRC_DIR})
+set_target_properties(menu-tests PROPERTIES
+    CXX_STANDARD 17
+    CXX_STANDARD_REQUIRED ON
+    CXX_EXTENSIONS OFF
+)
+add_test(NAME menu-tests COMMAND menu-tests)
+
 # AssetManager (cache Flyweight de meshes CPU) tambien headless y portatil:
 # rutas (AssetPath), geometria (Mesh) y el registro compartido con un loader
 # artificial, sin Assimp ni pila grafica.

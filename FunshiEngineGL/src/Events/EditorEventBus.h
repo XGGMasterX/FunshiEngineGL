@@ -43,6 +43,8 @@ enum class EditorEventType {
     AparienciaCambio,     // perfil completo (tema/acento/fondo/B-N) -> escena + TemaEditor
     CamaraActivaCambio,   // camara elegida con "Usar" -> previews/inspector
     IdiomaCambio,         // idioma -> etiquetas sensibles (onLanguageChanged)
+    SensibilidadCambio,   // multiplicador del mouse look de la camara -> escena
+    ReiniciarConfiguracion, // "Restablecer configuracion" -> main reaplica defaults
     VentanaActivaCambio,  // reservado: ventana con foco ImGui (Settings futuro)
 };
 
@@ -60,6 +62,9 @@ struct EditorEvent {
     // Para IdiomaCambio: codigo de idioma (Espanol/English). Las etiquetas
     // sensibles al idioma se refrescan via onLanguageChanged.
     std::string idioma;
+
+    // Para SensibilidadCambio: multiplicador global del mouse look (1.0 = 1:1).
+    float sensibilidad = 1.0f;
 
     // Para CamaraActivaCambio: puntero NO propietario al GameObject camara
     // (igual que SceneEvent.object, pero semantica: «cambio la camara activa»,
