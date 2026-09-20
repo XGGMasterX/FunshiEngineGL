@@ -129,13 +129,21 @@ ListaDE<GameObject*>* GameScene::getGameObjectsScene() {
 void GameScene::asegurarGrilla() {
     if (!sceneRegistry || !editorController) return;
     auto* lista = getGameObjectsScene();
-    if (lista && !lista->isEmpty()) {
+    
+    // Buscar grilla existente en la escena (sin importar si la escena esta vacia o no)
+    bool tieneGrilla = false;
+    if (lista) {
         Position<GameObject*>* pos = lista->first();
         while (pos && pos->getElement()) {
-            if (std::string(pos->getElement()->inputName) == "Grilla") return;
+            if (std::string(pos->getElement()->inputName) == "Grilla") {
+                tieneGrilla = true;
+                break;
+            }
             pos = (pos != lista->last()) ? lista->next(pos) : nullptr;
         }
     }
+    
+    if (tieneGrilla) return;
 
     // Usar SimpleObject en lugar de Modelos3D para evitar que el dibujado
     // de la grilla se ancle a un modelo inexistente. SimpleObject no tiene malla.
@@ -348,7 +356,7 @@ void GameScene::dibujarGameObjectsConOjo(GameObject* camaraOjo,
                                          const float view[16],
                                          const float projection[16]) {
     auto* gameObjects = getGameObjectsScene();
-    if (gameObjects->isEmpty()) return;
+    if (!gameObjects || gameObjects->isEmpty()) return;
     Position<GameObject*>* pos = gameObjects->first();
     while (pos && pos->getElement()) {
         dibujarObjectConOjo(pos->getElement(), camaraOjo, view, projection);
