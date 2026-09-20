@@ -215,8 +215,9 @@ vez):
    `CameraComponent` → esa es la activa. Si ya no existe, se resetea a `nullptr`.
 2. Si no, la **primera** cámara de la escena (scan lineal).
 3. Si la escena no tiene ninguna → siembra un objeto vacío
-   `"CamaraPrincipal"` con `Transform` (posición `(1, 1, -50)`) +
-   `CameraComponent`, y reintenta.
+   `"CamaraPrincipal"` con `Transform` (posición `(0, 8, 40)`, mirando `-Z`
+   hacia el origen donde vive la grilla; la posición histórica `(1, 1, -50)`
+   quedaba de espaldas a ella) + `CameraComponent`, y reintenta.
 
 `setActiveCamera(object)` valida que el objeto exista en `sceneRegistry` y que
 tenga `CameraComponent`; solo entonces lo asigna a `requestedActiveCamera`.
