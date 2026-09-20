@@ -105,7 +105,8 @@ void MenuView::printGUI() {
 
 void MenuView::renderizarPrincipal() {
     cursorFila(0);
-    if (ImGui::Button("Iniciar Estudio", ImVec2(kBotonAncho, kBotonAlto))) {
+    if (ImGui::Button(model->traducir("iniciar_estudio").c_str(),
+                      ImVec2(kBotonAncho, kBotonAlto))) {
         // Cerrar el menu afecta al resto del motor: se notifica por el
         // presenter (DebeCerrar -> ConsultarCierre en main), que hace la
         // transicion real. La vista solo informa la intencion.
@@ -114,20 +115,23 @@ void MenuView::renderizarPrincipal() {
 
     cursorFila(1);
     ImVec2 posBoton = ImGui::GetCursorScreenPos();
-    if (ImGui::Button("Config Proyect", ImVec2(kBotonAncho, kBotonAlto))) {
+    if (ImGui::Button(model->traducir("config_proyecto").c_str(),
+                      ImVec2(kBotonAncho, kBotonAlto))) {
         model->abrirConfigProyecto();
     }
     etiquetaDerecha(posBoton, model->getNombreProyecto().c_str());
 
     cursorFila(2);
     posBoton = ImGui::GetCursorScreenPos();
-    if (ImGui::Button("Opciones", ImVec2(kBotonAncho, kBotonAlto))) {
+    if (ImGui::Button(model->traducir("opciones").c_str(),
+                      ImVec2(kBotonAncho, kBotonAlto))) {
         model->abrirOpciones();
     }
     etiquetaDerecha(posBoton, model->getIdioma().c_str());
 
     cursorFila(3);
-    if (ImGui::Button("Exit", ImVec2(kBotonAncho, kBotonAlto))) {
+    if (ImGui::Button(model->traducir("salir").c_str(),
+                      ImVec2(kBotonAncho, kBotonAlto))) {
         glfwSetWindowShouldClose(window, GLFW_TRUE);
     }
 }
@@ -143,11 +147,11 @@ void MenuView::renderizarOpciones() {
     ImGui::BeginChild("##opciones", ImVec2(kAncho, win.y - 50.0f - kAltoInferior),
                       false, ImGuiWindowFlags_AlwaysVerticalScrollbar);
 
-    ImGui::TextUnformatted("Opciones");
+    ImGui::TextUnformatted(model->traducir("opciones").c_str());
     ImGui::Separator();
 
-    ImGui::SeparatorText("Juego");
-    ImGui::TextUnformatted("Idioma");
+    ImGui::SeparatorText(model->traducir("juego").c_str());
+    ImGui::TextUnformatted(model->traducir("idioma").c_str());
     const std::vector<std::string>& idiomas = model->getIdiomas();
     const std::string& actual = model->getIdioma();
     ImGui::SetNextItemWidth(-1.0f);
@@ -162,7 +166,7 @@ void MenuView::renderizarOpciones() {
         ImGui::EndCombo();
     }
 
-    ImGui::TextUnformatted("Sensibilidad de camara");
+    ImGui::TextUnformatted(model->traducir("sensibilidad_camara").c_str());
     float sensibilidad = model->getSensibilidadCamara();
     ImGui::SetNextItemWidth(-1.0f);
     if (ImGui::SliderFloat("##sensibilidad", &sensibilidad, 0.02f, 5.0f,
@@ -170,47 +174,54 @@ void MenuView::renderizarOpciones() {
         model->setSensibilidadCamara(sensibilidad);
     }
 
-    ImGui::SeparatorText("Apariencia");
+    ImGui::SeparatorText(model->traducir("apariencia").c_str());
     // Se edita una copia y se delega al modelo UNA vez si hubo cambios; asi
     // el modelo sigue siendo la unica fuente de verdad (patron MVP).
     Apariencia ap = model->getApariencia();
     bool cambio = false;
 
-    cambio |= ImGui::Checkbox("Tema claro de la interfaz", &ap.temaClaro);
-    cambio |= ImGui::Checkbox("Modo blanco y negro (fondo y grilla)",
+    cambio |= ImGui::Checkbox(model->traducir("tema_claro").c_str(), &ap.temaClaro);
+    cambio |= ImGui::Checkbox(model->traducir("modo_bn").c_str(),
                               &ap.blancoYNegro);
-    ImGui::TextUnformatted("Color de acento de la interfaz");
+    ImGui::TextUnformatted(model->traducir("color_acento").c_str());
     cambio |= ImGui::ColorEdit4("##acento", ap.acento,
                                 ImGuiColorEditFlags_AlphaBar);
-    ImGui::TextUnformatted("Color de fondo de la escena");
+    ImGui::TextUnformatted(model->traducir("color_fondo").c_str());
     cambio |= ImGui::ColorEdit3("##fondo", ap.fondo);
-    ImGui::TextDisabled(
-        "El modo blanco y negro ignora estos colores y usa\n"
-        "blanco/negro segun el tema claro u oscuro.");
+    ImGui::TextDisabled("%s", model->traducir("ayuda_bn").c_str());
 
-    if (ImGui::Button("Restablecer apariencia", ImVec2(-1.0f, 0.0f))) {
+    if (ImGui::Button(model->traducir("restablecer_apariencia").c_str(),
+                      ImVec2(-1.0f, 0.0f))) {
         ap.restablecer();
         cambio = true;
     }
 
     if (cambio) model->setApariencia(ap);
 
+    ImGui::SeparatorText(model->traducir("configuracion").c_str());
+    if (ImGui::Button(model->traducir("restablecer_configuracion").c_str(),
+                      ImVec2(-1.0f, 0.0f))) {
+        model->restablecerConfiguracion();
+    }
+    ImGui::TextDisabled("%s", model->traducir("ayuda_reset").c_str());
+
     ImGui::EndChild();
 
     // Boton "Volver" fijo abajo, centrado, fuera del area con scroll.
     ImGui::SetCursorPos(ImVec2((win.x - kBotonAncho) * 0.5f,
                                win.y - kAltoInferior + 20.0f));
-    if (ImGui::Button("Volver", ImVec2(kBotonAncho, kBotonAlto))) {
+    if (ImGui::Button(model->traducir("volver").c_str(),
+                      ImVec2(kBotonAncho, kBotonAlto))) {
         model->volver();
     }
 }
 
 void MenuView::renderizarConfigProyecto() {
     cursorFila(0);
-    ImGui::Text("Config Proyect");
+    ImGui::Text("%s", model->traducir("config_proyecto").c_str());
 
     cursorFila(1);
-    ImGui::Text("Nombre");
+    ImGui::Text("%s", model->traducir("nombre").c_str());
     ImGui::SameLine();
 
     // El buffer se rellena desde el modelo la primera vez que se abre la
@@ -234,7 +245,8 @@ void MenuView::renderizarConfigProyecto() {
     // actual del modelo como referencia.
     if (nombreProyectoPendiente) {
         ImGui::SameLine();
-        ImGui::TextDisabled("(actual: %s)", model->getNombreProyecto().c_str());
+        ImGui::TextDisabled(model->traducir("actual").c_str(),
+                            model->getNombreProyecto().c_str());
     }
 
     cursorFila(2);
@@ -245,7 +257,8 @@ void MenuView::renderizarConfigProyecto() {
     if (confirmarDeshabilitado) {
         ImGui::BeginDisabled();
     }
-    if (ImGui::Button("Confirmar", ImVec2(kBotonAncho, kBotonAlto))) {
+    if (ImGui::Button(model->traducir("confirmar").c_str(),
+                      ImVec2(kBotonAncho, kBotonAlto))) {
         model->setNombreProyecto(nombreProyectoBuffer);
         nombreProyectoPendiente = false;
     }
@@ -254,7 +267,8 @@ void MenuView::renderizarConfigProyecto() {
     }
 
     cursorFila(3);
-    if (ImGui::Button("Volver", ImVec2(kBotonAncho, kBotonAlto))) {
+    if (ImGui::Button(model->traducir("volver").c_str(),
+                      ImVec2(kBotonAncho, kBotonAlto))) {
         // Descartar cambios pendientes: resetear el buffer para que la proxima
         // apertura lo rellene desde el modelo (que no fue modificado).
         if (nombreProyectoPendiente) {

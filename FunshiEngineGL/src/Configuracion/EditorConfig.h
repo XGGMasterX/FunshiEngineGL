@@ -129,6 +129,11 @@ public:
     const Datos& datos() const noexcept { return datos_; }
     Datos& datos() noexcept { return datos_; }
 
+    // Vuelve los datos a los defaults de fabrica (accion "Restablecer
+    // configuracion" del menu). El llamador (main) conserva luego nombreProyecto
+    // para no cambiar de proyecto/carpeta, y reapica escena/ventanas.
+    void restablecer() noexcept { datos_ = Datos{}; }
+
 private:
     Datos datos_;
 };
