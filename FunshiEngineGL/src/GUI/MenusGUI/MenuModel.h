@@ -59,6 +59,12 @@ public:
     const std::string& getNombreProyecto() const noexcept;
     void setNombreProyecto(const std::string& nombre);
 
+    // Proyectos disponibles: las carpetas de <directorioBase>/MotorGrafico
+    // (los proyectos SON carpetas). La lista la rellena la fachada
+    // (MenuGUI::actualizarProyectos) desde el disco; la vista solo la muestra.
+    const std::vector<std::string>& getProyectosDisponibles() const noexcept;
+    void setProyectosDisponibles(const std::vector<std::string>& proyectos);
+
     const std::string& getIdioma() const noexcept;
     void setIdioma(const std::string& valor);
     const std::vector<std::string>& getIdiomas() const noexcept;
@@ -108,6 +114,7 @@ public:
 private:
     Vista vista = Vista::Principal;
     std::string nombreProyecto = "Nuevo Proyecto";
+    std::vector<std::string> proyectosDisponibles;
     std::string idioma = "Espanol";
     std::vector<std::string> idiomasDisponibles = {"Espanol", "English"};
     float sensibilidadCamara = 1.0f;
