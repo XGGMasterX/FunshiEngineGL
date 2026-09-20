@@ -195,6 +195,10 @@ public:
     // Modo editor: interfaces (gizmo, jerarquia, settings, folders) activas
     // si se aprieta E (toggleEditorInterfaces) o hay un objeto seleccionado.
     void toggleEditorInterfaces();
+    // Activa o desactiva el modo editor sin alternar (main la enciende al
+    // entrar al editor desde el menu para que los paneles sean visibles de una;
+    // E la alterna durante la sesion).
+    void setMenuActivo(bool activo) noexcept;
     bool isEditorActivo() const;
     void clearSelection();
 

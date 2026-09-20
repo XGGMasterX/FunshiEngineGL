@@ -1431,6 +1431,8 @@ void GameScene::setVentanaCamarasAbierta(bool abierta) noexcept {
     ventanaCamarasAbierta = abierta;
 }
 
+void GameScene::setMenuActivo(bool activo) noexcept { menuActivo = activo; }
+
 bool GameScene::isEditorActivo() const {
     return menuActivo ||
            (selecteableGUI && selecteableGUI->getReturnableEntity() != nullptr);
