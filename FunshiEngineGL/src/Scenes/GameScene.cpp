@@ -129,10 +129,10 @@ ListaDE<GameObject*>* GameScene::getGameObjectsScene() {
 void GameScene::asegurarGrilla() {
     if (!sceneRegistry || !editorController) return;
     auto* lista = getGameObjectsScene();
-    
+
     // Buscar grilla existente en la escena (sin importar si la escena esta vacia o no)
     bool tieneGrilla = false;
-    if (lista) {
+    if (lista && !lista->isEmpty()) {
         Position<GameObject*>* pos = lista->first();
         while (pos && pos->getElement()) {
             if (std::string(pos->getElement()->inputName) == "Grilla") {
@@ -142,15 +142,27 @@ void GameScene::asegurarGrilla() {
             pos = (pos != lista->last()) ? lista->next(pos) : nullptr;
         }
     }
-    
+
     if (tieneGrilla) return;
 
     // Usar SimpleObject en lugar de Modelos3D para evitar que el dibujado
     // de la grilla se ancle a un modelo inexistente. SimpleObject no tiene malla.
+    // Si no hay root, crear uno implicitamente (SceneRegistry::createObject lo hace
+    // si entitys esta vacia). Si entitys no esta vacia pero getRoot() devuelve nullptr
+    // (no deberia pasar), usamos nullptr como parent y createObject creara el root.
+    GameObject* root = sceneRegistry->getRoot();
     GameObject* crea = editorController->createGameObject(
-        std::make_unique<SimpleObject>(), sceneRegistry->getRoot());
-    if (!crea) return;
+        std::make_unique<SimpleObject>(), root);
+    if (!crea) {
+        // Si fallo (p. ej., porque root era nullptr y entitys no estaba vacia),
+        // intentar con parent = nullptr para que createObject cree un nuevo root.
+        crea = editorController->createGameObject(
+            std::make_unique<SimpleObject>(), nullptr);
+        if (!crea) return;
+    }
     std::snprintf(crea->inputName, sizeof(crea->inputName), "Grilla");
+    // Forzar actualizacion de la vista de objetos para incluir la grilla recien creada
+    getGameObjectsScene();
     Transform* transform = crea->getComponent<Transform>();
     if (!transform) {
         crea->addComponent(std::make_unique<Transform>());
@@ -383,11 +395,13 @@ void GameScene::dibujarObjectConOjo(GameObject* object, GameObject* camaraOjo,
                                     const float projection[16]) {
     object->setTam(10);
     object->setColor(object->auxColor);
+
     if (object->getComponent<Transform>()) {
         // Los objetos intentan el pipeline moderno (VBO/VAO + shader); si no
         // esta disponible o la malla no tiene normales, degradan al modo
         // inmediato para no perder la visibilidad que habia hasta ahora.
         auto* modelo = dynamic_cast<Modelos3D*>(object);
+
         if (modelo && meshRenderer &&
             meshRenderer->intentarRender(modelo, view, projection, deltaTime)) {
             // Render moderno (update + material + geometria) ya hecho.
@@ -395,25 +409,26 @@ void GameScene::dibujarObjectConOjo(GameObject* object, GameObject* camaraOjo,
             object->dibujar(deltaTime);
         }
     }
-    // La grilla es un GameObject (Transform + Grid): se dibuja desde su propio
-    // transform como cualquier otro objeto, no mas como una grilla fija al
-    // mundo con visibilidad global.
-    if (object->getComponent<Grid>() != nullptr) dibujarGrilla(object);
-    if (object->getComponent<Light>()) dibujarMarcadorLuz(object);
+
+    if (object->getComponent<Light>())
+        dibujarMarcadorLuz(object);
+
     if (object->getComponent<CameraComponent>() && object != camaraOjo)
         dibujarMarcadorCamara(object);
 
     // Wireframe del collider en la escena 3D: SOLO mientras el gizmo del
-    // offset del collider esta habilitado para este objeto (checkbox "Gizmo
-    // activo" del transform del collider). Si se lo dibujara siempre sobre el
-    // objeto seleccionado, se superpondria al gizmo del transform y pareceria
-    // 'un segundo gizmo' apilado.
+    // offset del collider esta habilitado para este objeto (checkbox
+    // "Gizmo activo" del transform del collider).
     if (isEditorActivo() && object != camaraOjo && editorController) {
         Collider* collider = object->getComponent<Collider>();
-        Transform* colliderTransform = collider ? collider->getTransform() : nullptr;
-        if (collider && colliderTransform && colliderTransform->gizmoHabilitado &&
-            collider->getOwner() == editorController->getSelectedObject())
+        Transform* colliderTransform =
+            collider ? collider->getTransform() : nullptr;
+
+        if (collider && colliderTransform &&
+            colliderTransform->gizmoHabilitado &&
+            collider->getOwner() == editorController->getSelectedObject()) {
             collider->dibujarCollider();
+        }
     }
 }
 
@@ -544,7 +559,7 @@ void GameScene::recompilarGrilla(const float colorGrilla[3]) {
         glEndList();
         cacheGrillaMajor_ = listMajor;
     }
-    
+
     // Lineas secundarias (cada sep unidades)
     if (cacheGrillaMinor_ != 0) {
         glDeleteLists(cacheGrillaMinor_, 1);
@@ -567,7 +582,7 @@ void GameScene::recompilarGrilla(const float colorGrilla[3]) {
         glEndList();
         cacheGrillaMinor_ = listMinor;
     }
-    
+
     // Ejes X y Z: colores brillantes (rojo y verde)
     if (cacheGrillaAxes_ != 0) {
         glDeleteLists(cacheGrillaAxes_, 1);
@@ -588,6 +603,28 @@ void GameScene::recompilarGrilla(const float colorGrilla[3]) {
         glEnd();
         glEndList();
         cacheGrillaAxes_ = listAxes;
+    }
+}
+
+void GameScene::dibujarGrillaEditor() {
+    auto* gameObjects = getGameObjectsScene();
+
+    if (!gameObjects || gameObjects->isEmpty())
+        return;
+
+    Position<GameObject*>* pos = gameObjects->first();
+
+    while (pos && pos->getElement()) {
+        GameObject* object = pos->getElement();
+
+        if (object->getComponent<Grid>() != nullptr) {
+            dibujarGrilla(object);
+            return;
+        }
+
+        pos = (pos != gameObjects->last())
+                  ? gameObjects->next(pos)
+                  : nullptr;
     }
 }
 
@@ -626,19 +663,19 @@ void GameScene::dibujarGrilla(GameObject* object) {
     // Lineas suavizadas para todas las partes de la grilla
     glEnable(GL_LINE_SMOOTH);
     glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
-    
+
     // Dibujar lineas secundarias (1px)
     glLineWidth(1.f);
     if (cacheGrillaMinor_ != 0) glCallList(cacheGrillaMinor_);
-    
+
     // Dibujar lineas principales (2px, color mas intenso)
     glLineWidth(2.f);
     if (cacheGrillaMajor_ != 0) glCallList(cacheGrillaMajor_);
-    
+
     // Dibujar ejes (3px, colores brillantes)
     glLineWidth(3.f);
     if (cacheGrillaAxes_ != 0) glCallList(cacheGrillaAxes_);
-    
+
     glLineWidth(1.f);  // Restaurar ancho por defecto
     glDisable(GL_LINE_SMOOTH);
     glEnable(GL_LIGHTING);
@@ -663,15 +700,23 @@ void GameScene::GUI() {
 // Dibuja la escena 3D completa (grilla + objetos + marcadores) desde una
 // vista/proyeccion dadas. La "camaraOjo" es el objeto con CameraComponent que
 // esta viendo (no dibuja su propio marcador).
-void GameScene::dibujarEscena(const float view[16], const float projection[16],
+void GameScene::dibujarEscena(const float view[16],
+                              const float projection[16],
                               GameObject* camaraOjo) {
     glMatrixMode(GL_PROJECTION);
     glLoadMatrixf(projection);
+
     glMatrixMode(GL_MODELVIEW);
     glLoadMatrixf(view);
 
+    // La grilla se dibuja como una pasada independiente del renderer
+    // de modelos. De esta forma no depende de Modelos3D ni del resultado
+    // del recorrido normal de las entidades.
+    dibujarGrillaEditor();
+
     lightSystem.beginFrame(getGameObjectsScene());
     prepararLucesFrame();
+
     dibujarGameObjectsConOjo(camaraOjo, view, projection);
 }
 
@@ -1255,7 +1300,7 @@ void GameScene::gameScene() {
         int diagObjs = 0;
         int diagConMalla = 0;
         int diagConMallaYNormales = 0;
-        if (diagObjects) {
+        if (diagObjects && !diagObjects->isEmpty()) {
             Position<GameObject*>* pos = diagObjects->first();
             while (pos && pos->getElement()) {
                 GameObject* o = pos->getElement();

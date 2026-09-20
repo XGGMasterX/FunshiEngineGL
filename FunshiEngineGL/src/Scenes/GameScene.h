@@ -111,6 +111,7 @@ private:
                                   const float projection[16]);
     void dibujarObjectConOjo(GameObject* object, GameObject* camaraOjo,
                              const float view[16], const float projection[16]);
+    void dibujarGrillaEditor();
     void dibujarGrilla(GameObject* object);
     void dibujarViewportsPrevios();
     void pintarViewportsGUI();
