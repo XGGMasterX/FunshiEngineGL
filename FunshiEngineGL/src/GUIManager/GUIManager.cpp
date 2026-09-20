@@ -53,6 +53,9 @@ GUIManager::GUIManager(GLFWwindow* window)
     // getEditorEventBus().
     menuGUI->setEditorEventBus(&eventosEditor);
     statusBarGUI->setEditorEventBus(&eventosEditor);
+    // El menu "Ventanas" de la barra publica VentanaEstadoCambio para alternar
+    // la visibilidad de los paneles del editor (explorador, contenido, etc).
+    menuBarGUI->setEditorEventBus(&eventosEditor);
     // "Usar" una camara en la ventana Camaras: la escena publica y la fachada
     // reacciona seleccionando el objeto para el inspector (antes GameScene
     // llamaba a EditorController directamente).
@@ -127,6 +130,19 @@ std::map<std::string, bool> GUIManager::obtenerEstadosVentanas() const {
         estados[ventana->getNameGui()] = ventana->getStateGui();
     }
     return estados;
+}
+
+void GUIManager::setEstadoVentana(const std::string& nombre, bool abierta) {
+    for (GeneralUserInterface* ventana : ventanasPersistentes()) {
+        if (ventana && ventana->getNameGui() == nombre) {
+            ventana->setStateGui(abierta);
+            return;
+        }
+    }
+}
+
+void GUIManager::sincronizarVentanasMenu() {
+    if (menuBarGUI) menuBarGUI->setVentanas(obtenerEstadosVentanas());
 }
 
 void GUIManager::configurarProyecto(const std::string& nombreProyecto) {

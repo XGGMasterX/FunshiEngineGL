@@ -19,8 +19,10 @@
 #ifndef SCENEMENUBARINTERFACE_H
 #define SCENEMENUBARINTERFACE_H
 #include <iostream>
+#include <map>
 #include <string>
 #include "../ObjetosGUI/SettingsObjectInterface.h"
+#include "../../Events/EditorEventBus.h"
 #include <imgui.h>
 
 using namespace std;
@@ -29,6 +31,13 @@ class SceneMenuBarInterface : public GeneralUserInterface {
 protected:
     bool* toggleBool = nullptr;
     bool cargarScripts = false;
+    // Canal de GUI interna: el menu "Ventanas" publica VentanaEstadoCambio y
+    // main/GUIManager aplican y persisten la visibilidad de cada panel.
+    EditorEventBus* busEditor = nullptr;
+    // Ultimos estados conocidos de las ventanas persistentes del editor
+    // (etiqueta por WindowName). La alimenta GUIManager cada frame para que
+    // las casillas del menu reflejen el estado real (incluido el cierre con X).
+    std::map<std::string, bool> ventanas_;
 
 public:
     SceneMenuBarInterface(bool stateGUI);
@@ -36,6 +45,8 @@ public:
     bool* getActivador();
     bool getCargarScripts();
     void setCargarScripts(bool value);
+    void setEditorEventBus(EditorEventBus* bus);
+    void setVentanas(const std::map<std::string, bool>& estados);
     virtual void initGUI() override;
     virtual void contentGUI() override;
     virtual void endGUI() override;
