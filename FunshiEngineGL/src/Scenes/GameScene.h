@@ -122,6 +122,17 @@ private:
     // tocar nada manual.
     void asegurarGrilla();
 
+    // Cache de la grilla del editor como display list: los ~280 segmentos se
+    // generan una sola vez y se recompilan solo si cambian tamano, separacion
+    // o el color efectivo (perfil B/N). Se compila dentro de la llamada de la
+    // grilla, asi el transform del objeto "Grilla" se aplica igual. El tipo es
+    // unsigned int (no GLuint) para que la cabecera no dependa de gl.h.
+    unsigned int cacheGrilla_ = 0;
+    float cacheGrillaTam_ = 0.0f;
+    float cacheGrillaSep_ = 0.0f;
+    float cacheGrillaColor_[3] = {0.0f, 0.0f, 0.0f};
+    void recompilarGrilla(const float colorGrilla[3]);
+
     // Cola de compilacion de scripts (play mode). Cada script se agenda y se
     // procesa en DOS fases para que la barra de estado muestre "Compilando X
     // (i de n)..." un frame antes de bloquear el hilo con g++/javac.
