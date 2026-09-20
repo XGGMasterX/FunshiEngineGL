@@ -203,6 +203,41 @@ int main() {
         fs::remove_all(proyDir, ec);
     }
 
+    // Reset (Fase 3): restablecer vuelve a los defaults de fabrica.
+    {
+        EditorConfig cfg;
+
+        // Modifica varios campos a valores no default.
+        auto& d = cfg.datos();
+        d.idioma = "English";
+        d.sensibilidadCamara = 2.5f;
+        d.apariencia.temaClaro = true;
+        d.apariencia.blancoYNegro = true;
+        d.ventanaCamarasAbierta = false;
+        d.gizmoOperacion = 5;
+        d.camaraActivaId = 3;
+        d.nombreProyecto = "MiProyecto";
+        d.estadoVentanas["Estado"] = false;
+
+        cfg.restablecer();
+
+        CHECK(cfg.datos().idioma == "Espanol", "restablecer vuelve el idioma");
+        CHECK(cfg.datos().sensibilidadCamara == 1.0f,
+              "restablecer vuelve la sensibilidad");
+        CHECK(!cfg.datos().apariencia.temaClaro,
+              "restablecer vuelve el tema");
+        CHECK(!cfg.datos().apariencia.blancoYNegro,
+              "restablecer vuelve el modo B/N");
+        CHECK(cfg.datos().ventanaCamarasAbierta, "restablecer abre la ventana camaras");
+        CHECK(cfg.datos().gizmoOperacion == 7, "restablecer vuelve el gizmo");
+        CHECK(cfg.datos().camaraActivaId == -1,
+              "restablecer vuelve la camara a automatica");
+        CHECK(cfg.datos().nombreProyecto == "Nuevo Proyecto",
+              "restablecer vuelve el nombre por defecto (main lo conserva luego)");
+        CHECK(cfg.datos().estadoVentanas.empty(),
+              "restablecer limpia el estado de ventanas");
+    }
+
     fs::remove_all(base);
     std::cout << "Pruebas: " << total << ", fallos: " << fallos << std::endl;
     if (fallos == 0) std::cout << "EDITORCONFIG TESTS OK" << std::endl;

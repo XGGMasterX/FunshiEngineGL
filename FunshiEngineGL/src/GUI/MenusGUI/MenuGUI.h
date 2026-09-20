@@ -91,15 +91,20 @@ public:
     void PedirCierre() noexcept;
 
     // Configuracion global del editor configurada en la vista "Opciones"
-    // (sensibilidad del mouse look de la camara). main la propaga a la escena
-    // cuando la escena corre (el menu esta pausado mientras es visible).
+    // (sensibilidad del mouse look de la camara). Se propaga a la escena por
+    // el bus (SensibilidadCambio); main ya no relee el modelo por frame.
     float getSensibilidadCamara() const noexcept;
-    void setSensibilidadCamara(float sensibilidad) noexcept;
+    void setSensibilidadCamara(float sensibilidad);
 
-    // Perfil de apariencia del editor editado en la vista Opciones. main lo
-    // aplica a ImGui (TemaEditor) y a la escena (fondo y grilla).
+    // Perfil de apariencia del editor editado en la vista Opciones. Se aplica
+    // a ImGui (TemaEditor) y a la escena (fondo y grilla) por AparienciaCambio.
     const Apariencia& getApariencia() const noexcept;
-    void setApariencia(const Apariencia& valor) noexcept;
+    void setApariencia(const Apariencia& valor);
+
+    // Accion global "Restablecer configuracion" (Opciones): vuelve el modelo a
+    // los defaults y publica ReiniciarConfiguracion para que main reapique
+    // escena/ventanas y persista.
+    void reiniciarConfiguracion();
 
     // Datos del menu persistidos por EditorConfig (main los aplica al arrancar
     // y los recoge al salir).
@@ -123,6 +128,11 @@ private:
     MenuView view;
     // Puntero NO propietario al bus de GUI interna (lo posee GUIManager).
     EditorEventBus* busEditor = nullptr;
+
+    // Traduce un cambio del modelo (MenuModel::Campo) a un evento del bus. Un
+    // unico lugar de salida: sirve tanto para los setter de la fachada como
+    // para los clics del usuario en la vista (que mutan el modelo directo).
+    void publicarCambio(MenuModel::Campo campo);
 };
 
 #endif

@@ -18,6 +18,8 @@
 */
 #include "MenuModel.h"
 
+#include <utility>
+
 // ============================================================================
 // Implementacion de la logica pura del menu de inicio. Este archivo no
 // depende de ImGui ni GLFW: el modelo debe permanecer testeable y aislado
@@ -48,11 +50,15 @@ const std::string& MenuModel::getNombreProyecto() const noexcept {
 
 void MenuModel::setNombreProyecto(const std::string& nombre) {
     nombreProyecto = nombre;
+    if (onCampoCambio) onCampoCambio(Campo::Nombre);
 }
 
 const std::string& MenuModel::getIdioma() const noexcept { return idioma; }
 
-void MenuModel::setIdioma(const std::string& valor) { idioma = valor; }
+void MenuModel::setIdioma(const std::string& valor) {
+    idioma = valor;
+    if (onCampoCambio) onCampoCambio(Campo::Idioma);
+}
 
 const std::vector<std::string>& MenuModel::getIdiomas() const noexcept {
     return idiomasDisponibles;
@@ -62,14 +68,80 @@ float MenuModel::getSensibilidadCamara() const noexcept {
     return sensibilidadCamara;
 }
 
-void MenuModel::setSensibilidadCamara(float sensibilidad) noexcept {
-    if (sensibilidad > 0.0f) sensibilidadCamara = sensibilidad;
+void MenuModel::setSensibilidadCamara(float sensibilidad) {
+    if (sensibilidad > 0.0f) {
+        sensibilidadCamara = sensibilidad;
+        if (onCampoCambio) onCampoCambio(Campo::SensibilidadCamara);
+    }
 }
 
 const Apariencia& MenuModel::getApariencia() const noexcept {
     return apariencia;
 }
 
-void MenuModel::setApariencia(const Apariencia& valor) noexcept {
+void MenuModel::setApariencia(const Apariencia& valor) {
     apariencia = valor;
+    if (onCampoCambio) onCampoCambio(Campo::Apariencia);
+}
+
+void MenuModel::restablecerConfiguracion() {
+    // Valores de fabrica de las opciones del menu. El nombre del proyecto NO se
+    // toca: define la carpeta/proyecto (src<Nombre> + Memory) y un reset aqui
+    // crearia otra carpeta y perderia la escena activa.
+    idioma = "Espanol";
+    sensibilidadCamara = 1.0f;
+    apariencia.restablecer();
+    if (onCampoCambio) onCampoCambio(Campo::Reiniciar);
+}
+
+void MenuModel::setOnCampoCambio(OnCampoCambio cb) {
+    onCampoCambio = std::move(cb);
+}
+
+std::string MenuModel::traducir(const std::string& clave) const {
+    // Diccionario declarativo es/en del menu. Un clave faltante se devuelve
+    // tal cual para que la interfaz nunca quede en blanco ni rompa.
+    struct Entrada {
+        const char* es;
+        const char* en;
+    };
+    static const std::pair<std::string, Entrada> diccionario[] = {
+        {"iniciar_estudio", {"Iniciar Estudio", "Start Studio"}},
+        {"config_proyecto", {"Config Proyect", "Config Project"}},
+        {"opciones", {"Opciones", "Options"}},
+        {"configuracion", {"Configuracion", "Settings"}},
+        {"salir", {"Exit", "Exit"}},
+        {"volver", {"Volver", "Back"}},
+        {"juego", {"Juego", "Game"}},
+        {"idioma", {"Idioma", "Language"}},
+        {"sensibilidad_camara", {"Sensibilidad de camara", "Camera sensitivity"}},
+        {"apariencia", {"Apariencia", "Appearance"}},
+        {"tema_claro", {"Tema claro de la interfaz", "Light UI theme"}},
+        {"modo_bn",
+         {"Modo blanco y negro (fondo y grilla)",
+          "Black & white mode (background and grid)"}},
+        {"color_acento", {"Color de acento de la interfaz", "UI accent color"}},
+        {"color_fondo", {"Color de fondo de la escena", "Scene background color"}},
+        {"ayuda_bn",
+         {"El modo blanco y negro ignora estos colores y usa\n"
+          "blanco/negro segun el tema claro u oscuro.",
+          "Black & white mode ignores these colors and uses\n"
+          "black/white according to the light or dark theme."}},
+        {"restablecer_apariencia", {"Restablecer apariencia", "Reset appearance"}},
+        {"restablecer_configuracion",
+         {"Restablecer configuracion", "Reset configuration"}},
+        {"ayuda_reset",
+         {"Reinicia idioma, apariencia, sensibilidad y estado del editor a\n"
+          "los valores de fabrica.",
+          "Resets language, appearance, camera sensitivity and editor\n"
+          "state to factory defaults."}},
+        {"nombre", {"Nombre", "Name"}},
+        {"confirmar", {"Confirmar", "Confirm"}},
+        {"actual", {"(actual: %s)", "(current: %s)"}},
+    };
+    const bool ingles = (idioma == "English");
+    for (const auto& [c, t] : diccionario) {
+        if (c == clave) return ingles ? t.en : t.es;
+    }
+    return clave;
 }
