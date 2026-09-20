@@ -31,6 +31,7 @@
 #include "../Objetos/Componentes/Transform.h"
 #include "../Objetos/Componentes/Grid.h"
 #include "../Objetos/Modelos3D.h"
+#include "../Objetos/SimpleObject.h"
 #include "../Objetos/Componentes/Colliders/EsfereCollider.h"
 #include "../Objetos/Componentes/Colliders/CubeCollider.h"
 #include "../Objetos/Componentes/Colliders/Collider.h"
@@ -46,6 +47,7 @@
 #include "../Rendering/RenderTarget.h"
 #include "ImGuizmo.h"
 #include "../GLCompat.h"
+#include <cmath>
 #include <imgui.h>
 #include <iostream>
 #include <algorithm>
@@ -103,9 +105,17 @@ GameScene::~GameScene() {
     // Libera la display list de la grilla si se llego a compilar. En el flujo
     // normal main() crea GameScene con new y no la destruye antes de
     // glfwTerminate, asi que esto es higiene defensiva (contexto GL vivo).
-    if (cacheGrilla_ != 0) {
-        glDeleteLists(cacheGrilla_, 1);
-        cacheGrilla_ = 0;
+    if (cacheGrillaMajor_ != 0) {
+        glDeleteLists(cacheGrillaMajor_, 1);
+        cacheGrillaMajor_ = 0;
+    }
+    if (cacheGrillaMinor_ != 0) {
+        glDeleteLists(cacheGrillaMinor_, 1);
+        cacheGrillaMinor_ = 0;
+    }
+    if (cacheGrillaAxes_ != 0) {
+        glDeleteLists(cacheGrillaAxes_, 1);
+        cacheGrillaAxes_ = 0;
     }
     if (editorController) editorController->clearScene();
     if (selecteableGUI) selecteableGUI->bindScene(nullptr, nullptr, nullptr);
@@ -127,17 +137,19 @@ void GameScene::asegurarGrilla() {
         }
     }
 
-    GameObject* creada = editorController->createGameObject(
-        std::make_unique<Modelos3D>(nullptr), sceneRegistry->getRoot());
-    if (!creada) return;
-    std::snprintf(creada->inputName, sizeof(creada->inputName), "Grilla");
-    Transform* transform = creada->getComponent<Transform>();
+    // Usar SimpleObject en lugar de Modelos3D para evitar que el dibujado
+    // de la grilla se ancle a un modelo inexistente. SimpleObject no tiene malla.
+    GameObject* crea = editorController->createGameObject(
+        std::make_unique<SimpleObject>(), sceneRegistry->getRoot());
+    if (!crea) return;
+    std::snprintf(crea->inputName, sizeof(crea->inputName), "Grilla");
+    Transform* transform = crea->getComponent<Transform>();
     if (!transform) {
-        creada->addComponent(std::make_unique<Transform>());
-        transform = creada->getComponent<Transform>();
+        crea->addComponent(std::make_unique<Transform>());
+        transform = crea->getComponent<Transform>();
     }
     if (transform) transform->setTranslatef(0.f, -0.5f, 0.f);
-    creada->addComponent(std::make_unique<Grid>());
+    crea->addComponent(std::make_unique<Grid>());
 }
 
 void GameScene::saveScene(const std::string& filename) {
@@ -489,15 +501,11 @@ void GameScene::dibujarMarcadorCamara(GameObject* object) {
     glPopMatrix();
 }
 
-// Recompila el cache de la grilla como display list. La geometria y los
-// colores quedan grabados en la lista (GL_COMPILE); afuera solo se aplica el
-// transform del objeto y el estado GL de lineas finas, asi el rebarruntado no
-// repite los ~280 segmentos cada frame.
+// Recompila el cache de la grilla como display lists. La geometria y los
+// colores quedan grabados en las listas (GL_COMPILE); afuera se aplican los line
+// widths correspondientes. Se separan en 3 listas (principal, secundaria, ejes)
+// porque glLineWidth no se guarda en display lists.
 void GameScene::recompilarGrilla(const float colorGrilla[3]) {
-    if (cacheGrilla_ != 0) {
-        glDeleteLists(cacheGrilla_, 1);
-        cacheGrilla_ = 0;
-    }
     cacheGrillaColor_[0] = colorGrilla[0];
     cacheGrillaColor_[1] = colorGrilla[1];
     cacheGrillaColor_[2] = colorGrilla[2];
@@ -506,32 +514,73 @@ void GameScene::recompilarGrilla(const float colorGrilla[3]) {
     const float sep = cacheGrillaSep_;
     if (tam <= 0.f || sep <= 0.f) return;
 
-    GLuint list = glGenLists(1);
-    if (list == 0) return;
-    glNewList(list, GL_COMPILE);
-    glColor3fv(colorGrilla);
-    glBegin(GL_LINES);
-    for (float i = -tam; i <= tam; i += sep) {
-        glVertex3f(i, 0.f, -tam);
-        glVertex3f(i, 0.f, tam);
-        glVertex3f(-tam, 0.f, i);
-        glVertex3f(tam, 0.f, i);
+    // Lineas principales (cada 5 unidades): color mas intenso
+    if (cacheGrillaMajor_ != 0) {
+        glDeleteLists(cacheGrillaMajor_, 1);
+        cacheGrillaMajor_ = 0;
     }
-    glEnd();
-    // Ejes del origen: +X rojo y +Z verde. Son la referencia de orientacion
-    // del mundo; un color firme que no compita con la trama de la grilla.
-    glColor3f(0.85f, 0.25f, 0.2f);
-    glBegin(GL_LINES);
-    glVertex3f(0.f, 0.f, 0.f);
-    glVertex3f(tam, 0.f, 0.f);
-    glEnd();
-    glColor3f(0.2f, 0.8f, 0.3f);
-    glBegin(GL_LINES);
-    glVertex3f(0.f, 0.f, 0.f);
-    glVertex3f(0.f, 0.f, tam);
-    glEnd();
-    glEndList();
-    cacheGrilla_ = list;
+    GLuint listMajor = glGenLists(1);
+    if (listMajor != 0) {
+        glNewList(listMajor, GL_COMPILE);
+        glColor3f(colorGrilla[0] * 0.7f, colorGrilla[1] * 0.7f, colorGrilla[2] * 0.7f);
+        glBegin(GL_LINES);
+        const float majorStep = 5.0f;
+        for (float i = -tam; i <= tam; i += majorStep) {
+            if (std::fabs(i) < 0.001f) continue; // Saltar el origen
+            glVertex3f(i, 0.f, -tam);
+            glVertex3f(i, 0.f, tam);
+            glVertex3f(-tam, 0.f, i);
+            glVertex3f(tam, 0.f, i);
+        }
+        glEnd();
+        glEndList();
+        cacheGrillaMajor_ = listMajor;
+    }
+    
+    // Lineas secundarias (cada sep unidades)
+    if (cacheGrillaMinor_ != 0) {
+        glDeleteLists(cacheGrillaMinor_, 1);
+        cacheGrillaMinor_ = 0;
+    }
+    GLuint listMinor = glGenLists(1);
+    if (listMinor != 0) {
+        glNewList(listMinor, GL_COMPILE);
+        glColor3fv(colorGrilla);
+        glBegin(GL_LINES);
+        const float majorStep = 5.0f;
+        for (float i = -tam; i <= tam; i += sep) {
+            if (std::fabs(std::fmod(i, majorStep)) < 0.001f) continue;
+            glVertex3f(i, 0.f, -tam);
+            glVertex3f(i, 0.f, tam);
+            glVertex3f(-tam, 0.f, i);
+            glVertex3f(tam, 0.f, i);
+        }
+        glEnd();
+        glEndList();
+        cacheGrillaMinor_ = listMinor;
+    }
+    
+    // Ejes X y Z: colores brillantes (rojo y verde)
+    if (cacheGrillaAxes_ != 0) {
+        glDeleteLists(cacheGrillaAxes_, 1);
+        cacheGrillaAxes_ = 0;
+    }
+    GLuint listAxes = glGenLists(1);
+    if (listAxes != 0) {
+        glNewList(listAxes, GL_COMPILE);
+        glColor3f(1.0f, 0.3f, 0.3f);  // Rojo para X
+        glBegin(GL_LINES);
+        glVertex3f(0.f, 0.f, 0.f);
+        glVertex3f(tam * 0.8f, 0.f, 0.f);
+        glEnd();
+        glColor3f(0.3f, 1.0f, 0.3f);  // Verde para Z
+        glBegin(GL_LINES);
+        glVertex3f(0.f, 0.f, 0.f);
+        glVertex3f(0.f, 0.f, tam * 0.8f);
+        glEnd();
+        glEndList();
+        cacheGrillaAxes_ = listAxes;
+    }
 }
 
 void GameScene::dibujarGrilla(GameObject* object) {
@@ -552,9 +601,9 @@ void GameScene::dibujarGrilla(GameObject* object) {
     float colorGrilla[3];
     AparienciaUtil::grillaEfectiva(apariencia, grid->getColor(), colorGrilla);
 
-    // Reconstrue la lista solo si cambian tamano, separacion o color efectivo;
+    // Reconstrue las listas solo si cambian tamano, separacion o color efectivo;
     // mientras nada cambie, la geometria se reutiliza (glCallList).
-    if (cacheGrilla_ == 0 || cacheGrillaTam_ != tam ||
+    if (cacheGrillaMajor_ == 0 || cacheGrillaTam_ != tam ||
         cacheGrillaSep_ != sep || cacheGrillaColor_[0] != colorGrilla[0] ||
         cacheGrillaColor_[1] != colorGrilla[1] ||
         cacheGrillaColor_[2] != colorGrilla[2]) {
@@ -566,11 +615,23 @@ void GameScene::dibujarGrilla(GameObject* object) {
     glPushMatrix();
     glMultMatrixf(modelArr);
     glDisable(GL_LIGHTING);
-    // Lineas finas (1px) y suavizadas: GL_LINE_SMOOTH + hint de mejor calidad.
-    glLineWidth(1.f);
+    // Lineas suavizadas para todas las partes de la grilla
     glEnable(GL_LINE_SMOOTH);
     glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
-    if (cacheGrilla_ != 0) glCallList(cacheGrilla_);
+    
+    // Dibujar lineas secundarias (1px)
+    glLineWidth(1.f);
+    if (cacheGrillaMinor_ != 0) glCallList(cacheGrillaMinor_);
+    
+    // Dibujar lineas principales (2px, color mas intenso)
+    glLineWidth(2.f);
+    if (cacheGrillaMajor_ != 0) glCallList(cacheGrillaMajor_);
+    
+    // Dibujar ejes (3px, colores brillantes)
+    glLineWidth(3.f);
+    if (cacheGrillaAxes_ != 0) glCallList(cacheGrillaAxes_);
+    
+    glLineWidth(1.f);  // Restaurar ancho por defecto
     glDisable(GL_LINE_SMOOTH);
     glEnable(GL_LIGHTING);
     glPopMatrix();
