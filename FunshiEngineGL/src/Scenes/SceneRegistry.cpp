@@ -60,12 +60,14 @@ bool SceneRegistry::contains(GameObject* object) const noexcept {
 void SceneRegistry::refreshTransformOrigins(Position<GameObject*>* parent) {
     if (!parent || !entitys.isInternal(parent)) return;
     auto* children = entitys.childsOf(parent);
-    Position<Position<GameObject*>*>* child = children->first();
-    while (child) {
-        Position<GameObject*>* childPosition = child->getElement();
-        childPosition->getElement()->setParentEntity(parent->getElement());
-        refreshTransformOrigins(childPosition);
-        child = (child != children->last()) ? children->next(child) : nullptr;
+    if (children && !children->isEmpty()) {
+        Position<Position<GameObject*>*>* child = children->first();
+        while (child) {
+            Position<GameObject*>* childPosition = child->getElement();
+            childPosition->getElement()->setParentEntity(parent->getElement());
+            refreshTransformOrigins(childPosition);
+            child = (child != children->last()) ? children->next(child) : nullptr;
+        }
     }
     delete children;
 }
@@ -83,12 +85,14 @@ void SceneRegistry::refreshGameObjectView() {
         [&](Position<GameObject*>* parent) {
             if (!entitys.isInternal(parent)) return;
             auto* children = entitys.childsOf(parent);
-            Position<Position<GameObject*>*>* child = children->first();
-            while (child) {
-                Position<GameObject*>* childPosition = child->getElement();
-                gameObjects.addLast(childPosition->getElement());
-                appendChildren(childPosition);
-                child = (child != children->last()) ? children->next(child) : nullptr;
+            if (children && !children->isEmpty()) {
+                Position<Position<GameObject*>*>* child = children->first();
+                while (child) {
+                    Position<GameObject*>* childPosition = child->getElement();
+                    gameObjects.addLast(childPosition->getElement());
+                    appendChildren(childPosition);
+                    child = (child != children->last()) ? children->next(child) : nullptr;
+                }
             }
             delete children;
         };
