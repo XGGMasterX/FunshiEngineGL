@@ -27,6 +27,7 @@
 #include "ImmediateRenderer.h"
 #include "MeshRenderer.h"
 #include "RenderTarget.h"
+#include "Shaders/ShaderProgram.h"
 
 #include "../Configuracion/Apariencia.h"
 #include "../Estructuras/ListasEnlazadas/ListasDoblementeEnlazada/ListaDE.h"
@@ -187,6 +188,8 @@ void SceneRenderer::dibujarEscena(const FrameContext& ctx,
     prepararLucesFrame(ctx);
 
     dibujarGameObjectsConOjo(ctx, camaraOjo, view, projection);
+
+    ShaderProgram::unbind();
 }
 
 void SceneRenderer::prepararLucesFrame(const FrameContext& ctx) {
