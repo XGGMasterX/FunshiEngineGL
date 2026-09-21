@@ -25,9 +25,8 @@
 // Componente de material: datos del modelo de iluminacion de un objeto
 // (AMBIENT/DIFFUSE/SPECULAR/EMISSION/SHININESS) mas los paths de las texturas
 // (descriptores, todos opcionales): difusa, especular, normal y emision. Solo
-// data + aplicar(); el dibujado real lo decide Modelos3D::dibujar al consultar
-// el componente, y el renderer moderno resuelve cada path a una imagen
-// compartida via TextureManager.
+// data; el renderer (moderno via TextureManager, o legacy via la capa de
+// Rendering) lee estos valores al dibujar.
 class Material : public Component {
 private:
     float ambient[4];
@@ -82,8 +81,5 @@ public:
     bool hasSpecularMap() const { return !specularMapPath_.empty(); }
     bool hasNormalMap() const { return !normalMapPath_.empty(); }
     bool hasEmissionMap() const { return !emissionMapPath_.empty(); }
-
-    // Aplica el material al pipeline GL del objeto actual.
-    void aplicar();
 };
 #endif

@@ -18,11 +18,12 @@
 */
 #include "MallaCollider.h"
 
-#include "../../../GLCompat.h"
+#include <vector>
 #include <btBulletDynamicsCommon.h>
 
 #include "../../../Objetos/GameObject.h"
 #include "../../../Objetos/Modelos3D.h"
+#include "../../../Rendering/ImmediateRenderer.h"
 
 MallaCollider::MallaCollider(float radio, Transform* transformOfDadObject,
                              GameObject* owner)
@@ -49,10 +50,7 @@ void MallaCollider::dibujarCollider() {
     float modelArr[16];
     buildMatrixFromTransform(&globalT, modelArr);
 
-    glPushMatrix();
-    glMultMatrixf(modelArr);
-    glDisable(GL_LIGHTING);
-    glColor3f(0.0f, 1.0f, 0.0f);
+    const float verde[3] = {0.0f, 1.0f, 0.0f};
 
     // Dibujo el hull real (bordes del convex hull) en vez de la caja
     // aproximada. getCollisionShape() construye la shape de forma lazy si
@@ -63,34 +61,34 @@ void MallaCollider::dibujarCollider() {
     if (hull && hull->getNumPoints() > 0) {
         const btVector3* points = hull->getUnscaledPoints();
         const int numPoints = hull->getNumPoints();
-        glBegin(GL_LINES);
+        // Pares consecutivos (i -> i+1 modulo n): poligono cerrado con la
+        // misma topologia que el dibujado inmediato original.
+        std::vector<float> segs(static_cast<size_t>(numPoints) * 6);
         for (int i = 0; i < numPoints; ++i) {
             const btVector3& a = points[i];
             const btVector3& b = points[(i + 1) % numPoints];
-            glVertex3f(a.x(), a.y(), a.z());
-            glVertex3f(b.x(), b.y(), b.z());
+            segs[6 * i + 0] = a.x();
+            segs[6 * i + 1] = a.y();
+            segs[6 * i + 2] = a.z();
+            segs[6 * i + 3] = b.x();
+            segs[6 * i + 4] = b.y();
+            segs[6 * i + 5] = b.z();
         }
-        glEnd();
+        ImmediateRenderer::dibujarSegmentos(
+            segs.data(), static_cast<int>(segs.size() / 3), verde, modelArr);
     } else {
         // Respaldo grafico: caja envolvente rapida al radio.
         float r = getRadio();
-        GLfloat box[8][3] = {
+        const float box[8][3] = {
             {-r, -r, -r}, { r, -r, -r}, { r,  r, -r}, {-r,  r, -r},
             {-r, -r,  r}, { r, -r,  r}, { r,  r,  r}, {-r,  r,  r}
         };
-        GLuint edges[12][2] = {
+        const int edges[12][2] = {
             {0,1}, {1,2}, {2,3}, {3,0},
             {4,5}, {5,6}, {6,7}, {7,4},
             {0,4}, {1,5}, {2,6}, {3,7}
         };
-        glBegin(GL_LINES);
-        for (int i = 0; i < 12; i++) {
-            glVertex3fv(box[edges[i][0]]);
-            glVertex3fv(box[edges[i][1]]);
-        }
-        glEnd();
+        ImmediateRenderer::dibujarAristas(&box[0][0], 8, &edges[0][0], 12,
+                                          verde, modelArr);
     }
-
-    glEnable(GL_LIGHTING);
-    glPopMatrix();
 }

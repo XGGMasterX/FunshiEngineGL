@@ -21,7 +21,6 @@
 #include <cmath>
 #include <cstdint>
 #include <ios>
-#include "../../GLCompat.h"
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/matrix_decompose.hpp>
@@ -139,19 +138,6 @@ void Transform::saveComponent(std::ofstream* fileNamePathContentObject) {
 
 void Transform::loadComponent(std::ifstream* fileNamePathContentObject) {
     deserializeComponent(fileNamePathContentObject);
-}
-
-void Transform::position() {
-    glPushMatrix();
-    // Reposicionamiento del Objeto En Cuestion
-    glTranslatef(getTranslatef()[0], getTranslatef()[1], getTranslatef()[2]);
-
-    // Escalacion De Objeto En Cuestion
-    glScalef(getScalef()[0], getScalef()[1], getScalef()[2]);
-
-    // Rotacion de Objeto En Cuestion
-    glRotatef(getRotatef()[0], getRotatef()[1], getRotatef()[2],
-              getRotatef()[3]);
 }
 
 void buildMatrixFromTransform(Transform* t, float outMatrix[16]) {

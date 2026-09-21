@@ -22,8 +22,6 @@
 #include <cstring>
 #include <iostream>
 
-#include "../../GLCompat.h"
-
 namespace {
 // Longitud maxima de path de textura en disco. El deserializador descarta
 // paths por encima (cota estilo Modelos3D) para no leer buffers gigantes de
@@ -146,11 +144,3 @@ void Material::setEmission(float r, float g, float b) {
     emission[0] = r; emission[1] = g; emission[2] = b; emission[3] = 1.f;
 }
 void Material::setShininess(float value) { shininess = value; }
-
-void Material::aplicar() {
-    glMaterialfv(GL_FRONT, GL_AMBIENT, ambient);
-    glMaterialfv(GL_FRONT, GL_DIFFUSE, diffuse);
-    glMaterialfv(GL_FRONT, GL_SPECULAR, specular);
-    glMaterialfv(GL_FRONT, GL_EMISSION, emission);
-    glMaterialf(GL_FRONT, GL_SHININESS, shininess);
-}

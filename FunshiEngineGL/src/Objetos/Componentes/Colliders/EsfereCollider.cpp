@@ -19,9 +19,10 @@
 #include "EsfereCollider.h"
 
 #include <cmath>
-#include "../../../GLCompat.h"
 #include <memory>
 #include <btBulletDynamicsCommon.h>
+
+#include "../../../Rendering/ImmediateRenderer.h"
 
 EsfereCollider::EsfereCollider(float radio, Transform* transformOfDadObject,
                                GameObject* owner)
@@ -36,49 +37,44 @@ void EsfereCollider::dibujarCollider() {
 
     const float PI = 3.14159265358979323846f;
 
-    glPushMatrix();
     float modelArr[16];
     buildMatrixFromTransform(&globalT, modelArr);
-    glMultMatrixf(modelArr);
-    glDisable(GL_LIGHTING);
 
+    const float verde[3] = {0.0f, 1.0f, 0.0f};
     const int meridians = 8;
     const int parallels = 4;
 
-    glColor3f(0.0f, 1.0f, 0.0f);
+    // Solo geometria: los segmentos de la esfera se dibujan via la capa de
+    // Rendering (ImmediateRenderer).
+    float pts[40][3];
 
     for (int m = 0; m < meridians; ++m) {
         float angle = (2.0f * PI * m) / meridians;
 
-        glBegin(GL_LINE_STRIP);
         for (int p = 0; p <= 20; ++p) {
             float lat = PI * float(p) / 20.0f - PI / 2.0f;
 
-            float x = radio * cosf(lat) * cosf(angle);
-            float y = radio * sinf(lat);
-            float z = radio * cosf(lat) * sinf(angle);
-
-            glVertex3f(x, y, z);
+            pts[p][0] = radio * cosf(lat) * cosf(angle);
+            pts[p][1] = radio * sinf(lat);
+            pts[p][2] = radio * cosf(lat) * sinf(angle);
         }
-        glEnd();
+
+        ImmediateRenderer::dibujarPolilinea(
+            &pts[0][0], 21, false, verde, modelArr);
     }
 
     for (int p = 1; p <= parallels; ++p) {
         float lat = PI * p / (parallels + 1) - PI / 2.0f;
 
-        glBegin(GL_LINE_LOOP);
         for (int m = 0; m < 40; ++m) {
             float lon = 2.0f * PI * m / 40.0f;
 
-            float x = radio * cosf(lat) * cosf(lon);
-            float y = radio * sinf(lat);
-            float z = radio * cosf(lat) * sinf(lon);
-
-            glVertex3f(x, y, z);
+            pts[m][0] = radio * cosf(lat) * cosf(lon);
+            pts[m][1] = radio * sinf(lat);
+            pts[m][2] = radio * cosf(lat) * sinf(lon);
         }
-        glEnd();
-    }
 
-    glEnable(GL_LIGHTING);
-    glPopMatrix();
+        ImmediateRenderer::dibujarPolilinea(
+            &pts[0][0], 40, true, verde, modelArr);
+    }
 }
