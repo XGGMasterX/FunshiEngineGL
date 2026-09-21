@@ -24,7 +24,6 @@
 
 #include <glm/gtc/type_ptr.hpp>
 
-#include "../../GLCompat.h"
 #include "../Shaders/ShaderException.h"
 
 namespace Rendering {
