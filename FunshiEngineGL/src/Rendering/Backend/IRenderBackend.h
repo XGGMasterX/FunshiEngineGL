@@ -57,6 +57,23 @@ struct Image2D {
     const unsigned char* pixels = nullptr;
 };
 
+// Luz del pipeline de compatibilidad (semantica GL_LIGHT0..GL_LIGHT7) lista
+// para el backend. Es la contraparte API-agnostica de LightData (Iluminacion):
+// el renderer de la escena convierte una en la otra antes de llamar aca, para
+// que la interfaz no dependa de la capa de entidades.
+struct LegacyLight {
+    int type = 0;                          // 0 direccional, 1 punto, 2 spot.
+    float worldPos[3] = {0.f, 0.f, 0.f};   // direccion para direccional.
+    float direction[3] = {0.f, 0.f, -1.f}; // forward del objeto (spot/direccional).
+    float ambient[3] = {0.f, 0.f, 0.f};
+    float diffuse[3] = {1.f, 1.f, 1.f};
+    float specular[3] = {1.f, 1.f, 1.f};
+    float constant = 1.f;
+    float linear = 0.f;
+    float quadratic = 0.f;
+    float spotCutoffDegrees = 45.f;
+};
+
 // Contrato de backend grafico. Los recursos se crean/destruyen por handle y
 // las operaciones de dibujado son inmediatas o pequenas (malla indexada,
 // primitivas de linea, triangulos del fallback legacy). Los consumidores de la
@@ -104,11 +121,33 @@ public:
     virtual void bindDefaultFramebuffer() = 0;
     // Handle de la textura de color del target (para mostrarla como ImTextureID).
     virtual Handle renderTargetColorTexture(Handle target) const = 0;
+    // Handle como descriptor opaco para la GUI (ImGui::Image): en GL vuelve el
+    // GLuint como puntero; en Vulkan volvera un descriptor set. La GUI nunca
+    // ve el valor concreto, solo lo reenvia como ImTextureID.
+    virtual void* imguiTextureId(Handle texture) const = 0;
 
     // --- Estado del pipeline de compatibilidad / stack de matrices -----------
     // Operaciones heredadas del modo inmediato (grilla, wireframes, fallback
     // legacy). El backend las traduce a su API nativa; en Vulkan estas llamadas
     // desaparecen a favor de buffers, por eso aqui solo se declara el minimo.
+    // Viewport del framebuffer actual (glViewport): lo necesitan la pasada
+    // principal y las vistas previas (cada una con su propio encuadre).
+    virtual void setViewport(int x, int y, int width, int height) = 0;
+    // Carga las matrices con las que dibujan las pasadas de compatibilidad
+    // (glMatrixMode + glLoadMatrixf en GL).
+    virtual void setCompatibilityMatrices(const float* projection,
+                                          const float* view) = 0;
+    // Limpia el framebuffer actual con el fondo dado (color + profundidad).
+    virtual void clearScreen(const float color[3]) = 0;
+    // Luces legacy (GL_LIGHT0..7): habilita iluminacion, fija el modelo global
+    // y parametriza los primeros lightCount slots (apaga el resto). Reemplaza
+    // el GL que vivia en LightSystem::beginFrame.
+    virtual void setLegacyLights(const LegacyLight* lights, int lightCount,
+                                 const float* globalAmbient) = 0;
+    // Instante del estado del pipeline de compatibilidad (iluminacion, luz 0 y
+    // ultimo error grabado) como cadena corta para el diag del editor. El
+    // buffer es interno del backend y vale solo hasta la siguiente llamada.
+    virtual const char* diagnosticoCompat() const = 0;
     virtual void pushMatrix() = 0;
     virtual void popMatrix() = 0;
     virtual void multMatrix(const float mat4[16]) = 0;

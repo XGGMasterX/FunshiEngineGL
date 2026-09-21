@@ -18,7 +18,6 @@
 */
 #include "CameraComponent.h"
 
-#include "../../GLCompat.h"
 #include <cmath>
 #include <cstring>
 
@@ -246,15 +245,6 @@ void CameraComponent::updateYaw(float dYawX, float dYawY) {
     if (yawY < -89.0f) yawY = -89.0f;
     calculardireccion();
     escribirATransform();
-}
-
-void CameraComponent::activar() {
-    leerDesdeTransform();
-    const float lookAt[3] = {m_pos[0] + m_dir[0], m_pos[1] + m_dir[1],
-                             m_pos[2] + m_dir[2]};
-    gluLookAt(m_pos[0], m_pos[1], m_pos[2],
-              lookAt[0], lookAt[1], lookAt[2],
-              m_up[0], m_up[1], m_up[2]);
 }
 
 void CameraComponent::getViewMatrix(float* outMatrix) const {

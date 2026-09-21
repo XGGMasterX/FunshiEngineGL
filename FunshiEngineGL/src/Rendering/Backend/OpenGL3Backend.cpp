@@ -18,6 +18,7 @@
 */
 #include "OpenGL3Backend.h"
 
+#include <cstdio>
 #include <iostream>
 #include <string>
 
@@ -447,9 +448,97 @@ Handle OpenGL3Backend::renderTargetColorTexture(Handle target) const {
     return static_cast<Handle>(it->second.colorTex);
 }
 
+void* OpenGL3Backend::imguiTextureId(Handle texture) const {
+    if (texture == kInvalidHandle) return nullptr;
+    // El handle es el GLuint en opaco; ImGui lo trata como ImTextureID (void*).
+    return reinterpret_cast<void*>(static_cast<std::uintptr_t>(texture));
+}
+
 // ---------------------------------------------------------------------------
 // Estado del pipeline de compatibilidad / matriz de modelo
 // ---------------------------------------------------------------------------
+
+void OpenGL3Backend::setViewport(int x, int y, int width, int height) {
+    if (width <= 0 || height <= 0) return;
+    glViewport(x, y, width, height);
+}
+
+void OpenGL3Backend::setCompatibilityMatrices(const float* projection,
+                                              const float* view) {
+    glMatrixMode(GL_PROJECTION);
+    glLoadMatrixf(projection);
+    glMatrixMode(GL_MODELVIEW);
+    glLoadMatrixf(view);
+}
+
+void OpenGL3Backend::clearScreen(const float color[3]) {
+    glClearColor(color ? color[0] : 0.f, color ? color[1] : 0.f,
+                 color ? color[2] : 0.f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+}
+
+void OpenGL3Backend::setLegacyLights(const LegacyLight* lights,
+                                     int lightCount,
+                                     const float* globalAmbient) {
+    glEnable(GL_LIGHTING);
+    glEnable(GL_NORMALIZE);
+
+    // Modelo global (GL_LIGHT_MODEL_AMBIENT): si no llega, se usa el default
+    // gris tenue que usaba LightSystem.
+    static const float kAmbientDefault[4] = {0.15f, 0.15f, 0.15f, 1.0f};
+    const GLfloat ambientModel[4] = {
+        globalAmbient ? globalAmbient[0] : kAmbientDefault[0],
+        globalAmbient ? globalAmbient[1] : kAmbientDefault[1],
+        globalAmbient ? globalAmbient[2] : kAmbientDefault[2], 1.0f};
+    glLightModelfv(GL_LIGHT_MODEL_AMBIENT, ambientModel);
+
+    // Apagar todos los slots garantiza que luces removidas no sigan activas:
+    // el backend es dueno del estado de luz, no vive sobre estado heredado.
+    for (int i = 0; i < 8; ++i) glDisable(static_cast<GLenum>(GL_LIGHT0 + i));
+
+    if (!lights || lightCount <= 0) return;
+    const int n = lightCount < 8 ? lightCount : 8;
+    for (int i = 0; i < n; ++i) {
+        const LegacyLight& d = lights[i];
+        const GLenum slot = static_cast<GLenum>(GL_LIGHT0 + i);
+        const bool direccional = (d.type == 0);
+
+        const GLfloat pos[4] = {d.worldPos[0], d.worldPos[1], d.worldPos[2],
+                                direccional ? 0.f : 1.f};
+        const GLfloat amb[4] = {d.ambient[0], d.ambient[1], d.ambient[2], 1.f};
+        const GLfloat diff[4] = {d.diffuse[0], d.diffuse[1], d.diffuse[2], 1.f};
+        const GLfloat spec[4] = {d.specular[0], d.specular[1], d.specular[2],
+                                 1.f};
+
+        glEnable(slot);
+        glLightfv(slot, GL_POSITION, pos);
+        glLightfv(slot, GL_AMBIENT, amb);
+        glLightfv(slot, GL_DIFFUSE, diff);
+        glLightfv(slot, GL_SPECULAR, spec);
+
+        if (d.type == 1 || d.type == 2) {
+            glLightf(slot, GL_CONSTANT_ATTENUATION, d.constant);
+            glLightf(slot, GL_LINEAR_ATTENUATION, d.linear);
+            glLightf(slot, GL_QUADRATIC_ATTENUATION, d.quadratic);
+        }
+        if (d.type == 2) {
+            const GLfloat spotDir[3] = {d.direction[0], d.direction[1],
+                                        d.direction[2]};
+            glLightfv(slot, GL_SPOT_DIRECTION, spotDir);
+            glLightf(slot, GL_SPOT_CUTOFF, d.spotCutoffDegrees);
+            glLightf(slot, GL_SPOT_EXPONENT, 1.f);
+        }
+    }
+}
+
+const char* OpenGL3Backend::diagnosticoCompat() const {
+    static thread_local char buffer[96];
+    std::snprintf(buffer, sizeof(buffer), "GL_LIGHTING=%s GL_LIGHT0=%s err=0x%x",
+                  glIsEnabled(GL_LIGHTING) ? "on" : "off",
+                  glIsEnabled(GL_LIGHT0) ? "on" : "off",
+                  static_cast<unsigned int>(glGetError()));
+    return buffer;
+}
 
 void OpenGL3Backend::pushMatrix() { glPushMatrix(); }
 

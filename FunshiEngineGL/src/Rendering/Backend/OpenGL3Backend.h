@@ -66,8 +66,16 @@ public:
     void bindRenderTarget(Handle target) override;
     void bindDefaultFramebuffer() override;
     Handle renderTargetColorTexture(Handle target) const override;
+    void* imguiTextureId(Handle texture) const override;
 
     // --- Estado inmediato / matrices ---
+    void setViewport(int x, int y, int width, int height) override;
+    void setCompatibilityMatrices(const float* projection,
+                                  const float* view) override;
+    void clearScreen(const float color[3]) override;
+    void setLegacyLights(const LegacyLight* lights, int lightCount,
+                         const float* globalAmbient) override;
+    const char* diagnosticoCompat() const override;
     void pushMatrix() override;
     void popMatrix() override;
     void multMatrix(const float mat4[16]) override;

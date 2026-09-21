@@ -25,8 +25,6 @@
 #include "../Objetos/Componentes/CameraComponent.h"
 #include "../Fisicas/PhysicsEngine.h"
 #include "../Iluminacion/LightSystem.h"
-#include "../Objetos/Componentes/Color.h"
-#include "../Objetos/Componentes/Light.h"
 #include "../Objetos/Componentes/Script.h"
 #include "../Objetos/Componentes/Transform.h"
 #include "../Objetos/Componentes/Grid.h"
@@ -43,11 +41,10 @@
 #include "../Assets/AssimpMeshLoader.h"
 #include "../Assets/StbImageLoader.h"
 #include "../Assets/TextureManager.h"
-#include "../Rendering/MeshRenderer.h"
+#include "../Rendering/Backend/IRenderBackend.h"
 #include "../Rendering/RenderTarget.h"
-#include "../Rendering/ImmediateRenderer.h"
+#include "../Rendering/SceneRenderer.h"
 #include "ImGuizmo.h"
-#include "../GLCompat.h"
 #include <cmath>
 #include <imgui.h>
 #include <iostream>
@@ -83,7 +80,7 @@ GameScene::GameScene(GUIManager* manager)
       phisics(std::make_unique<PhysicsEngine>()),
       assetManager(
           std::make_unique<AssetManager>(std::make_unique<AssimpMeshLoader>())),
-      meshRenderer(std::make_unique<MeshRenderer>()),
+      sceneRenderer(std::make_unique<SceneRenderer>()),
       textureManager(std::make_unique<TextureManager>(
           std::make_unique<StbImageLoader>())),
       editorController(
@@ -99,14 +96,15 @@ GameScene::GameScene(GUIManager* manager)
     menuBarGUI = managerGUI->getMenuBarGUI(&start);
     // El renderer resuelve la textura de cada Material con el cache de imagenes
     // de la escena (un solo decode por archivo, imagen compartida).
-    meshRenderer->setTextureManager(textureManager.get());
+    sceneRenderer->setTextureManager(textureManager.get());
 }
 
 GameScene::~GameScene() {
-    // Libera las display lists de la grilla si se llegaron a compilar. En el
-    // flujo normal main() crea GameScene con new y no la destruye antes de
-    // glfwTerminate, asi que esto es higiene defensiva (contexto GL vivo).
-    grillaRenderer.destruir();
+    // Libera las geometrias cacheadas del SceneRenderer (meshes SUV + grilla)
+    // si se llegaron a compilar. En el flujo normal main() crea GameScene con
+    // new y no la destruye antes de glfwTerminate, asi que esto es higiene
+    // defensiva (contexto GL vivo).
+    if (sceneRenderer) sceneRenderer->destruir();
     if (editorController) editorController->clearScene();
     if (selecteableGUI) selecteableGUI->bindScene(nullptr, nullptr, nullptr);
 }
@@ -340,209 +338,6 @@ GameObject* GameScene::agregarCamaraEnVistaActiva() {
     return creada;
 }
 
-void GameScene::dibujarGameObjects() {
-    CameraComponent* camara = getActiveCamera();
-    if (!camara) return;
-    ImGuiIO& io = ImGui::GetIO();
-    const float aspect = (io.DisplaySize.x > 0.f && io.DisplaySize.y > 0.f)
-                             ? io.DisplaySize.x / io.DisplaySize.y
-                             : 1.77f;
-    float view[16], projection[16];
-    camara->getViewMatrix(view);
-    camara->getProjectionMatrix(projection, aspect);
-    prepararLucesFrame();
-    dibujarGameObjectsConOjo(activeCameraObject, view, projection);
-}
-
-void GameScene::dibujarGameObjectsConOjo(GameObject* camaraOjo,
-                                         const float view[16],
-                                         const float projection[16]) {
-    auto* gameObjects = getGameObjectsScene();
-    if (!gameObjects || gameObjects->isEmpty()) return;
-    Position<GameObject*>* pos = gameObjects->first();
-    while (pos && pos->getElement()) {
-        dibujarObjectConOjo(pos->getElement(), camaraOjo, view, projection);
-        pos = (pos != gameObjects->last()) ? gameObjects->next(pos) : nullptr;
-    }
-}
-
-void GameScene::dibujarObject(GameObject* object) {
-    CameraComponent* camara = getActiveCamera();
-    if (!camara) return;
-    ImGuiIO& io = ImGui::GetIO();
-    const float aspect = (io.DisplaySize.x > 0.f && io.DisplaySize.y > 0.f)
-                             ? io.DisplaySize.x / io.DisplaySize.y
-                             : 1.77f;
-    float view[16], projection[16];
-    camara->getViewMatrix(view);
-    camara->getProjectionMatrix(projection, aspect);
-    prepararLucesFrame();
-    dibujarObjectConOjo(object, activeCameraObject, view, projection);
-}
-
-void GameScene::dibujarObjectConOjo(GameObject* object, GameObject* camaraOjo,
-                                    const float view[16],
-                                    const float projection[16]) {
-    object->setTam(10);
-    object->setColor(object->auxColor);
-
-    if (object->getComponent<Transform>()) {
-        // Los objetos intentan el pipeline moderno (VBO/VAO + shader); si no
-        // esta disponible o la malla no tiene normales, degradan al modo
-        // inmediato para no perder la visibilidad que habia hasta ahora.
-        auto* modelo = dynamic_cast<Modelos3D*>(object);
-
-        if (modelo && meshRenderer &&
-            meshRenderer->intentarRender(modelo, view, projection, deltaTime)) {
-            // Render moderno (update + material + geometria) ya hecho.
-        } else {
-            object->dibujar(deltaTime);
-        }
-    }
-
-    if (object->getComponent<Light>())
-        dibujarMarcadorLuz(object);
-
-    if (object->getComponent<CameraComponent>() && object != camaraOjo)
-        dibujarMarcadorCamara(object);
-
-    // Wireframe del collider en la escena 3D: SOLO mientras el gizmo del
-    // offset del collider esta habilitado para este objeto (checkbox
-    // "Gizmo activo" del transform del collider).
-    if (isEditorActivo() && object != camaraOjo && editorController) {
-        Collider* collider = object->getComponent<Collider>();
-        Transform* colliderTransform =
-            collider ? collider->getTransform() : nullptr;
-
-        if (collider && colliderTransform &&
-            colliderTransform->gizmoHabilitado &&
-            collider->getOwner() == editorController->getSelectedObject()) {
-            collider->dibujarCollider();
-        }
-    }
-}
-
-// Gizmo visual de una luz: un octaedro alambre amarillo en la posicion del
-// objeto, para poder ubicar y seleccionar luces que no tienen cuerpo.
-void GameScene::dibujarMarcadorLuz(GameObject* object) {
-    Transform* transform = object->getGlobalTransform();
-    if (!transform) return;
-
-    float modelArr[16];
-    buildMatrixFromTransform(transform, modelArr);
-
-    const float size = 0.5f;
-    const float v[6][3] = {
-        { 1.f, 0.f, 0.f}, {-1.f, 0.f, 0.f},
-        { 0.f, 1.f, 0.f}, { 0.f,-1.f, 0.f},
-        { 0.f, 0.f, 1.f}, { 0.f, 0.f,-1.f}};
-    const int edges[12][2] = {
-        {0,2},{0,3},{0,4},{0,5},
-        {1,2},{1,3},{1,4},{1,5},
-        {2,4},{2,5},{3,4},{3,5}};
-
-    // Los vertices se escalan (octaedro chico) y el dibujo lo hace la capa
-    // de Rendering.
-    float vsize[6][3];
-    for (int i = 0; i < 6; ++i)
-        for (int j = 0; j < 3; ++j) vsize[i][j] = v[i][j] * size;
-
-    const float color[3] = {1.f, 0.85f, 0.1f};
-    ImmediateRenderer::dibujarAristas(&vsize[0][0], 6, &edges[0][0], 12, color,
-                                      modelArr);
-}
-
-// Gizmo visual de una camara secundaria: frustum de vision alambre cian. La
-// camara activa no dibuja el suyo (seria visera en la propia vista).
-void GameScene::dibujarMarcadorCamara(GameObject* object) {
-    CameraComponent* camara = object->getComponent<CameraComponent>();
-    Transform* transform = object->getGlobalTransform();
-    if (!camara || !transform) return;
-
-    float modelArr[16];
-    buildMatrixFromTransform(transform, modelArr);
-
-    ImGuiIO& io = ImGui::GetIO();
-    const float aspect = (io.DisplaySize.x > 0.f && io.DisplaySize.y > 0.f)
-                             ? io.DisplaySize.x / io.DisplaySize.y
-                             : 1.77f;
-
-    const float tanHalf =
-        std::tan(camara->getFov() * 0.5f * 3.14159265358979f / 180.f);
-    const float nearDist = camara->getNearPlane();
-    const float farDist = camara->getFarPlane();
-    const float halfHNear = tanHalf * nearDist;
-    const float halfWNear = halfHNear * aspect;
-    const float halfHFar = tanHalf * farDist;
-    const float halfWFar = halfHFar * aspect;
-
-    // Frustum: 4 esquinas del plano near (0..3) + 4 del far (4..7). Los 12
-    // bordes de "edges" indexan los 8 puntitos, por eso todo vive en un solo
-    // array (antes far y near estaban separados y se leia fuera de rango).
-    const float vFrustum[8][3] = {
-        {-halfWNear, -halfHNear, -nearDist},
-        { halfWNear, -halfHNear, -nearDist},
-        {-halfWNear,  halfHNear, -nearDist},
-        { halfWNear,  halfHNear, -nearDist},
-        {-halfWFar,  -halfHFar,  -farDist},
-        { halfWFar,  -halfHFar,  -farDist},
-        {-halfWFar,   halfHFar,  -farDist},
-        { halfWFar,   halfHFar,  -farDist}};
-    const int edges[12][2] = {
-        {0,1},{0,2},{3,1},{3,2},
-        {4,5},{4,6},{7,5},{7,6},
-        {0,4},{1,5},{2,6},{3,7}};
-
-    const float color[3] = {0.3f, 0.8f, 0.9f};
-    ImmediateRenderer::dibujarAristas(&vFrustum[0][0], 8, &edges[0][0], 12,
-                                      color, modelArr);
-}
-
-void GameScene::dibujarGrillaEditor() {
-    auto* gameObjects = getGameObjectsScene();
-
-    if (!gameObjects || gameObjects->isEmpty())
-        return;
-
-    Position<GameObject*>* pos = gameObjects->first();
-
-    while (pos && pos->getElement()) {
-        GameObject* object = pos->getElement();
-
-        if (object->getComponent<Grid>() != nullptr) {
-            dibujarGrilla(object);
-            return;
-        }
-
-        pos = (pos != gameObjects->last())
-                  ? gameObjects->next(pos)
-                  : nullptr;
-    }
-}
-
-void GameScene::dibujarGrilla(GameObject* object) {
-    Grid* grid = object->getComponent<Grid>();
-    Transform* transform = object->getGlobalTransform();
-    if (!grid || !grid->getVisible() || !transform) return;
-
-    const float tam = grid->getTam();
-    const float sep = grid->getSeparacion();
-    if (tam <= 0.f || sep <= 0.f) return;
-
-    float modelArr[16];
-    buildMatrixFromTransform(transform, modelArr);
-
-    // Color efectivo de la grilla segun el perfil de apariencia: en modo
-    // blanco y negro se ignora el color del componente y se usa el contraste
-    // puro (la display list debe recompilarse si cambia el perfil).
-    float colorGrilla[3];
-    AparienciaUtil::grillaEfectiva(apariencia, grid->getColor(), colorGrilla);
-
-    // El dibujado (display lists + line widths) vive en la capa de Rendering;
-    // aqui se le pasa la matriz del objeto "Grilla" y los datos efectivos.
-    grillaRenderer.dibujar(modelArr, colorGrilla, tam, sep);
-}
-
 void GameScene::GUI() {
     auto* gameObjects = getGameObjectsScene();
     selecteableGUI->printGUI();
@@ -558,98 +353,13 @@ void GameScene::GUI() {
     }
 }
 
-// Dibuja la escena 3D completa (grilla + objetos + marcadores) desde una
-// vista/proyeccion dadas. La "camaraOjo" es el objeto con CameraComponent que
-// esta viendo (no dibuja su propio marcador).
-void GameScene::dibujarEscena(const float view[16],
-                              const float projection[16],
-                              GameObject* camaraOjo) {
-    glMatrixMode(GL_PROJECTION);
-    glLoadMatrixf(projection);
-
-    glMatrixMode(GL_MODELVIEW);
-    glLoadMatrixf(view);
-
-    // La grilla se dibuja como una pasada independiente del renderer
-    // de modelos. De esta forma no depende de Modelos3D ni del resultado
-    // del recorrido normal de las entidades.
-    dibujarGrillaEditor();
-
-    lightSystem.beginFrame(getGameObjectsScene());
-    prepararLucesFrame();
-
-    dibujarGameObjectsConOjo(camaraOjo, view, projection);
-}
-
-void GameScene::prepararLucesFrame() {
-    if (!meshRenderer) return;
-    LightData luces[LightSystem::kMaxLights];
-    int numLuces = 0;
-    lightSystem.collectLights(getGameObjectsScene(), luces, numLuces);
-    meshRenderer->setLuces(luces, numLuces, lightSystem.getGlobalAmbient());
-}
-
-// Pasada de vista previa (Fase 2): por cada camara con "Vista previa" activo
-// se pinta la escena a una textura FBO que luego muestra una ventana ImGui.
-void GameScene::dibujarViewportsPrevios() {
-    auto* gameObjects = getGameObjectsScene();
-    std::vector<std::unique_ptr<RenderTarget>> nuevos;
-    std::vector<GameObject*> nuevosObjetos;
-    if (gameObjects && !gameObjects->isEmpty()) {
-        Position<GameObject*>* pos = gameObjects->first();
-        while (pos && pos->getElement()) {
-            GameObject* objeto = pos->getElement();
-            CameraComponent* camara = objeto->getComponent<CameraComponent>();
-            if (camara && camara->getPintar()) {
-                camara->setUp(objeto);
-
-                // Reutilizar el FBO del frame anterior del mismo objeto en
-                // lugar de recrearlo (evita churn de texturas en el GPU).
-                std::unique_ptr<RenderTarget> target;
-                for (size_t i = 0; i < viewportsCamaras.size(); ++i) {
-                    if (viewportsObjetos[i] == objeto) {
-                        target.reset(viewportsCamaras[i].release());
-                        break;
-                    }
-                }
-                if (!target) target = std::make_unique<RenderTarget>();
-
-                target->resize(kPreviewW, kPreviewH);
-                target->bind();
-                glViewport(0, 0, kPreviewW, kPreviewH);
-                // El FBO hereda el estado GL; se fija el fondo del perfil para
-                // que la vista previa use el mismo color que la pasada principal.
-                float fondoPreview[3];
-                AparienciaUtil::fondoEfectivo(apariencia, fondoPreview);
-                glClearColor(fondoPreview[0], fondoPreview[1], fondoPreview[2],
-                             1.0f);
-                glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-                float view[16], projection[16];
-                camara->getViewMatrix(view);
-                camara->getProjectionMatrix(
-                    projection,
-                    static_cast<float>(kPreviewW) /
-                        static_cast<float>(kPreviewH));
-                dibujarEscena(view, projection, objeto);
-
-                RenderTarget::unbind();
-
-                nuevos.push_back(std::move(target));
-                nuevosObjetos.push_back(objeto);
-            }
-            pos = (pos != gameObjects->last()) ? gameObjects->next(pos)
-                                               : nullptr;
-        }
-    }
-    viewportsCamaras = std::move(nuevos);
-    viewportsObjetos = std::move(nuevosObjetos);
-}
-
 void GameScene::pintarViewportsGUI() {
-    for (size_t index = 0; index < viewportsCamaras.size(); ++index) {
-        RenderTarget* target = viewportsCamaras[index].get();
-        GameObject* objeto = viewportsObjetos[index];
+    if (!sceneRenderer) return;
+    const auto& targets = sceneRenderer->viewportTargets();
+    const auto& objetos = sceneRenderer->viewportObjects();
+    for (size_t index = 0; index < targets.size(); ++index) {
+        RenderTarget* target = targets[index].get();
+        GameObject* objeto = objetos[index];
         if (!target || !objeto) continue;
 
         char title[64];
@@ -664,9 +374,12 @@ void GameScene::pintarViewportsGUI() {
         ImGui::Begin(title);
         // La textura del FBO tiene origen abajo-izquierda; se voltea el UV
         // vertical ("v" invertida) para que la vista previa no quede dada
-        // vuelta.
+        // vuelta. La GUI no ve handles concretos: pide al backend el descriptor
+        // opaco (en GL el GLuint viaja como puntero = ImTextureID).
+        const void* imguiTex = Rendering::Backend::activeBackend()
+                                   .imguiTextureId(target->getColorTexture());
         ImGui::Image(
-            (ImTextureID)(intptr_t)target->getColorTexture(),
+            static_cast<ImTextureID>(reinterpret_cast<std::intptr_t>(imguiTex)),
             ImVec2(static_cast<float>(target->getWidth()),
                    static_cast<float>(target->getHeight())),
             ImVec2(0.f, 1.f), ImVec2(1.f, 0.f));
@@ -1119,88 +832,36 @@ void GameScene::gameScene() {
     const int fbH = static_cast<int>(io.DisplaySize.y);
     if (fbW <= 0 || fbH <= 0) return;
 
-    // Pasada de vistas previas (Fase 2): cada camara con "Vista previa" activo
-    // pinta la escena a su textura FBO antes de la pasada principal.
-    dibujarViewportsPrevios();
+    // Luces CPU de la pasada (misma semantica que GL_LIGHT0..7): la escena
+    // recoge y el SceneRenderer las aplica al backend y a los uniforms.
+    LightData luces[LightSystem::kMaxLights];
+    int numLuces = 0;
+    lightSystem.collectLights(getGameObjectsScene(), luces, numLuces);
 
-    // Pass principal: vuelve al framebuffer de la ventana con su viewport.
-    RenderTarget::unbind();
-    glViewport(0, 0, fbW, fbH);
+    SceneRenderer::FrameContext ctx;
+    ctx.gameObjects = getGameObjectsScene();
+    ctx.apariencia = &apariencia;
+    ctx.deltaTime = deltaTime;
+    ctx.editorActivo = isEditorActivo();
+    ctx.selectedObject =
+        editorController ? editorController->getSelectedObject() : nullptr;
+    ctx.lights = luces;
+    ctx.lightCount = numLuces;
+    ctx.globalAmbient = lightSystem.getGlobalAmbient();
+    ctx.framebufferWidth = fbW;
+    ctx.framebufferHeight = fbH;
 
+    // Pasada de la escena (vistas previas + pasada principal + diag) en la
+    // capa de Rendering.
+    sceneRenderer->render(ctx, activeCameraObject, camara);
+
+    // Matrices de la vista activa: las necesita el gizmo (la pasada principal
+    // ya las aplico por su cuenta; aca se recalculan para ImGuizmo).
     float view[16], projection[16];
     camara->getViewMatrix(view);
     camara->getProjectionMatrix(projection,
                                 static_cast<float>(fbW) /
                                     static_cast<float>(fbH));
-    static bool diagMatricesPendiente = true;
-    if (diagMatricesPendiente) {
-        diagMatricesPendiente = false;
-        bool noFinita = false;
-        for (int i = 0; i < 16; ++i) {
-            if (!std::isfinite(view[i]) || !std::isfinite(projection[i])) {
-                noFinita = true;
-                break;
-            }
-        }
-        const float* diagPos = camara->getPosition();
-        const float fwd[3] = {-view[2], -view[6], -view[10]};
-        std::cout << "[diag] matrices camara finitas: "
-                  << (noFinita ? "NO (NaN/Inf)" : "si") << "; pos camara = ("
-                  << diagPos[0] << ", " << diagPos[1] << ", " << diagPos[2]
-                  << ") fwd=(" << fwd[0] << ", " << fwd[1] << ", " << fwd[2]
-                  << ") fov=" << camara->getFov()
-                  << " near=" << camara->getNearPlane()
-                  << " far=" << camara->getFarPlane() << std::endl;
-
-        // Estado de luz real del frame: GL_LIGHTING, LUZS presentes y ultima
-        // luz habilitada por LightSystem. Si dicen que hay luces pero aca no
-        // hay ninguna, es la causa negra en modo inmediato + shader sin luz.
-        std::cout << "[diag] luces_en_escena=";
-        auto* diagObjects = getGameObjectsScene();
-        int diagLuces = 0;
-        int diagObjs = 0;
-        int diagConMalla = 0;
-        int diagConMallaYNormales = 0;
-        if (diagObjects && !diagObjects->isEmpty()) {
-            Position<GameObject*>* pos = diagObjects->first();
-            while (pos && pos->getElement()) {
-                GameObject* o = pos->getElement();
-                ++diagObjs;
-                if (o->getComponent<Light>()) ++diagLuces;
-                auto* m = dynamic_cast<Modelos3D*>(o);
-                if (m && m->getMesh() && !m->getMesh()->isEmpty()) {
-                    ++diagConMalla;
-                    if (m->getMesh()->hasNormals()) ++diagConMallaYNormales;
-                }
-                pos = (pos != diagObjects->last()) ? diagObjects->next(pos)
-                                                   : nullptr;
-            }
-        }
-        std::cout << diagLuces << " objetos=" << diagObjs
-                  << " conMalla=" << diagConMalla
-                  << " conMallaYNormales=" << diagConMallaYNormales
-                  << std::endl;
-        std::cout << "[diag] GL_LIGHTING=" << std::flush;
-        std::cout << (glIsEnabled(GL_LIGHTING) ? "on" : "off")
-                  << " GL_LIGHT0=" << std::flush;
-        std::cout << (glIsEnabled(GL_LIGHT0) ? "on" : "off") << std::endl;
-        GLenum err = glGetError();
-        std::cout << "[diag] glGetError tras pasada previa=" << std::hex
-                  << err << std::dec << std::endl;
-    }
-    dibujarEscena(view, projection, activeCameraObject);
-
-    static bool diagPostPassPendiente = true;
-    if (diagPostPassPendiente) {
-        diagPostPassPendiente = false;
-        GLenum err = glGetError();
-        std::cout << "[diag] glGetError tras pasada escena=" << std::hex
-                  << err << std::dec << std::endl;
-        std::cout << "[diag] MeshRenderer moderno disponible="
-                  << (meshRenderer && meshRenderer->available() ? "si"
-                                                                : "no")
-                  << std::endl;
-    }
 
     ImGuizmo::SetOrthographic(false);
     ImGuizmo::SetDrawlist(ImGui::GetForegroundDrawList());
