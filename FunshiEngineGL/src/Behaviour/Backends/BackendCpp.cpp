@@ -38,8 +38,8 @@
 #if defined(_WIN32)
 #include <windows.h>
 #define FUNSHI_DLOPEN(name) LoadLibraryA((name).c_str())
-#define FUNSHI_DLSYM(handle, symbol) GetProcAddress(handle, symbol)
-#define FUNSHI_DLOPENCERRAR(handle) FreeLibrary(handle)
+#define FUNSHI_DLSYM(handle, symbol) GetProcAddress(reinterpret_cast<HMODULE>(handle), symbol)
+#define FUNSHI_DLOPENCERRAR(handle) FreeLibrary(reinterpret_cast<HMODULE>(handle))
 #define FUNSHI_SYM_CREAR "FUNSHI_CREAR_COMPORTAMIENTO"
 #define FUNSHI_ARTEFACTO_EXT "dll"
 #elif defined(__APPLE__)

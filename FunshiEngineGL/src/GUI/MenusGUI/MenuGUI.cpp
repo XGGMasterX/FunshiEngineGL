@@ -111,7 +111,7 @@ const std::string& MenuGUI::getIdioma() const noexcept {
     return model.getIdioma();
 }
 
-void MenuGUI::setIdioma(const std::string& valor) {
+void MenuGUI::setIdioma(const std::string& valor) noexcept {
     model.setIdioma(valor); // publica IdiomaCambio
 }
 

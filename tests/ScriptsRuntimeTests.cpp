@@ -23,16 +23,6 @@
 // Si no hay compilador C++ en el entorno el test sale con SKIP (77) para que
 // CI de maquinas minimalistas no lo marque como fallo.
 
-#ifdef _WIN32
-#include <iostream>
-int main() {
-    std::cout << "scripts-runtime-tests: SKIP en Windows (requiere cl.exe con "
-                 "entorno de Visual Studio)."
-              << std::endl;
-    return 77;
-}
-#else
-
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
@@ -45,27 +35,11 @@ int main() {
 #include "../FunshiEngineGL/src/Behaviour/Reflection/BehaviourReflection.h"
 #include "../FunshiEngineGL/src/Behaviour/ScriptRuntime.h"
 
-using namespace ReflejoScripts;
-
-int total = 0;
-int fallos = 0;
-
-static bool casiIgual(float a, float b) {
-    return std::fabs(a - b) < 1e-5f;
-}
-
-#define CHECK(cond, msg)                                                       \
-    do {                                                                       \
-        ++total;                                                               \
-        if (!(cond)) {                                                         \
-            ++fallos;                                                          \
-            std::cout << "  [FALLO] " << msg << std::endl;                     \
-        }                                                                      \
-    } while (0)
-
 // Stub de MotorScript::tablaApi(): en el motor real lo implementa
 // ScriptGameObject.cpp (necesita GameObject completo); el test solo verifica
-// que el backend entrega una tabla no nula a la fabrica.
+// que el backend entrega una tabla no nula a la fabrica. Vive FUERA del guard
+// _WIN32 para que BackendCpp.cpp (que lo referencia) enlace tambien en
+// Windows: alli el main solo devuelve 77 (SKIP) pero el simbolo debe existir.
 namespace MotorScript {
 const ApiScriptGameObject* tablaApi() {
     static const ApiScriptGameObject tabla = {
@@ -85,6 +59,33 @@ const ApiScriptGameObject* tablaApi() {
     return &tabla;
 }
 } // namespace MotorScript
+
+#ifdef _WIN32
+int main() {
+    std::cout << "scripts-runtime-tests: SKIP en Windows (requiere cl.exe con "
+                 "entorno de Visual Studio)."
+              << std::endl;
+    return 77;
+}
+#else
+
+using namespace ReflejoScripts;
+
+int total = 0;
+int fallos = 0;
+
+static bool casiIgual(float a, float b) {
+    return std::fabs(a - b) < 1e-5f;
+}
+
+#define CHECK(cond, msg)                                                       \
+    do {                                                                       \
+        ++total;                                                               \
+        if (!(cond)) {                                                         \
+            ++fallos;                                                          \
+            std::cout << "  [FALLO] " << msg << std::endl;                     \
+        }                                                                      \
+    } while (0)
 
 namespace fs = std::filesystem;
 
