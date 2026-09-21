@@ -19,14 +19,15 @@
 #ifndef GLFUNCS_H
 #define GLFUNCS_H
 
-#include "../GLCompat.h"
+#include "../../GLCompat.h"
 #include <type_traits>
 
 // Las funciones modernas (shaders + VAO/VBO) no estan declaradas en el gl.h
 // del sistema en todas las plataformas. Se cargan por puntero con el mismo
-// mecanismo que usa RenderTarget para los FBO ("same fashion as GLFW"): todos
-// los accesos a estas funciones pasan por este namespace. Si alguna no existe
-// en el driver, available() == false y el renderer degrada al modo inmediato.
+// mecanismo que usa el resto del backend de GPU ("same fashion as GLFW"): todos
+// los accesos a estas funciones pasan por este namespace, que es INTERNO del
+// backend concreto (OpenGL3Backend). Si alguna no existe en el driver,
+// available() == false y el renderer degrada al modo inmediato.
 namespace GLFuncs {
 
 typedef GLuint (GLAPIENTRY* FN_CreateShader)(GLenum);

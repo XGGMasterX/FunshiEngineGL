@@ -20,16 +20,16 @@
 #define TEXTUREGL_H
 
 #include "../Assets/Image.h"
-#include "GLFuncs.h"
+#include "Backend/IRenderBackend.h"
 
-// Textura 2D en GPU: objeto GL_TEXTURE_2D con RAII (glDeleteTextures en el
-// destructor) y formato estandarizado RGBA8 + LINEAR/REPEAT. Es la contraparte
-// GPU de una Image CPU compartida; el renderer la cachea por identidad de la
-// imagen (al igual que MeshGPU se cachea por identidad de Mesh) para no
-// re-subir pixels redundantes en cada frame.
+// Textura 2D en GPU: posee un handle opaco del backend con RAII y formato
+// estandarizado RGBA8 + LINEAR/REPEAT. Es la contraparte GPU de una Image CPU
+// compartida; el renderer la cachea por identidad de la imagen (al igual que
+// MeshGPU se cachea por identidad de Mesh) para no re-subir pixels redundantes
+// en cada frame.
 class TextureGL {
 private:
-    GLuint texture_ = 0;
+    Rendering::Backend::Handle texture_ = Rendering::Backend::kInvalidHandle;
     int width_ = 0;
     int height_ = 0;
 
@@ -46,7 +46,7 @@ public:
     // Sube la imagen CPU a GPU (reemplaza cualquier textura previa).
     void upload(const Image& image);
 
-    bool isUploaded() const { return texture_ != 0; }
+    bool isUploaded() const { return texture_ != Rendering::Backend::kInvalidHandle; }
     int getWidth() const { return width_; }
     int getHeight() const { return height_; }
 

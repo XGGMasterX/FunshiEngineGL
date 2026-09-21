@@ -19,27 +19,20 @@
 #ifndef MESHGPU_H
 #define MESHGPU_H
 
-#include "GLFuncs.h"
+#include <cstddef>
 
-// Representación GPU de una Mesh CPU: VAO + VBOs (posición/normal/tangente/
-// bitangente/UV) + EBO, con RAII (los buffers se borran en el destructor). La
-// malla Mesh viene de AssetManager (compartida); el MeshGPU es un recurso GL
-// del renderer y se cachea por identidad de la malla para no re-subir
-// geometría redundante. Atributos: 0 = posición (vec3), 1 = normal (vec3),
+#include "Backend/IRenderBackend.h"
+
+// Representacion GPU de una Mesh CPU: no conoce la API grafica concreta,
+// posee un handle opaco al backend (VAO/VBO en OpenGL3, buffers en Vulkan) con
+// RAII. La malla Mesh viene de AssetManager (compartida); el MeshGPU es un
+// recurso del renderer y se cachea por identidad de la malla para no re-subir
+// geometria redundante. Atributos: 0 = posicion (vec3), 1 = normal (vec3),
 // 2 = UV (vec2), 3 = tangente (vec3), 4 = bitangente (vec3).
 class MeshGPU {
 private:
-    GLuint vao_ = 0;
-    GLuint vboPos_ = 0;
-    GLuint vboNormal_ = 0;
-    GLuint vboTangent_ = 0;
-    GLuint vboBitangent_ = 0;
-    GLuint vboUv_ = 0;
-    GLuint ebo_ = 0;
-    GLsizei indexCount_ = 0;
-    bool hasNormal_ = false;
-    bool hasUv_ = false;
-    bool hasTangent_ = false;
+    Rendering::Backend::Handle buffer_ = 0;
+    std::size_t indexCount_ = 0;
 
     void destroy();
 
@@ -51,18 +44,20 @@ public:
     MeshGPU(MeshGPU&& other) noexcept;
     MeshGPU& operator=(MeshGPU&& other) noexcept;
 
-    // Sube los buffers desde la Mesh CPU. Rendición vacía si no hay índices.
-    void upload(const GLfloat* vertices, std::size_t vertexCount,
-                const GLfloat* normals, std::size_t normalCount,
-                const GLfloat* uvs, std::size_t uvCount,
-                const GLfloat* tangents, std::size_t tangentCount,
-                const GLfloat* bitangents, std::size_t bitangentCount,
-                const GLuint* indices, std::size_t indexCount);
+    // Sube los buffers desde la Mesh CPU. Rendicion vacia si no hay indices.
+    void upload(const float* vertices, std::size_t vertexCount,
+                const float* normals, std::size_t normalCount,
+                const float* uvs, std::size_t uvCount,
+                const float* tangents, std::size_t tangentCount,
+                const float* bitangents, std::size_t bitangentCount,
+                const unsigned int* indices, std::size_t indexCount);
 
-    bool isUploaded() const { return vao_ != 0; }
-    GLsizei getIndexCount() const { return indexCount_; }
+    bool isUploaded() const { return buffer_ != 0; }
+    unsigned int getIndexCount() const {
+        return static_cast<unsigned int>(indexCount_);
+    }
 
-    // Dibuja la malla subida (glDrawElements). No-op si no hay VAO/iñdexes.
+    // Dibuja la malla subida. No-op si no hay recurso/indices.
     void draw() const;
 };
 

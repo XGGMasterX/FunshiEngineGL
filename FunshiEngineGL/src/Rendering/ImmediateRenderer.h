@@ -21,19 +21,19 @@
 
 class Modelos3D;
 
-// Render primitivo a traves del pipeline de compatibilidad (glBegin/glEnd).
+// Render primitivo via el pipeline de compatibilidad del backend grafico.
 //
-// Concentra TODO el uso de OpenGL de modo inmediato del engine en un solo
-// modulo de Rendering: los marcadores (luz/camara), los wireframes de los
-// colliders y el fallback de los modelos cuando el pipeline moderno
-// (MeshRenderer) no esta disponible ya no tocan GL desde fuera de aqui.
+// Concentra TODO el uso de modo inmediato del engine en un solo modulo de
+// Rendering: los marcadores (luz/camara), los wireframes de los colliders y el
+// fallback de los modelos cuando el pipeline moderno (MeshRenderer) no esta
+// disponible ya no tocan la API grafica concreta desde fuera de aqui.
 //
 // Cada funcion aplica la matriz modelo (columna-mayor, 16 floats como la
-// produce buildMatrixFromTransform) con glMultMatrixf, apaga GL_LIGHTING para
-// dibujar lineas de color solido o la deja encendida para las mallas con
-// normales, y restaura el estado al terminar. Este modulo es el candidato
-// natural para desaparecer cuando exista un backend grafico propio: sus
-// consumidores solo necesitan "dibujar estas lineas / esta malla", no el GL.
+// produce buildMatrixFromTransform) pusheando al stack del backend, apaga la
+// iluminacion para dibujar lineas de color solido o la deja encendida para las
+// mallas con normales, y restaura el estado al terminar. Este modulo es el
+// candidato natural para desaparecer cuando exista un backend grafico propio:
+// sus consumidores solo necesitan "dibujar estas lineas / esta malla".
 namespace ImmediateRenderer {
 
 // Dibuja segmentos explícitos: 'vertices' es un arreglo de vertexCount*3
@@ -56,7 +56,7 @@ void dibujarPolilinea(const float* vertices, int vertexCount, bool cerrada,
 
 // Fallback legacy de un Modelos3D: reproduce exactamente el dibujado
 // glBegin/glEnd previo (transform local con el orden translate/scale/rotate
-// del stack, material o color via glMaterialfv, malla con normales). Se usa
+// del stack, material o color via API del backend, malla con normales). Se usa
 // cuando MeshRenderer no puede (shader/VAO ausente o malla sin normales).
 // Debe llamarse con las matrices de vista/proyeccion ya cargadas.
 void dibujarModeloLegacy(Modelos3D* modelo);

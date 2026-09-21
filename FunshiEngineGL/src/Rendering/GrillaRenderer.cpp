@@ -20,7 +20,22 @@
 
 #include <cmath>
 
-#include "../GLCompat.h"
+#include "Backend/IRenderBackend.h"
+
+namespace {
+
+// Empuja un segmento [x0,y0,z0]-[x1,y1,z1] al arreglo de vertices planos.
+void agregarSegmento(std::vector<float>& out, float x0, float y0, float z0,
+                     float x1, float y1, float z1) {
+    out.push_back(x0);
+    out.push_back(y0);
+    out.push_back(z0);
+    out.push_back(x1);
+    out.push_back(y1);
+    out.push_back(z1);
+}
+
+} // namespace
 
 void GrillaRenderer::recompilarGrilla(const float colorGrilla[3]) {
     color_[0] = colorGrilla[0];
@@ -31,74 +46,31 @@ void GrillaRenderer::recompilarGrilla(const float colorGrilla[3]) {
     const float sep = sep_;
     if (tam <= 0.f || sep <= 0.f) return;
 
-    // Lineas principales (cada 5 unidades): color mas intenso
-    if (listasMajor_ != 0) {
-        glDeleteLists(listasMajor_, 1);
-        listasMajor_ = 0;
-    }
-    GLuint listMajor = glGenLists(1);
-    if (listMajor != 0) {
-        glNewList(listMajor, GL_COMPILE);
-        glColor3f(colorGrilla[0] * 0.7f, colorGrilla[1] * 0.7f,
-                  colorGrilla[2] * 0.7f);
-        glBegin(GL_LINES);
-        const float majorStep = 5.0f;
-        for (float i = -tam; i <= tam; i += majorStep) {
-            if (std::fabs(i) < 0.001f) continue;  // Saltar el origen
-            glVertex3f(i, 0.f, -tam);
-            glVertex3f(i, 0.f, tam);
-            glVertex3f(-tam, 0.f, i);
-            glVertex3f(tam, 0.f, i);
-        }
-        glEnd();
-        glEndList();
-        listasMajor_ = listMajor;
+    minorVertices_.clear();
+    majorVertices_.clear();
+
+    // Lineas secundarias (cada sep unidades) que no coinciden con una linea
+    // principal (cada 5 unidades).
+    const float majorStep = 5.0f;
+    for (float i = -tam; i <= tam; i += sep) {
+        if (std::fabs(std::fmod(i, majorStep)) < 0.001f) continue;
+        agregarSegmento(minorVertices_, i, 0.f, -tam, i, 0.f, tam);
+        agregarSegmento(minorVertices_, -tam, 0.f, i, tam, 0.f, i);
     }
 
-    // Lineas secundarias (cada sep unidades)
-    if (listasMinor_ != 0) {
-        glDeleteLists(listasMinor_, 1);
-        listasMinor_ = 0;
-    }
-    GLuint listMinor = glGenLists(1);
-    if (listMinor != 0) {
-        glNewList(listMinor, GL_COMPILE);
-        glColor3fv(colorGrilla);
-        glBegin(GL_LINES);
-        const float majorStep = 5.0f;
-        for (float i = -tam; i <= tam; i += sep) {
-            if (std::fabs(std::fmod(i, majorStep)) < 0.001f) continue;
-            glVertex3f(i, 0.f, -tam);
-            glVertex3f(i, 0.f, tam);
-            glVertex3f(-tam, 0.f, i);
-            glVertex3f(tam, 0.f, i);
-        }
-        glEnd();
-        glEndList();
-        listasMinor_ = listMinor;
+    // Lineas principales (cada 5 unidades): saltar el origen (lo pinta el eje).
+    for (float i = -tam; i <= tam; i += majorStep) {
+        if (std::fabs(i) < 0.001f) continue;
+        agregarSegmento(majorVertices_, i, 0.f, -tam, i, 0.f, tam);
+        agregarSegmento(majorVertices_, -tam, 0.f, i, tam, 0.f, i);
     }
 
-    // Ejes X y Z: colores brillantes (rojo y verde)
-    if (listasAxes_ != 0) {
-        glDeleteLists(listasAxes_, 1);
-        listasAxes_ = 0;
-    }
-    GLuint listAxes = glGenLists(1);
-    if (listAxes != 0) {
-        glNewList(listAxes, GL_COMPILE);
-        glColor3f(1.0f, 0.3f, 0.3f);  // Rojo para X
-        glBegin(GL_LINES);
-        glVertex3f(0.f, 0.f, 0.f);
-        glVertex3f(tam * 0.8f, 0.f, 0.f);
-        glEnd();
-        glColor3f(0.3f, 1.0f, 0.3f);  // Verde para Z
-        glBegin(GL_LINES);
-        glVertex3f(0.f, 0.f, 0.f);
-        glVertex3f(0.f, 0.f, tam * 0.8f);
-        glEnd();
-        glEndList();
-        listasAxes_ = listAxes;
-    }
+    // Ejes X y Z (incluyen el origen; el centro se respeta por simetria).
+    const float ext = tam * 0.8f;
+    ejeX_[0] = 0.f;  ejeX_[1] = 0.f;  ejeX_[2] = 0.f;  // X
+    ejeX_[3] = ext;  ejeX_[4] = 0.f;  ejeX_[5] = 0.f;
+    ejeZ_[0] = 0.f;  ejeZ_[1] = 0.f;  ejeZ_[2] = 0.f;  // Z
+    ejeZ_[3] = 0.f;  ejeZ_[4] = 0.f;  ejeZ_[5] = ext;
 }
 
 void GrillaRenderer::dibujar(const float model[16], const float colorGrilla[3],
@@ -106,9 +78,9 @@ void GrillaRenderer::dibujar(const float model[16], const float colorGrilla[3],
     if (!model || !colorGrilla) return;
     if (tam <= 0.f || sep <= 0.f) return;
 
-    // Recompila las listas solo si cambian tamano, separacion o color efectivo;
-    // mientras nada cambie, la geometria se reutiliza (glCallList).
-    if (listasMajor_ == 0 || tam_ != tam || sep_ != sep ||
+    // Recalcula los vectores CPU solo si cambian tamano, separacion o color
+    // efectivo; mientras nada cambie, la geometria se reutiliza.
+    if (minorVertices_.empty() || tam_ != tam || sep_ != sep ||
         color_[0] != colorGrilla[0] || color_[1] != colorGrilla[1] ||
         color_[2] != colorGrilla[2]) {
         tam_ = tam;
@@ -116,42 +88,42 @@ void GrillaRenderer::dibujar(const float model[16], const float colorGrilla[3],
         recompilarGrilla(colorGrilla);
     }
 
-    glPushMatrix();
-    glMultMatrixf(model);
-    glDisable(GL_LIGHTING);
-    // Lineas suavizadas para todas las partes de la grilla
-    glEnable(GL_LINE_SMOOTH);
-    glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
+    Rendering::Backend::IRenderBackend& b =
+        Rendering::Backend::activeBackend();
+    b.pushMatrix();
+    b.multMatrix(model);
+    b.setLightingEnabled(false);
+    // Lineas suavizadas para todas las partes de la grilla.
+    b.setLineSmoothing(true);
 
-    // Dibujar lineas secundarias (1px)
-    glLineWidth(1.f);
-    if (listasMinor_ != 0) glCallList(listasMinor_);
+    // Lineas secundarias (1px).
+    b.setLineWidth(1.f);
+    if (!minorVertices_.empty())
+        b.drawLinePairs(minorVertices_.data(),
+                        static_cast<int>(minorVertices_.size() / 3));
 
-    // Dibujar lineas principales (2px, color mas intenso)
-    glLineWidth(2.f);
-    if (listasMajor_ != 0) glCallList(listasMajor_);
+    // Lineas principales (2px, color mas intenso).
+    b.setSolidColor(colorGrilla[0] * 0.7f, colorGrilla[1] * 0.7f,
+                    colorGrilla[2] * 0.7f);
+    b.setLineWidth(2.f);
+    if (!majorVertices_.empty())
+        b.drawLinePairs(majorVertices_.data(),
+                        static_cast<int>(majorVertices_.size() / 3));
 
-    // Dibujar ejes (3px, colores brillantes)
-    glLineWidth(3.f);
-    if (listasAxes_ != 0) glCallList(listasAxes_);
+    // Ejes (3px, colores brillantes): X roja, Z verde.
+    b.setLineWidth(3.f);
+    b.setSolidColor(1.0f, 0.3f, 0.3f);
+    b.drawLinePairs(ejeX_, 2);
+    b.setSolidColor(0.3f, 1.0f, 0.3f);
+    b.drawLinePairs(ejeZ_, 2);
 
-    glLineWidth(1.f);  // Restaurar ancho por defecto
-    glDisable(GL_LINE_SMOOTH);
-    glEnable(GL_LIGHTING);
-    glPopMatrix();
+    b.setLineWidth(1.f); // Restaurar ancho por defecto
+    b.setLineSmoothing(false);
+    b.setLightingEnabled(true);
+    b.popMatrix();
 }
 
 void GrillaRenderer::destruir() {
-    if (listasMajor_ != 0) {
-        glDeleteLists(listasMajor_, 1);
-        listasMajor_ = 0;
-    }
-    if (listasMinor_ != 0) {
-        glDeleteLists(listasMinor_, 1);
-        listasMinor_ = 0;
-    }
-    if (listasAxes_ != 0) {
-        glDeleteLists(listasAxes_, 1);
-        listasAxes_ = 0;
-    }
+    minorVertices_.clear();
+    majorVertices_.clear();
 }

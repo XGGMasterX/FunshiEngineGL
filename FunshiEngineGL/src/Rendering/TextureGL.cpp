@@ -18,17 +18,12 @@
 */
 #include "TextureGL.h"
 
-#include <cstddef>
-
-#include "../GLCompat.h"
-
 TextureGL::~TextureGL() { destroy(); }
 
 void TextureGL::destroy() {
-    if (texture_) {
-        // glDeleteTextures es GL 1.1 y esta en gl.h (como el resto del upload).
-        glDeleteTextures(1, &texture_);
-        texture_ = 0;
+    if (texture_ != Rendering::Backend::kInvalidHandle) {
+        Rendering::Backend::activeBackend().destroyTexture2D(texture_);
+        texture_ = Rendering::Backend::kInvalidHandle;
     }
     width_ = height_ = 0;
 }
@@ -37,7 +32,7 @@ TextureGL::TextureGL(TextureGL&& other) noexcept {
     texture_ = other.texture_;
     width_ = other.width_;
     height_ = other.height_;
-    other.texture_ = 0;
+    other.texture_ = Rendering::Backend::kInvalidHandle;
     other.width_ = other.height_ = 0;
 }
 
@@ -47,7 +42,7 @@ TextureGL& TextureGL::operator=(TextureGL&& other) noexcept {
         texture_ = other.texture_;
         width_ = other.width_;
         height_ = other.height_;
-        other.texture_ = 0;
+        other.texture_ = Rendering::Backend::kInvalidHandle;
         other.width_ = other.height_ = 0;
     }
     return *this;
@@ -58,27 +53,19 @@ void TextureGL::upload(const Image& image) {
 
     destroy();
 
-    // glGenTextures/glBindTexture/glTexParameteri/glTexImage2D son GL 1.1,
-    // estan en gl.h de cualquier plataforma (a diferencia de glActiveTexture).
-    glGenTextures(1, &texture_);
-    glBindTexture(GL_TEXTURE_2D, texture_);
+    Rendering::Backend::Image2D gpuImage;
+    gpuImage.width = image.width;
+    gpuImage.height = image.height;
+    gpuImage.pixels = image.pixels.data();
 
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, image.width, image.height, 0,
-                 GL_RGBA, GL_UNSIGNED_BYTE, image.pixels.data());
-
-    glBindTexture(GL_TEXTURE_2D, 0);
+    texture_ = Rendering::Backend::activeBackend().createTexture2D(gpuImage);
+    if (texture_ == Rendering::Backend::kInvalidHandle) return;
 
     width_ = image.width;
     height_ = image.height;
 }
 
 void TextureGL::bindUnit(int unit) const {
-    if (!texture_ || !GLFuncs::pfnActiveTexture) return;
-    GLFuncs::pfnActiveTexture(static_cast<GLenum>(GL_TEXTURE0 + unit));
-    glBindTexture(GL_TEXTURE_2D, texture_);
+    if (texture_ == Rendering::Backend::kInvalidHandle) return;
+    Rendering::Backend::activeBackend().bindTexture2D(texture_, unit);
 }
