@@ -44,7 +44,7 @@ public:
     bool getVisible() const { return visible; }
     void setVisible(bool value) { visible = value; }
 
-    // Puntero interno RGB (uso directo en glColor3fv).
+    // Puntero interno RGB (lo consume GrillaRenderer / apariencia).
     const float* getColor() const { return color; }
     void setColor(float r, float g, float b);
 

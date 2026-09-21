@@ -57,7 +57,5 @@ public:
 
 	void saveComponent(std::ofstream* fileNamePathContentObject) override;
 	void loadComponent(std::ifstream* fileNamePathContentObject) override;
-
-	void position();
 };
 #endif

@@ -18,9 +18,10 @@
 */
 #include "CubeCollider.h"
 
-#include "../../../GLCompat.h"
 #include <memory>
 #include <btBulletDynamicsCommon.h>
+
+#include "../../../Rendering/ImmediateRenderer.h"
 
 CubeCollider::CubeCollider(float radio, Transform* transformOfDadObject,
                            GameObject* owner)
@@ -34,14 +35,15 @@ std::unique_ptr<btCollisionShape> CubeCollider::createCollisionShape() {
 void CubeCollider::dibujarCollider() {
     Transform globalT = getGlobalTransform();
 
-    glPushMatrix();
     float modelArr[16];
     buildMatrixFromTransform(&globalT, modelArr);
-    glMultMatrixf(modelArr);
-    glDisable(GL_LIGHTING);
 
-    // Dibujo del cubo en origen local
-    GLfloat vertices[8][3] = {
+    // El collider expone solo geometria local (cubo al radio); el dibujado
+    // inmediato lo hace la capa de Rendering.
+    const float verde[3] = {0.0f, 1.0f, 0.0f};
+
+    // Cubo en origen local
+    const float v[8][3] = {
         {-radio, -radio, -radio},
         { radio, -radio, -radio},
         { radio,  radio, -radio},
@@ -52,21 +54,12 @@ void CubeCollider::dibujarCollider() {
         {-radio,  radio,  radio}
     };
 
-    GLuint edges[12][2] = {
+    const int edges[12][2] = {
         {0,1}, {1,2}, {2,3}, {3,0},
         {4,5}, {5,6}, {6,7}, {7,4},
         {0,4}, {1,5}, {2,6}, {3,7}
     };
 
-    glColor3f(0.0f, 1.0f, 0.0f); // verde
-
-    glBegin(GL_LINES);
-    for (int i = 0; i < 12; i++) {
-        glVertex3fv(vertices[edges[i][0]]);
-        glVertex3fv(vertices[edges[i][1]]);
-    }
-    glEnd();
-
-    glEnable(GL_LIGHTING);
-    glPopMatrix();
+    ImmediateRenderer::dibujarAristas(&v[0][0], 8, &edges[0][0], 12, verde,
+                                      modelArr);
 }

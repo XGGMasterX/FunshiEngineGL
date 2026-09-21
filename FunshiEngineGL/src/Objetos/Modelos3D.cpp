@@ -18,7 +18,6 @@
 */
 #include "Modelos3D.h"
 
-#include "../GLCompat.h"
 #include <algorithm>
 #include <cstring>
 #include <fstream>
@@ -27,8 +26,8 @@
 #include "../Assets/AssetException.h"
 #include "../Assets/AssetManager.h"
 #include "../Assets/AssimpMeshLoader.h"
-#include "../Objetos/Componentes/Material.h"
 #include "../ExcepcionesCPP/RuntimeException.h"
+#include "../Rendering/ImmediateRenderer.h"
 
 Modelos3D::Modelos3D(Entity* origin) : GameObject(origin) {}
 Modelos3D::Modelos3D() : GameObject() {}
@@ -66,35 +65,9 @@ void Modelos3D::dibujar(float deltaTime) {
     // El render NO simula: scripts/fisica se actualizan en GameScene::update
     // (solo en play). Antes update() aca corria los scripts tambien en editor.
     (void)deltaTime;
-    Transform* transform = getGlobalTransform();
-    if (transform) transform->position();
-    if (Model* model = getComponent<Model>(); model && model->getPath() != filePath_)
-        setPath(model->getPath());
-    if (Material* material = getComponent<Material>()) {
-        material->aplicar();
-    } else if (Color* color = getComponent<Color>()) {
-        glMaterialfv(GL_FRONT, GL_DIFFUSE, color->getColor());
-    } else {
-        const GLfloat white[] = {1.f, 1.f, 1.f, 1.f};
-        glMaterialfv(GL_FRONT, GL_DIFFUSE, white);
-    }
-    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-    if (mesh_) {
-        const bool dibujaNormales = mesh_->hasNormals();
-        const std::vector<vec3>& normals = mesh_->normals;
-        glBegin(GL_TRIANGLES);
-        for (unsigned int idx : mesh_->indices) {
-            if (idx >= mesh_->vertices.size()) continue;
-            if (dibujaNormales) {
-                const vec3& normal = normals[idx];
-                if (!(normal.x == 0.f && normal.y == 0.f && normal.z == 0.f))
-                    glNormal3fv(&normal.x);
-            }
-            glVertex3fv(&mesh_->vertices[idx].x);
-        }
-        glEnd();
-    }
-    glPopMatrix();
+    // El fallback legacy (glBegin/glEnd + material inmediato) vive en la capa
+    // de Rendering; cuando existe render moderno GameScene no llama a dibujar.
+    ImmediateRenderer::dibujarModeloLegacy(this);
 }
 
 void Modelos3D::serializeEntity() {
