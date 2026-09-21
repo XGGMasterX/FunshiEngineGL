@@ -5,7 +5,11 @@
 `FunshiEngineGL` es un editor/motor gráfico 3D en C++17. El ejecutable combina:
 
 - Ventana y contexto OpenGL mediante GLFW.
-- Renderizado inmediato con OpenGL/GLU (pipeline de compatibilidad).
+- Renderizado híbrido: los modelos usan `MeshRenderer` (VBO/VAO + shaders) y
+  degradan a `glBegin/glEnd` (modo inmediato) si el shader no está disponible o
+  la malla no tiene normales; la grilla es un componente (`Grid`) en una pasada
+  independiente con display lists. Los marcadores de luz/cámara y los gizmos de
+  los colliders siguen usando el pipeline de compatibilidad.
 - Interfaz de editor con Dear ImGui y gizmos con ImGuizmo.
 - Jerarquía de entidades basada en árboles enlazados propios.
 - Simulación física mediante Bullet Physics detrás de una fachada desacoplada.
@@ -39,17 +43,23 @@ FunshiEngineGL/                          ← raíz del repo
 ├── README.md                            ← visión general, build, controles y pendientes
 ├── PROJECT_STRUCTURE.md                 ← este documento
 ├── CAMARAS_VISTAS_PREVIAS.md            ← Fase 2: cámaras componente + vistas previas
+├── ARQUITECTURA_ESTADOS_GUI.md          ← estados/menú/GUI internas (diseño + Fases 1-3)
 ├── FunshiEngineGL.sln                   ← solución Visual Studio (Windows)
 ├── .github/workflows/ci.yml             ← CI: engine en Ubuntu + pruebas en Linux/Win/macOS
 ├── .github/workflows/release.yml        ← instaladores Qt IFW (.run) e Inno (.exe) por tag
 ├── .github/workflows/windows-release.yml← build+release específico de Windows
 ├── .gitignore / .gitattributes
 ├── tests/
-│   ├── FileManagerTests.cpp             ← pruebas headless del explorador de archivos
-│   ├── EditorConfigTests.cpp            ← pruebas headless de la configuración JSON
+│   ├── FileManagerTests.cpp             ← headless del explorador de archivos
+│   ├── EditorConfigTests.cpp            ← headless de la configuración JSON
+│   ├── EditorEventBusTests.cpp          ← headless del canal tipado de GUI (Fase 2)
+│   ├── MenuModelTests.cpp               ← headless del modelo del menú (Fase 3)
 │   ├── AssetManagerTests.cpp            ← caché Flyweight de meshes (AssetPath/Mesh)
 │   ├── TextureManagerTests.cpp          ← caché Flyweight de imágenes (TextureManager)
-│   └── EstructurasTests.cpp             ← listas, árboles, heaps y ordenamiento propios
+│   ├── EstructurasTests.cpp             ← listas, árboles, heaps y ordenamiento propios
+│   ├── ScriptsTests.cpp                 ← reflexión SerializeField + round-trip binario
+│   ├── ScriptsRuntimeTests.cpp          ← BackendCpp end-to-end (compila y dlopen un .so)
+│   └── ScriptsJavaTests.cpp             ← BackendJava end-to-end (solo con FUNSHI_JAVA)
 └── FunshiEngineGL/                      ← proyecto CMake principal
     ├── CMakeLists.txt                   ← GLOB de fuentes, dependencias, sanitizers,
     │                                      pruebas (CTest) y opción BUILD_ENGINE
@@ -61,10 +71,13 @@ FunshiEngineGL/                          ← raíz del repo
         ├── main.cpp                     ← composition root: ventanas, callbacks, bucle, config
         ├── EngineTime.h / EngineTime.cpp← delta time y limitador de FPS
         ├── Ventana.h / Ventana.cpp      ← inicialización GLFW
+        ├── GLCompat.h                   ← cabecera única OpenGL legacy (gl.h/glu.h) + GLFW, con
+        │                                  las constantes que faltan en el SDK de Windows
         ├── Assets/                      ← caché Flyweight compartida (meshes e imágenes)
         │   ├── AssetManager.h/.cpp      ← registro de AssetPath→Mesh (loader inyectable)
         │   ├── TextureManager.h/.cpp    ← registro de AssetPath→Image (loader inyectable)
         │   ├── AssetPath.h / Image.h    ← rutas normalizadas y metadatos de imagen
+        │   ├── AssetException.h / TextureException.h ← errores de carga con mensaje y ruta
         │   ├── Mesh.h/.cpp              ← geometría CPU (vértices, normales, índices)
         │   ├── AssimpMeshLoader.*       ← loader Assimp→Mesh
         │   └── StbImageLoader.*         ← loader stb_image→Image (solo engine)
@@ -80,6 +93,7 @@ FunshiEngineGL/                          ← raíz del repo
         │   └── Reflection/
         │       └── BehaviourReflection.* ← reflexión, macros SerializeField y serialización
         ├── Configuracion/
+        │   ├── Apariencia.h             ← perfil de apariencia (tema/acento/fondo/B-N) + utilidades
         │   └── EditorConfig.h/.cpp      ← persistencia JSON de la configuración (menú + GUI)
         ├── Entity/
         │   ├── Entity.h                 ← base: lista de componentes, Transform, serialización
@@ -100,8 +114,9 @@ FunshiEngineGL/                          ← raíz del repo
         │           ├── ArbolEnlazado.h  ← árbol n-ario: jerarquía de GameObjects
         │           └── ArbolBinarioEnlazado.h ← binario con addLeft/addRight y preorden
         ├── Events/
-        │   ├── EventBus.h               ← pub/sub tipado con token de suscripción
-        │   └── EventBus.cpp
+        │   ├── EventBus.h/.cpp          ← pub/sub tipado de escena con token de suscripción
+        │   └── EditorEventBus.h/.cpp    ← canal tipado de GUI interna (ventanas; Fase 2,
+        │                                  dueño: GUIManager)
         ├── ExcepcionesCPP/              ← Throwable, RuntimeException, excepciones de
         │                                  contenedores (ExcepcionesEstructuras/)
         ├── Fisicas/
@@ -118,6 +133,11 @@ FunshiEngineGL/                          ← raíz del repo
         │   ├── GeneralUserInterface.h/.cpp ← interfaz base de paneles ImGui
         │   ├── WindowNames.h
         │   ├── DockSpaceGUI/               ← dock principal del editor
+        │   ├── Estado/
+        │   │   └── StatusBarInterface.h/.cpp ← ventana "Estado": toolchain (Compilador/javac/
+        │   │                                  libjvm) y estado de scripts (compilando/cargado/error)
+        │   ├── Tema/
+        │   │   └── TemaEditor.h/.cpp      ← aplica el perfil Apariencia al estilo ImGui en vivo
         │   ├── FileManagerGUI/             ← TreeFilesInterface + ContentFolderInterface
         │   │                                  (vistas del explorador; conversan con FileManager)
         │   ├── MenusGUI/                   ← paquete del menú de inicio (MVP); ver su README.md
@@ -132,6 +152,7 @@ FunshiEngineGL/                          ← raíz del repo
         │   │   ├── Color/  Model/  Script/
         │   │   ├── Material/SettingsMaterial.*  Light/SettingsLight.*
         │   │   ├── Camera/SettingsCamera.*       ← FOV, planos, velocidad, vista previa
+        │   │   ├── Grid/SettingsGrid.*           ← visible/color/tamaño/separación de la grilla
         │   │   ├── RigidBody/SettingsRigidBody.*
         │   │   └── Colliders/ (Esfera, Cubo, Malla) ← sync transform/shape con física
         │   └── SceneGUI/
@@ -163,7 +184,8 @@ FunshiEngineGL/                          ← raíz del repo
         ├── Objetos/
         │   ├── GameObject.h/.cpp         ← id, nombre, estado, update, serialización binaria
         │   ├── GameObjectFactory.h/.cpp
-        │   ├── Modelos3D.h/.cpp          ← carga Assimp y dibujo GL inmediato
+        │   ├── SimpleObject.h            ← GameObject sin geometría (Transform/Grid/Light...)
+        │   ├── Modelos3D.h/.cpp          ← carga Assimp y dibujo (MeshRenderer o glBegin/glEnd)
         │   └── Componentes/
         │       ├── Component.h           ← interfaz base polimórfica (serialize/deserialize)
         │       ├── ComponentFactory.h/.cpp ← creación por nombre (GUI y deserialización)
@@ -171,6 +193,8 @@ FunshiEngineGL/                          ← raíz del repo
         │       ├── CameraComponent.h/.cpp ← cámara componente: vista, FPS, flag de vista previa
         │       ├── Material.h/.cpp       ← AMBIENT/DIFFUSE/SPECULAR/EMISSION/SHININESS
         │       ├── Light.h/.cpp          ← luz puntual serializable
+        │       ├── Grid.h/.cpp           ← grilla del suelo: pasada independiente, visible/color/
+        │       │                            tamaño/separación + modo blanco y negro
         │       ├── Color.h / Model.h / Script.h
         │       ├── RigidBody/RigidBody.h/.cpp ← cuerpo Bullet sincronizado (RAII)
         │       └── Colliders/
@@ -179,11 +203,15 @@ FunshiEngineGL/                          ← raíz del repo
         │           ├── CubeCollider.*    ← btBoxShape (half extents = radio)
         │           └── MallaCollider.*   ← btConvexHullShape a partir de la malla
         └── Scenes/
-            ├── GameScene.h/.cpp          ← coordinador del frame: render, GUI, física, gizmo, previews
+            ├── GameScene.h/.cpp          ← coordinador del frame: render, GUI, física, gizmo,
+            │                                previews y pasada de la grilla
             ├── SceneRegistry.h/.cpp      ← ownership único (unique_ptr) + árbol + vista lineal
             ├── EditorController.h/.cpp   ← mutaciones + GizmoTarget + registro de física
             ├── SceneSerializer.h/.cpp    ← save/load binario preorden con marcadores =>/<=
-            └── States/ApplicationStateMachine.h/.cpp ← MainMenu/Editing/Playing/Exiting
+        └── States/
+            ├── ApplicationStateMachine.h/.cpp ← MainMenu/Editing/Playing/Exiting
+            └── OrquestadorEstadoGUI.h/.cpp    ← reglas de transición menú↔editor (Fase 1;
+                                                   headless, decide la fachada GUI por frame)
 ```
 
 ---
@@ -209,7 +237,8 @@ main.cpp
       ├── ImGui::NewFrame
       ├── refleja el estado del menú en la fachada MenuGUI (guardia de cambio)
       ├── si Playing → phisics.stepSimulation(dt) (solo con start==true)
-      ├── dibujarGameObjects (OpenGL inmediato)
+      ├── pasada de la grilla (display lists del objeto con Grid; color según apariencia)
+      ├── dibujarGameObjects (MeshRenderer VBO/VAO+shader → fallback glBegin/glEnd)
       ├── gizmo ImGuizmo sobre el objetivo activo (objeto o collider)
       ├── GUI() de GameScene (paneles) + vistas previas de cámaras (FBO)
       ├── ImGui::Render + swap buffers
@@ -392,18 +421,26 @@ La convención general es un par `.h`/`.cpp` por clase. Las excepciones son:
 al build sin enumerarlos manualmente. Los archivos de ImGui se recopilan por separado
 desde `src/ImGui/` y los de ImGuizmo desde `ImGuizmo/` (fuera de `src/`).
 
-Además del ejecutable, el proyecto define **cinco targets de prueba headless**
-registrados en CTest (compilan en cualquier plataforma con `BUILD_ENGINE=OFF`):
+Además del ejecutable, el proyecto define **diez targets de prueba headless**
+registrados en CTest (compilan en cualquier plataforma con `BUILD_ENGINE=OFF`;
+`scripts-java-tests` solo se registra con `-DFUNSHI_JAVA=ON`):
 
-- `filemanager-tests`: ejercita `GestorDeArchivos`/`FileManager`/`FileSystemWatcher`
+- `filemanager-tests` (27): ejercita `GestorDeArchivos`/`FileManager`/`FileSystemWatcher`
   contra un proyecto temporal, sin ventanas ni pila gráfica.
-- `configuracion-tests`: round-trip del JSON de `EditorConfig` y carga tolerante
-  ante archivos ausentes o corruptos.
-- `assetmanager-tests`: caché Flyweight de meshes (rutas `AssetPath`, geometría
+- `configuracion-tests` (53): round-trip del JSON de `EditorConfig`, carga tolerante
+  ante archivos ausentes/corruptos y `restablecer`.
+- `eventbus-tests` (16): suscripción/publicación/unsubscribe del canal tipado de GUI.
+- `menu-tests` (30): lógica pura del menú (traducción, observer de cambios y reset).
+- `assetmanager-tests` (47): caché Flyweight de meshes (rutas `AssetPath`, geometría
   `Mesh`) y el registro compartido con un loader artificial.
-- `texturemanager-tests`: caché Flyweight de imágenes CPU (sin entrar la pila gráfica).
-- `estructuras-tests`: `ListaDE`, `ArbolEnlazado`, `PriorityListaDE`,
-  `MinHeap`/`MaxHeap`, `ListMergeSort` y `ArbolBinarioEnlazado` (87 verificaciones).
+- `texturemanager-tests` (15): caché Flyweight de imágenes CPU (sin entrar la pila gráfica).
+- `estructuras-tests` (87): `ListaDE`, `ArbolEnlazado`, `PriorityListaDE`,
+  `MinHeap`/`MaxHeap`, `ListMergeSort` y `ArbolBinarioEnlazado`.
+- `scripts-tests` (42): reflexión `SerializeField` (escalares, arrays, grupos
+  anidados) y el round-trip binario del árbol de valores.
+- `scripts-runtime-tests`: compila un `.cpp` real con `BackendCpp`, lo carga con
+  `dlopen` y ejecuta el ciclo + hot reload (en Windows sale con 77/SKIP).
+- `scripts-java-tests`: end-to-end del backend Java (JNI); solo con `FUNSHI_JAVA=ON`.
 
 La opción `BUILD_ENGINE=OFF` compila solo las pruebas (útil en CI y plataformas
 sin las librerías gráficas), y `ENABLE_ASAN` (ON por defecto en Debug) activa
@@ -438,7 +475,8 @@ main.cpp
   │
   └─ GameScene::gameScene()
         ├─ LightSystem::beginFrame() [glLight*]
-        ├─ dibujarGameObjects (Modelos3D con glBegin/glEnd)
+        ├─ pasada de la grilla (Grid + display lists, color según apariencia)
+        ├─ dibujarGameObjects (MeshRenderer shader; fallback a glBegin/glEnd)
         ├─ marcadores de luz y cámara (wireframes auxiliares)
         ├─ ImGuizmo::Manipulate sobre el GizmoTarget activo (objeto o collider)
         ├─ dibujarViewportsPrevios (FBO de cámaras) + paneles ImGui
@@ -498,8 +536,10 @@ No están implementados todavía:
 - `SettingsObjectInterface` y algunos componentes todavía incluyen y construyen
   detalles concretos; el siguiente paso de desacoplamiento es completar el uso de
   `EditorController` y descriptors de componentes.
-- El renderer usa OpenGL de compatibilidad (`glBegin`, `glMatrixMode`, `glLight*`);
-  no es compatible con un contexto OpenGL Core.
+- El renderer es híbrido: `MeshRenderer` intenta el pipeline moderno (VBO/VAO +
+  shaders) y degrada a `glBegin/glEnd` en contextos legacy o mallas sin
+  normales; los marcadores, gizmos y la grilla (display lists) siguen legacy.
+  No es un contexto OpenGL Core estricto.
 
 ---
 
@@ -542,10 +582,10 @@ GameScene → coordina todos los subsistemas del frame
   `ArbolEnlazado` (hoja, nodo interno y raíz), `PriorityListaDE`, la extracción
   ordenada de `MinHeap`/`MaxHeap`, la estabilidad de `ListMergeSort` y el árbol
   binario (addLeft/addRight, childsOf, preorden RID, borrado de hoja e interno).
-- Los cinco targets compilan en cualquier plataforma y se ejecutan con `ctest`.
+- Los diez targets compilan en cualquier plataforma y se ejecutan con `ctest`.
 - `.github/workflows/ci.yml` compila el engine completo en Ubuntu (Release, sin
-  ASan) y ejecuta las pruebas; además ejecuta las cinco pruebas headless en
-  Linux/Windows/macOS con `BUILD_ENGINE=OFF`.
+  ASan) y ejecuta las pruebas; además ejecuta las headless en
+  Linux/Windows/macOS con `BUILD_ENGINE=OFF` y el backend Java en Ubuntu con JDK.
 - `.github/workflows/release.yml` y `windows-release.yml` también ejecutan la
   suite (y `estructuras-tests`) al generar los instaladores por tag.
 
@@ -557,7 +597,6 @@ Los bugs de la Fase 2 (cámaras/vistas previas) y sus fixes están documentados 
 ## 12. Pendientes conocidos
 
 - [ ] Sistema de animaciones.
-- [ ] Scripts dinámicos completos: compilación en caliente, `onStart`/`onUpdate`, `SerializeField`.
 - [ ] `CommandManager` para undo/redo.
 - [ ] Cuadro de log de errores en el editor.
 - [ ] Resolver IDs duplicados al crear objetos; limpiar binarios huérfanos al eliminar.
@@ -565,6 +604,7 @@ Los bugs de la Fase 2 (cámaras/vistas previas) y sus fixes están documentados 
 - [ ] Terminar los popups del inspector.
 - [ ] Prefabs y duplicación de objetos.
 - [ ] Portabilidad de rutas de assets (centralizar `HOME` / rutas de Windows).
+- [ ] Migrar o eliminar el `FunshiEngineGL.vcxproj` (arrastra rutas absolutas; el build oficial es CMake).
 - [ ] Versionado y validación de la serialización binaria.
 - [ ] Extraer `SceneRenderer`, `PhysicsSystem` y `ScriptSystem` de `GameScene`.
 - [ ] Encapsular las estructuras internas de `SceneRegistry` (eliminar getters raw de compatibilidad).
