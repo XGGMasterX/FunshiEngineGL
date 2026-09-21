@@ -16,6 +16,10 @@
 
     SPDX-License-Identifier: Apache-2.0
 */
+// GLFW solo para la ventana/callbacks (GLFW_INCLUDE_NONE: ningun GL aca).
+#define GLFW_INCLUDE_NONE
+#include <GLFW/glfw3.h>
+
 #include "../src/Scenes/GameScene.h"
 #include "../src/GUIManager/GUIManager.h"
 #include "../src/Configuracion/EditorConfig.h"
@@ -32,8 +36,8 @@
 #include "../src/Behaviour/ScriptRuntime.h"
 #include "../src/Events/EditorEventBus.h"
 #include "../src/Ventana.h"
+#include "../src/Rendering/Backend/IRenderBackend.h"
 #include "ImGuizmo.h"
-#include "GLCompat.h"
 #include <iostream>
 #include <filesystem>
 #include <string>
@@ -284,24 +288,17 @@ int main(void)
 
 
     // Fondo del viewport 3D segun el perfil de apariencia; el bucle principal
-    // lo refresca por frame para reflejar cambios en vivo desde Opciones.
+    // lo refresca por frame para reflejar cambios en vivo desde Opciones. La
+    // limpieza del frame la hace el backend (el color de fondo vive en el).
     {
         float fondoInicial[3];
         AparienciaUtil::fondoEfectivo(mainMenu->getApariencia(), fondoInicial);
-        glClearColor(fondoInicial[0], fondoInicial[1], fondoInicial[2], 1.0f);
+        Rendering::Backend::activeBackend().applyBaseState();
+        Rendering::Backend::activeBackend().setClearColor(fondoInicial);
     }
 
-
-    // Configuración de iluminación fija
-    glEnable(GL_DEPTH_TEST);
-    glDepthFunc(GL_LESS);
-    glEnable(GL_NORMALIZE);  // Normaliza automáticamente las normales
-
-    // El estado de luz (GL_LIGHTING y GL_LIGHT0..7) lo gestiona LightSystem
-    // cada frame; no se enciende nada a mano acá.
-
-    // Configuración de materiales
-    glColorMaterial(GL_FRONT, GL_AMBIENT_AND_DIFFUSE);
+    // El estado de luz (GL_LIGHTING y GL_LIGHT0..7) lo gestiona el backend en
+    // cada pasada de la escena; no se enciende nada a mano aca.
 
     float FPS = 60.0;    //LIMITE DE FPS
     IMGUI_CHECKVERSION();
@@ -338,7 +335,7 @@ int main(void)
             TemaEditor::aplicarEstilo(ev.apariencia);
             float fondo[3];
             AparienciaUtil::fondoEfectivo(ev.apariencia, fondo);
-            glClearColor(fondo[0], fondo[1], fondo[2], 1.0f);
+            Rendering::Backend::activeBackend().setClearColor(fondo);
             auto& cfg = editorConfig.datos();
             cfg.apariencia = ev.apariencia;
             editorConfig.guardarGeneral();
@@ -422,7 +419,10 @@ int main(void)
         }
 
         
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        // Limpieza del framebuffer de la ventana con el color de fondo vigente
+        // (setClearColor). El backend lo limpia y queda el default framebuffer
+        // listo para ImGui y la pasada de la escena.
+        Rendering::Backend::activeBackend().clearScreen(nullptr);
 
             ImGui_ImplOpenGL3_NewFrame();
             ImGui_ImplGlfw_NewFrame();

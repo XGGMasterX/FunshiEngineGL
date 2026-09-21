@@ -24,7 +24,6 @@
 #include <string>
 #include <vector>
 
-#include "../../GLCompat.h"
 #ifdef _WIN32
 #include <windows.h>
 #else
@@ -65,8 +64,8 @@ IconosGUI::IconosGUI() {}
 
 IconosGUI::~IconosGUI() {
     // Todos los iconos cargados se liberan igual; conviene recorrer el array
-    // en vez de repetir el bloque glDeleteTextures para cada miembro.
-    ImTextureID* iconos[] = {
+    // en vez de repetir el bloque destroyTexture2D para cada miembro.
+    Rendering::Backend::Handle* iconos[] = {
         &iconoCarpeta, &iconoArchivo, &iconoCpp, &iconoHpp, &iconoJava,
         &iconoGameObject, &iconoBlend, &iconoCsv, &iconoExr, &iconoFbx,
         &iconoHdr, &iconoJpeg, &iconoJpg, &iconoJson, &iconoMax, &iconoMaya,
@@ -74,11 +73,10 @@ IconosGUI::~IconosGUI() {
         &iconoRs, &iconoTga, &iconoTtf, &iconoWav, &iconoXml, &iconoDb,
         &iconoMtl, &iconoRar, &iconoZip,
     };
-    for (ImTextureID* icono : iconos) {
-        if (*icono != ImTextureID_Invalid) {
-            GLuint id = (GLuint)(intptr_t)*icono;
-            glDeleteTextures(1, &id);
-            *icono = ImTextureID_Invalid;
+    for (Rendering::Backend::Handle* icono : iconos) {
+        if (*icono != Rendering::Backend::kInvalidHandle) {
+            Rendering::Backend::activeBackend().destroyTexture2D(*icono);
+            *icono = Rendering::Backend::kInvalidHandle;
         }
     }
 }
@@ -120,7 +118,17 @@ void IconosGUI::init() {
     inicializado = true;
 }
 
-ImTextureID IconosGUI::cargarPNG(const char* nombrePNG) {
+ImTextureID IconosGUI::aImTexture(Rendering::Backend::Handle handle) {
+    if (handle == Rendering::Backend::kInvalidHandle) return ImTextureID_Invalid;
+    const void* descriptor =
+        Rendering::Backend::activeBackend().imguiTextureId(handle);
+    return descriptor
+               ? static_cast<ImTextureID>(reinterpret_cast<std::intptr_t>(
+                     descriptor))
+               : ImTextureID_Invalid;
+}
+
+Rendering::Backend::Handle IconosGUI::cargarPNG(const char* nombrePNG) {
     // Orden de busqueda:
     //  1) Relativo al directorio del ejecutable (determinista): los vectores
     //     de build activo suelen quedar junto al binario o un nivel arriba
@@ -153,70 +161,71 @@ ImTextureID IconosGUI::cargarPNG(const char* nombrePNG) {
     if (rutaEncontrada.empty()) {
         std::cerr << "[IconosGUI] No se encontro la imagen '" << nombrePNG
                   << "' (se probaron varias rutas relativas al cwd).\n";
-        return ImTextureID_Invalid;
+        return Rendering::Backend::kInvalidHandle;
     }
 
     int ancho = 0, alto = 0, canales = 0;
     unsigned char* pixeles = stbi_load(rutaEncontrada.c_str(), &ancho, &alto, &canales, 4);
     if (!pixeles) {
         std::cerr << "[IconosGUI] stbi_load fallo en: " << rutaEncontrada << "\n";
-        return ImTextureID_Invalid;
+        return Rendering::Backend::kInvalidHandle;
     }
 
-    GLuint textura = 0;
-    glGenTextures(1, &textura);
-    glBindTexture(GL_TEXTURE_2D, textura);
-    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    // Mipmaps (trilineales) para que la minificacion a tamanos chicos no
-    // produzca "dientes"/alias (lo que pasaba con el muestreo lineal a secas).
-    // gluBuild2DMipmaps genera la cadena completa en contextos compatibility
-    // (glGenerateMipmap es de GL 3.0 y no esta en los headers legacy).
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    gluBuild2DMipmaps(GL_TEXTURE_2D, GL_RGBA, ancho, alto, GL_RGBA, GL_UNSIGNED_BYTE, pixeles);
-    glBindTexture(GL_TEXTURE_2D, 0);
+    // La textura se crea por el backend (con mipmaps trilineales para que la
+    // minificacion a tamanos chicos no produzca "dientes"/alias) y la GUI
+    // recibe el descriptor opaco cuando la pinta. Ningun GL aca.
+    Rendering::Backend::Image2D gpuImage;
+    gpuImage.width = ancho;
+    gpuImage.height = alto;
+    gpuImage.pixels = pixeles;
+    gpuImage.generateMipmaps = true;
+    const Rendering::Backend::Handle textura =
+        Rendering::Backend::activeBackend().createTexture2D(gpuImage);
 
     stbi_image_free(pixeles);
+    if (textura == Rendering::Backend::kInvalidHandle) {
+        std::cerr << "[IconosGUI] createTexture2D fallo en: " << rutaEncontrada
+                  << "\n";
+        return Rendering::Backend::kInvalidHandle;
+    }
     std::cout << "[IconosGUI] Textura cargada: " << rutaEncontrada
               << " (" << ancho << "x" << alto << ")\n";
-    return (ImTextureID)(intptr_t)textura;
+    return textura;
 }
 
 ImTextureID IconosGUI::getIconoPorExtension(const std::string& extension) const {
     std::string ext = extension;
     for (auto& c : ext) c = (char)tolower((unsigned char)c);
 
-    if (ext == ".cpp" || ext == ".cc" || ext == ".cxx" || ext == ".c") return iconoCpp;
-    if (ext == ".h" || ext == ".hpp" || ext == ".hh" || ext == ".hxx") return iconoHpp;
-    if (ext == ".java") return iconoJava;
+    if (ext == ".cpp" || ext == ".cc" || ext == ".cxx" || ext == ".c") return aImTexture(iconoCpp);
+    if (ext == ".h" || ext == ".hpp" || ext == ".hh" || ext == ".hxx") return aImTexture(iconoHpp);
+    if (ext == ".java") return aImTexture(iconoJava);
 
     // Assets y formatos: modelos, imagenes, audio, fuentes y datos.
-    if (ext == ".blend" || ext == ".blend1") return iconoBlend;      // Blender
-    if (ext == ".max" || ext == ".3ds") return iconoMax;             // 3ds Max
-    if (ext == ".ma" || ext == ".mb") return iconoMaya;              // Maya
-    if (ext == ".fbx") return iconoFbx;
-    if (ext == ".obj") return iconoObj;
-    if (ext == ".png") return iconoPng;
-    if (ext == ".jpg" || ext == ".jpe") return iconoJpg;
-    if (ext == ".jpeg") return iconoJpeg;
-    if (ext == ".tga") return iconoTga;
-    if (ext == ".hdr") return iconoHdr;                              // HDR/OpenEXR legacy
-    if (ext == ".exr") return iconoExr;
-    if (ext == ".psd") return iconoPsd;
-    if (ext == ".mp3") return iconoMp3;
-    if (ext == ".wav") return iconoWav;
-    if (ext == ".ogg") return iconoOgg;
-    if (ext == ".ttf") return iconoTtf;
-    if (ext == ".otf") return iconoOtf;
-    if (ext == ".json") return iconoJson;
-    if (ext == ".xml") return iconoXml;
-    if (ext == ".csv") return iconoCsv;
-    if (ext == ".rs") return iconoRs;                                // Rust
-    if (ext == ".db" || ext == ".sqlite" || ext == ".sqlite3") return iconoDb; // Bases de datos
-    if (ext == ".mtl") return iconoMtl;                              // Material Wavefront junto a .obj
-    if (ext == ".rar" || ext == ".7z" || ext == ".tar" || ext == ".gz") return iconoRar;
-    if (ext == ".zip") return iconoZip;
-    return iconoArchivo;
+    if (ext == ".blend" || ext == ".blend1") return aImTexture(iconoBlend);      // Blender
+    if (ext == ".max" || ext == ".3ds") return aImTexture(iconoMax);             // 3ds Max
+    if (ext == ".ma" || ext == ".mb") return aImTexture(iconoMaya);              // Maya
+    if (ext == ".fbx") return aImTexture(iconoFbx);
+    if (ext == ".obj") return aImTexture(iconoObj);
+    if (ext == ".png") return aImTexture(iconoPng);
+    if (ext == ".jpg" || ext == ".jpe") return aImTexture(iconoJpg);
+    if (ext == ".jpeg") return aImTexture(iconoJpeg);
+    if (ext == ".tga") return aImTexture(iconoTga);
+    if (ext == ".hdr") return aImTexture(iconoHdr);                              // HDR/OpenEXR legacy
+    if (ext == ".exr") return aImTexture(iconoExr);
+    if (ext == ".psd") return aImTexture(iconoPsd);
+    if (ext == ".mp3") return aImTexture(iconoMp3);
+    if (ext == ".wav") return aImTexture(iconoWav);
+    if (ext == ".ogg") return aImTexture(iconoOgg);
+    if (ext == ".ttf") return aImTexture(iconoTtf);
+    if (ext == ".otf") return aImTexture(iconoOtf);
+    if (ext == ".json") return aImTexture(iconoJson);
+    if (ext == ".xml") return aImTexture(iconoXml);
+    if (ext == ".csv") return aImTexture(iconoCsv);
+    if (ext == ".rs") return aImTexture(iconoRs);                                // Rust
+    if (ext == ".db" || ext == ".sqlite" || ext == ".sqlite3") return aImTexture(iconoDb); // Bases de datos
+    if (ext == ".mtl") return aImTexture(iconoMtl);                              // Material Wavefront junto a .obj
+    if (ext == ".rar" || ext == ".7z" || ext == ".tar" || ext == ".gz") return aImTexture(iconoRar);
+    if (ext == ".zip") return aImTexture(iconoZip);
+    return aImTexture(iconoArchivo);
 }

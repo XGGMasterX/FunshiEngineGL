@@ -76,6 +76,9 @@ public:
     void setLegacyLights(const LegacyLight* lights, int lightCount,
                          const float* globalAmbient) override;
     const char* diagnosticoCompat() const override;
+    void applyBaseState() override;
+    void setClearColor(const float color[3]) override;
+    const char* diagnosticoGPU() const override;
     void pushMatrix() override;
     void popMatrix() override;
     void multMatrix(const float mat4[16]) override;

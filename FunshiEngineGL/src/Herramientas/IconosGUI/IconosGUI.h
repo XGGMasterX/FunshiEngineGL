@@ -22,7 +22,7 @@
 #include <string>
 #include <imgui.h>
 
-#include "../../GLCompat.h"
+#include "../../Rendering/Backend/IRenderBackend.h"
 
 class IconosGUI {
 public:
@@ -33,51 +33,53 @@ public:
 
     bool estaInicializado() const { return inicializado; }
 
-    ImTextureID getIconoCarpeta() const { return iconoCarpeta; }
-    ImTextureID getIconoArchivo() const { return iconoArchivo; }
-    ImTextureID getIconoCpp() const { return iconoCpp; }
-    ImTextureID getIconoHpp() const { return iconoHpp; }
-    ImTextureID getIconoJava() const { return iconoJava; }
-    ImTextureID getIconoGameObject() const { return iconoGameObject; }
+    ImTextureID getIconoCarpeta() const { return aImTexture(iconoCarpeta); }
+    ImTextureID getIconoArchivo() const { return aImTexture(iconoArchivo); }
+    ImTextureID getIconoCpp() const { return aImTexture(iconoCpp); }
+    ImTextureID getIconoHpp() const { return aImTexture(iconoHpp); }
+    ImTextureID getIconoJava() const { return aImTexture(iconoJava); }
+    ImTextureID getIconoGameObject() const { return aImTexture(iconoGameObject); }
     ImTextureID getIconoPorExtension(const std::string& extension) const;
 
 private:
-    ImTextureID cargarPNG(const char* nombrePNG);
+    // La GUI nunca ve handles: los convierte el backend a ImTextureID.
+    static ImTextureID aImTexture(Rendering::Backend::Handle handle);
+    Rendering::Backend::Handle cargarPNG(const char* nombrePNG);
 
     // Iconos base del explorador de archivos (ya existentes).
-    ImTextureID iconoCarpeta = ImTextureID_Invalid;
-    ImTextureID iconoArchivo = ImTextureID_Invalid;
-    ImTextureID iconoCpp = ImTextureID_Invalid;
-    ImTextureID iconoHpp = ImTextureID_Invalid;
-    ImTextureID iconoJava = ImTextureID_Invalid;
-    ImTextureID iconoGameObject = ImTextureID_Invalid;
+    Rendering::Backend::Handle iconoCarpeta = Rendering::Backend::kInvalidHandle;
+    Rendering::Backend::Handle iconoArchivo = Rendering::Backend::kInvalidHandle;
+    Rendering::Backend::Handle iconoCpp = Rendering::Backend::kInvalidHandle;
+    Rendering::Backend::Handle iconoHpp = Rendering::Backend::kInvalidHandle;
+    Rendering::Backend::Handle iconoJava = Rendering::Backend::kInvalidHandle;
+    Rendering::Backend::Handle iconoGameObject = Rendering::Backend::kInvalidHandle;
 
     // Iconos por extension de asset/formato (Imagenes/ + nombre.png).
-    ImTextureID iconoBlend = ImTextureID_Invalid;
-    ImTextureID iconoCsv = ImTextureID_Invalid;
-    ImTextureID iconoExr = ImTextureID_Invalid;
-    ImTextureID iconoFbx = ImTextureID_Invalid;
-    ImTextureID iconoHdr = ImTextureID_Invalid;
-    ImTextureID iconoJpeg = ImTextureID_Invalid;
-    ImTextureID iconoJpg = ImTextureID_Invalid;
-    ImTextureID iconoJson = ImTextureID_Invalid;
-    ImTextureID iconoMax = ImTextureID_Invalid;
-    ImTextureID iconoMaya = ImTextureID_Invalid;
-    ImTextureID iconoMp3 = ImTextureID_Invalid;
-    ImTextureID iconoObj = ImTextureID_Invalid;
-    ImTextureID iconoOgg = ImTextureID_Invalid;
-    ImTextureID iconoOtf = ImTextureID_Invalid;
-    ImTextureID iconoPng = ImTextureID_Invalid;
-    ImTextureID iconoPsd = ImTextureID_Invalid;
-    ImTextureID iconoRs = ImTextureID_Invalid;
-    ImTextureID iconoTga = ImTextureID_Invalid;
-    ImTextureID iconoTtf = ImTextureID_Invalid;
-    ImTextureID iconoWav = ImTextureID_Invalid;
-    ImTextureID iconoXml = ImTextureID_Invalid;
-    ImTextureID iconoDb = ImTextureID_Invalid;
-    ImTextureID iconoMtl = ImTextureID_Invalid;
-    ImTextureID iconoRar = ImTextureID_Invalid;
-    ImTextureID iconoZip = ImTextureID_Invalid;
+    Rendering::Backend::Handle iconoBlend = Rendering::Backend::kInvalidHandle;
+    Rendering::Backend::Handle iconoCsv = Rendering::Backend::kInvalidHandle;
+    Rendering::Backend::Handle iconoExr = Rendering::Backend::kInvalidHandle;
+    Rendering::Backend::Handle iconoFbx = Rendering::Backend::kInvalidHandle;
+    Rendering::Backend::Handle iconoHdr = Rendering::Backend::kInvalidHandle;
+    Rendering::Backend::Handle iconoJpeg = Rendering::Backend::kInvalidHandle;
+    Rendering::Backend::Handle iconoJpg = Rendering::Backend::kInvalidHandle;
+    Rendering::Backend::Handle iconoJson = Rendering::Backend::kInvalidHandle;
+    Rendering::Backend::Handle iconoMax = Rendering::Backend::kInvalidHandle;
+    Rendering::Backend::Handle iconoMaya = Rendering::Backend::kInvalidHandle;
+    Rendering::Backend::Handle iconoMp3 = Rendering::Backend::kInvalidHandle;
+    Rendering::Backend::Handle iconoObj = Rendering::Backend::kInvalidHandle;
+    Rendering::Backend::Handle iconoOgg = Rendering::Backend::kInvalidHandle;
+    Rendering::Backend::Handle iconoOtf = Rendering::Backend::kInvalidHandle;
+    Rendering::Backend::Handle iconoPng = Rendering::Backend::kInvalidHandle;
+    Rendering::Backend::Handle iconoPsd = Rendering::Backend::kInvalidHandle;
+    Rendering::Backend::Handle iconoRs = Rendering::Backend::kInvalidHandle;
+    Rendering::Backend::Handle iconoTga = Rendering::Backend::kInvalidHandle;
+    Rendering::Backend::Handle iconoTtf = Rendering::Backend::kInvalidHandle;
+    Rendering::Backend::Handle iconoWav = Rendering::Backend::kInvalidHandle;
+    Rendering::Backend::Handle iconoXml = Rendering::Backend::kInvalidHandle;
+    Rendering::Backend::Handle iconoDb = Rendering::Backend::kInvalidHandle;
+    Rendering::Backend::Handle iconoMtl = Rendering::Backend::kInvalidHandle;
+    Rendering::Backend::Handle iconoRar = Rendering::Backend::kInvalidHandle;
+    Rendering::Backend::Handle iconoZip = Rendering::Backend::kInvalidHandle;
     bool inicializado = false;
 };
 

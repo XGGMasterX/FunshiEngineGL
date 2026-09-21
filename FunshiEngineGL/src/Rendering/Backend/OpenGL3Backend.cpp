@@ -48,6 +48,7 @@ typedef void (GLAPIENTRY* FN_RenderbufferStorage)(GLenum, GLenum, GLsizei,
 typedef void (GLAPIENTRY* FN_FramebufferRenderbuffer)(GLenum, GLenum, GLenum,
                                                       GLuint);
 typedef GLenum (GLAPIENTRY* FN_CheckFramebufferStatus)(GLenum);
+typedef void (GLAPIENTRY* FN_GenerateMipmap)(GLenum);
 
 FN_GenFramebuffers pfnGenFramebuffers = nullptr;
 FN_DeleteFramebuffers pfnDeleteFramebuffers = nullptr;
@@ -59,6 +60,7 @@ FN_BindRenderbuffer pfnBindRenderbuffer = nullptr;
 FN_RenderbufferStorage pfnRenderbufferStorage = nullptr;
 FN_FramebufferRenderbuffer pfnFramebufferRenderbuffer = nullptr;
 FN_CheckFramebufferStatus pfnCheckFramebufferStatus = nullptr;
+FN_GenerateMipmap pfnGenerateMipmap = nullptr;
 
 template <typename T>
 void cargar(const char* nombre, T& destino) {
@@ -248,19 +250,31 @@ Handle OpenGL3Backend::createTexture2D(const Image2D& image) {
     if (!image.pixels || image.width <= 0 || image.height <= 0)
         return kInvalidHandle;
 
+    // Los mipmaps son GL 3.0+; se cargan por puntero como los FBO y solo se
+    // usan si llegan. Si no, se cae al nivel base con filtrado lineal.
+    const bool conMipmaps =
+        image.generateMipmaps && (cargar("glGenerateMipmap", pfnGenerateMipmap),
+                                  pfnGenerateMipmap != nullptr);
+
     // glGenTextures/glBindTexture/glTexParameteri/glTexImage2D son GL 1.1,
     // estan en gl.h de cualquier plataforma (a diferencia de glActiveTexture).
     GLuint texture = 0;
     glGenTextures(1, &texture);
     glBindTexture(GL_TEXTURE_2D, texture);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
+                    conMipmaps ? GL_LINEAR_MIPMAP_LINEAR : GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S,
+                    conMipmaps ? GL_CLAMP_TO_EDGE : GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T,
+                    conMipmaps ? GL_CLAMP_TO_EDGE : GL_REPEAT);
 
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, image.width, image.height, 0,
                  GL_RGBA, GL_UNSIGNED_BYTE, image.pixels);
+
+    if (conMipmaps) pfnGenerateMipmap(GL_TEXTURE_2D);
 
     glBindTexture(GL_TEXTURE_2D, 0);
     return static_cast<Handle>(texture);
@@ -472,8 +486,7 @@ void OpenGL3Backend::setCompatibilityMatrices(const float* projection,
 }
 
 void OpenGL3Backend::clearScreen(const float color[3]) {
-    glClearColor(color ? color[0] : 0.f, color ? color[1] : 0.f,
-                 color ? color[2] : 0.f, 1.0f);
+    if (color) glClearColor(color[0], color[1], color[2], 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
@@ -537,6 +550,51 @@ const char* OpenGL3Backend::diagnosticoCompat() const {
                   glIsEnabled(GL_LIGHTING) ? "on" : "off",
                   glIsEnabled(GL_LIGHT0) ? "on" : "off",
                   static_cast<unsigned int>(glGetError()));
+    return buffer;
+}
+
+void OpenGL3Backend::applyBaseState() {
+    // Estado del contexto recien creado (equivalente al setup historico de
+    // main: depth test, normalizacion de normales y seguimiento de color por
+    // material para el modo inmediato).
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LESS);
+    glEnable(GL_NORMALIZE);
+    glColorMaterial(GL_FRONT, GL_AMBIENT_AND_DIFFUSE);
+}
+
+void OpenGL3Backend::setClearColor(const float color[3]) {
+    glClearColor(color ? color[0] : 0.f, color ? color[1] : 0.f,
+                 color ? color[2] : 0.f, 1.0f);
+}
+
+const char* OpenGL3Backend::diagnosticoGPU() const {
+#ifndef GL_SHADING_LANGUAGE_VERSION
+#define GL_SHADING_LANGUAGE_VERSION 0x8B30
+#endif
+#ifndef GL_CONTEXT_PROFILE_MASK
+#define GL_CONTEXT_PROFILE_MASK 0x9126
+#define GL_CONTEXT_CORE_PROFILE_BIT 0x00000001
+#define GL_CONTEXT_COMPATIBILITY_PROFILE_BIT 0x00000002
+#endif
+    static thread_local char buffer[576];
+    GLint perfil = 0;
+    glGetIntegerv(GL_CONTEXT_PROFILE_MASK, &perfil);
+    std::snprintf(
+        buffer, sizeof(buffer),
+        "[GPU] %s\n[GL_VERSION] %s\n[GLSL] %s\n[Perfil GL] %d (1=core, "
+        "2=compatibilidad, 0=desconocido/legacy)",
+        glGetString(GL_RENDERER)
+            ? reinterpret_cast<const char*>(glGetString(GL_RENDERER))
+            : "(no disponible)",
+        glGetString(GL_VERSION)
+            ? reinterpret_cast<const char*>(glGetString(GL_VERSION))
+            : "(no disponible)",
+        glGetString(GL_SHADING_LANGUAGE_VERSION)
+            ? reinterpret_cast<const char*>(
+                  glGetString(GL_SHADING_LANGUAGE_VERSION))
+            : "(no disponible)",
+        static_cast<int>(perfil));
     return buffer;
 }
 

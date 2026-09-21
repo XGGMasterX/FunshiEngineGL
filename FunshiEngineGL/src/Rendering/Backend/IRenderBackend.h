@@ -28,8 +28,8 @@ namespace Rendering {
 namespace Backend {
 
 // Handle opaco a un recurso GPU (0 = vacio/null). El engine trabaja a traves
-// de la interfaz; el backend concreto (OpenGL3Backend hoy, VulkanBackend en el
-// futuro) traduce cada handle a su objeto nativo (GLuint, VkBuffer, ...).
+// de la interfaz; el backend concreto (OpenGL3Backend hoy) traduce cada handle
+// a su objeto nativo (GLuint, ...). La interfaz no filtra detalles de la API.
 using Handle = std::uint64_t;
 constexpr Handle kInvalidHandle = 0;
 
@@ -55,6 +55,9 @@ struct Image2D {
     int width = 0;
     int height = 0;
     const unsigned char* pixels = nullptr;
+    // Genera la cadena de mipmaps (muestreo trilinear al minificar). Si el
+    // backend no puede generarlos cae a lineal (solo el nivel base).
+    bool generateMipmaps = false;
 };
 
 // Luz del pipeline de compatibilidad (semantica GL_LIGHT0..GL_LIGHT7) lista
@@ -122,14 +125,13 @@ public:
     // Handle de la textura de color del target (para mostrarla como ImTextureID).
     virtual Handle renderTargetColorTexture(Handle target) const = 0;
     // Handle como descriptor opaco para la GUI (ImGui::Image): en GL vuelve el
-    // GLuint como puntero; en Vulkan volvera un descriptor set. La GUI nunca
-    // ve el valor concreto, solo lo reenvia como ImTextureID.
+    // GLuint como puntero. La GUI nunca ve el valor concreto, solo lo reenvia
+    // como ImTextureID.
     virtual void* imguiTextureId(Handle texture) const = 0;
 
     // --- Estado del pipeline de compatibilidad / stack de matrices -----------
     // Operaciones heredadas del modo inmediato (grilla, wireframes, fallback
-    // legacy). El backend las traduce a su API nativa; en Vulkan estas llamadas
-    // desaparecen a favor de buffers, por eso aqui solo se declara el minimo.
+    // legacy). El backend concreto las traduce a su API nativa.
     // Viewport del framebuffer actual (glViewport): lo necesitan la pasada
     // principal y las vistas previas (cada una con su propio encuadre).
     virtual void setViewport(int x, int y, int width, int height) = 0;
@@ -148,6 +150,16 @@ public:
     // ultimo error grabado) como cadena corta para el diag del editor. El
     // buffer es interno del backend y vale solo hasta la siguiente llamada.
     virtual const char* diagnosticoCompat() const = 0;
+    // Estado base de un contexto recien creado: depth test, normalizacion de
+    // normales y seguimiento de color por material (glColorMaterial). Se llama
+    // una vez al arrancar, despues de crear el contexto y antes del bucle.
+    virtual void applyBaseState() = 0;
+    // Color de limpieza del framebuffer. clearScreen(null) limpia con este
+    // color sin tocarlo.
+    virtual void setClearColor(const float color[3]) = 0;
+    // Info del GPU/contexto (renderer, version de GL y GLSL, perfil) como
+    // texto para los logs de arranque de la ventana.
+    virtual const char* diagnosticoGPU() const = 0;
     virtual void pushMatrix() = 0;
     virtual void popMatrix() = 0;
     virtual void multMatrix(const float mat4[16]) = 0;
