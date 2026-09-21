@@ -19,7 +19,101 @@
 #ifndef GLFUNCS_H
 #define GLFUNCS_H
 
-#include "../../GLCompat.h"
+// Punto unico de inclusion de las cabeceras OpenGL legacy (gl.h) junto con
+// GLFW, homogeneo en Linux, macOS y Windows. Antes era GLCompat.h en la raiz
+// de src/; al quedar como unico consumido en este backend, se integro aqui
+// para que ningun header de GL viva fuera de la carpeta del backend.
+//
+// En Windows el gl.h del Windows SDK es el "antiguo" de OpenGL 1.1:
+//  - depende de windows.h para compilar (WINGDIAPI, APIENTRY, CALLBACK);
+//  - no declara constantes posteriores a GL 1.1 (GL_CLAMP_TO_EDGE).
+// Ademas glfw3.h, si no se le indica lo contrario, incluye gl.h por su cuenta
+// (GLFW_INCLUDE_NONE), arrastrando esos problemas de nuevo. Por eso aqui se
+// incluye windows.h primero, se agregan las constantes que faltan y solo
+// despues se trae GLFW.
+#ifdef _WIN32
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#endif
+
+#define GLFW_INCLUDE_NONE
+
+#include <GL/gl.h>
+
+// El gl.h legacy de Windows es OpenGL 1.1: no define GL_CLAMP_TO_EDGE (GL
+// 1.2+), ni los tipos y constantes de GL 1.5/2.0/3.0 que el motor usa para los
+// shaders (GL_VERTEX_SHADER, GL_ARRAY_BUFFER...) y FBO (GL_FRAMEBUFFER...).
+// En Linux/macOS esas definiciones ya las trae gl.h/glext; en Windows se
+// agregan aqui con guards para no pisar cabeceras que si las declaren.
+#ifdef _WIN32
+#include <cstddef>
+#ifndef GL_VERSION_1_5
+typedef std::ptrdiff_t GLintptr;
+typedef std::ptrdiff_t GLsizeiptr;
+#endif
+#ifndef GL_VERSION_2_0
+typedef char GLchar;
+#endif
+
+#ifndef GL_CLAMP_TO_EDGE
+#define GL_CLAMP_TO_EDGE 0x812F
+#endif
+#ifndef GL_TEXTURE0
+#define GL_TEXTURE0 0x84C0
+#endif
+#ifndef GL_ARRAY_BUFFER
+#define GL_ARRAY_BUFFER 0x8892
+#endif
+#ifndef GL_ELEMENT_ARRAY_BUFFER
+#define GL_ELEMENT_ARRAY_BUFFER 0x8893
+#endif
+#ifndef GL_STATIC_DRAW
+#define GL_STATIC_DRAW 0x88E4
+#endif
+#ifndef GL_VERTEX_SHADER
+#define GL_VERTEX_SHADER 0x8B31
+#endif
+#ifndef GL_FRAGMENT_SHADER
+#define GL_FRAGMENT_SHADER 0x8B30
+#endif
+#ifndef GL_COMPILE_STATUS
+#define GL_COMPILE_STATUS 0x8B81
+#endif
+#ifndef GL_LINK_STATUS
+#define GL_LINK_STATUS 0x8B82
+#endif
+#ifndef GL_INFO_LOG_LENGTH
+#define GL_INFO_LOG_LENGTH 0x8B84
+#endif
+#ifndef GL_RGBA8
+#define GL_RGBA8 0x8058
+#endif
+#ifndef GL_RENDERBUFFER
+#define GL_RENDERBUFFER 0x8D41
+#endif
+#ifndef GL_FRAMEBUFFER
+#define GL_FRAMEBUFFER 0x8D40
+#endif
+#ifndef GL_COLOR_ATTACHMENT0
+#define GL_COLOR_ATTACHMENT0 0x8CE0
+#endif
+#ifndef GL_DEPTH_ATTACHMENT
+#define GL_DEPTH_ATTACHMENT 0x8D00
+#endif
+#ifndef GL_FRAMEBUFFER_COMPLETE
+#define GL_FRAMEBUFFER_COMPLETE 0x8CD5
+#endif
+#ifndef GL_DEPTH_COMPONENT24
+#define GL_DEPTH_COMPONENT24 0x81A6
+#endif
+#endif
+
+#include <GLFW/glfw3.h>
 #include <type_traits>
 
 // Las funciones modernas (shaders + VAO/VBO) no estan declaradas en el gl.h
