@@ -1,6 +1,6 @@
 # FunshiEngineGL
 
-Motor y editor 3D en tiempo real escrito en C++17, con interfaz ImGui y renderizado OpenGL (pipeline de compatibilidad) construido desde cero.
+Motor y editor 3D en tiempo real escrito en C++17, con interfaz ImGui y renderizado OpenGL construido desde cero: los modelos usan un pipeline moderno (VBO/VAO + shaders) con degradación automática al modo inmediato de compatibilidad, y la grilla se dibuja en una pasada independiente como componente (`Grid`).
 
 ---
 
@@ -14,8 +14,10 @@ Motor y editor 3D en tiempo real escrito en C++17, con interfaz ImGui y renderiz
 - Carga de modelos 3D con **Assimp** (`.obj`, `.fbx` y formatos soportados por Assimp).
 - **Física con Bullet** detrás de una fachada desacoplada (`PhysicsEngine` → `IPhysicsBackend` → `BulletPhysicsAdapter`): solo simula en modo Play, sincroniza transformaciones entre objeto, collider y cuerpo, y admite un gizmo dedicado para el collider activo.
 - **Serialización binaria de escenas** en preorden con marcadores `=>`/`<=`: guarda y recupera la jerarquía completa (padres e hijos) de forma recursiva.
-- **EventBus** con suscripción tipada (creación, eliminación, reparentado, selección y cambios de componentes).
-- **Máquina de estados** de la aplicación: `MainMenu`, `Editing`, `Playing`, `Exiting`.
+- **EventBus** con suscripción tipada (creación, eliminación, reparentado, selección y cambios de componentes) + **EditorEventBus**: canal tipado de GUI interna (apariencia, idioma, sensibilidad, cámara activa y visibilidad de ventanas) que median entre el menú, las ventanas del editor y la escena sin pasarse punteros.
+- **Máquina de estados** de la aplicación: `MainMenu`, `Editing`, `Playing`, `Exiting`, con reglas de transición centralizadas en `OrquestadorEstadoGUI`.
+- **Render híbrido**: los `Modelos3D` se dibujan con `MeshRenderer` (VBO/VAO + shaders vía `ShaderProgram`) y degradan a `glBegin/glEnd` en contextos legacy o mallas sin normales. La **grilla** es un componente (`Grid`, con visible/color/tamaño/separación) en una pasada independiente, cuyo color acompaña a la apariencia (incluido el modo blanco y negro).
+- **Ventana "Estado"** (`StatusBarInterface`): muestra el toolchain externo (compilador C++, javac, libjvm) y el estado de compilación/carga de los scripts de la escena.
 - Explorador de archivos del proyecto con fachada propia (`FileManager`), estado de navegación compartido (`FileSelection`) y vigilancia de cambios externos (`FileSystemWatcher`).
 - **Apariencia del editor configurable** (perfil persisto en `Configuracion.json`):
   tema claro/oscuro, **modo blanco y negro** que acompana al fondo y la grilla
@@ -87,7 +89,7 @@ Build de Release más rápido (sin sanitizers):
 cmake -B build -S FunshiEngineGL -DCMAKE_BUILD_TYPE=Release -DENABLE_ASAN=OFF
 ```
 
-En Windows la misma receta funciona con el generador de Visual Studio; también existe la solución `FunshiEngineGL.sln`.
+En Windows la misma receta funciona con el generador de Visual Studio. También existe `FunshiEngineGL.sln`, pero es un proyecto heredado con rutas absolutas de una máquina concreta: **prefiere siempre CMake** (`cmake -B build -S FunshiEngineGL`) para un build portable.
 
 > El primer arranque crea su configuración en `~/MotorGrafico/` (Linux) o `C:/MotorGraficoArchivos/` (Windows): ahí viven la escena serializada, `Configuracion.json` y el layout `imgui.ini` del editor.
 
@@ -96,19 +98,25 @@ En Windows la misma receta funciona con el generador de Visual Studio; también 
 
 ## Pruebas y CI
 
-Las pruebas son headless (sin pila gráfica) y corren con CTest:
+Las pruebas son headless (sin pila gráfica), corren con CTest y hay **10 targets**
+(nueve siempre + `scripts-java-tests` solo con `-DFUNSHI_JAVA=ON`):
 
 ```bash
-cmake --build build --target filemanager-tests configuracion-tests assetmanager-tests texturemanager-tests estructuras-tests
+cmake --build build --target filemanager-tests configuracion-tests eventbus-tests menu-tests assetmanager-tests texturemanager-tests estructuras-tests scripts-tests scripts-runtime-tests
 ctest --test-dir build --output-on-failure
 ```
 
-- `filemanager-tests`: explorador de archivos (`GestorDeArchivos`/`FileManager`/`FileSystemWatcher`).
-- `configuracion-tests`: `EditorConfig` (JSON tolerante + round-trip).
-- `assetmanager-tests` y `texturemanager-tests`: caches Flyweight de meshes e imágenes.
-- `estructuras-tests`: listas, árboles, heaps y ordenamiento propios (87 verificaciones).
+- `filemanager-tests` (27 verificaciones): explorador de archivos (`GestorDeArchivos`/`FileManager`/`FileSystemWatcher`).
+- `configuracion-tests` (53): `EditorConfig` (JSON tolerante + round-trip + `restablecer`).
+- `eventbus-tests` (16): canal tipado de GUI interna (`EditorEventBus`).
+- `menu-tests` (30): `MenuModel` (traducción en vivo, observer de cambios y reset).
+- `assetmanager-tests` (47) y `texturemanager-tests` (15): caches Flyweight de meshes e imágenes.
+- `estructuras-tests` (87): listas, árboles, heaps y ordenamiento propios.
+- `scripts-tests` (42): reflexión `SerializeField` (campos, arrays, grupos y round-trip binario).
+- `scripts-runtime-tests`: compila un script C++ real con `BackendCpp`, lo carga con `dlopen` y ejecuta el ciclo; se omite en Windows (SKIP, requiere `cl.exe` con entorno de Visual Studio).
+- `scripts-java-tests`: end-to-end del backend Java (JNI); solo con `-DFUNSHI_JAVA=ON` (SKIP si no hay JDK).
 
-Con `-DBUILD_ENGINE=OFF` se compilan **solo** las pruebas: no se requieren GLFW/OpenGL/Bullet/Assimp y funcionan en cualquier plataforma. `.github/workflows/ci.yml` hace exactamente eso en Linux, Windows y macOS, además de un build completo del engine en Ubuntu.
+Con `-DBUILD_ENGINE=OFF` se compilan **solo** las pruebas: no se requieren GLFW/OpenGL/Bullet/Assimp y funcionan en cualquier plataforma. `.github/workflows/ci.yml` hace exactamente eso en Linux, Windows y macOS (más el backend Java en Ubuntu con JDK), además de un build completo del engine en Ubuntu.
 
 ---
 
@@ -116,12 +124,15 @@ Con `-DBUILD_ENGINE=OFF` se compilan **solo** las pruebas: no se requieren GLFW/
 
 ```text
 FunshiEngineGL/            ← raíz del repo
-├── README.md
-├── PROJECT_STRUCTURE.md   ← arquitectura detallada
-├── CAMARAS_VISTAS_PREVIAS.md ← cámaras componente + vistas previas (Fase 2)
-├── FunshiEngineGL.sln     ← solución Visual Studio (Windows)
-├── .github/workflows/     ← CI (build del engine + pruebas multiplataforma)
-├── tests/                 ← pruebas headless (FileManager, EditorConfig, Assets, Estructuras)
+├── README.md                     ← visión general, build, controles y pendientes
+├── PROJECT_STRUCTURE.md          ← arquitectura detallada
+├── CAMARAS_VISTAS_PREVIAS.md     ← cámaras componente + vistas previas (Fase 2)
+├── ARQUITECTURA_ESTADOS_GUI.md   ← estados/menú/GUI internas (diseño + Fases 1-3)
+├── FunshiEngineGL.sln            ← solución Visual Studio (Windows, heredada)
+├── .github/workflows/            ← CI (build del engine + pruebas multiplataforma)
+├── tests/                        ← pruebas headless: FileManager, EditorConfig,
+│                                   EditorEventBus, MenuModel, Assets, Estructuras,
+│                                   Scripts (reflexión y runtime C++/Java)
 └── FunshiEngineGL/        ← proyecto principal
     ├── CMakeLists.txt
     ├── ImGuizmo/          ← dependencia externa integrada
@@ -168,6 +179,7 @@ Ver **PROJECT_STRUCTURE.md** para la descripción completa de cada módulo, las 
 - [ ] Clase `Input` independiente (hoy el input vive en callbacks de `main.cpp`).
 - [ ] Terminar los popups del inspector; prefabs y duplicación de objetos.
 - [ ] Portabilidad de rutas de assets (centralizar `HOME` / rutas de Windows).
+- [ ] Migrar o eliminar el `FunshiEngineGL.vcxproj` (aún arrastra rutas absolutas de una máquina concreta; el build soportado es CMake).
 - [ ] Versionado y validación de la serialización binaria.
 - [ ] Extraer `SceneRenderer`/`PhysicsSystem`/`ScriptSystem` de `GameScene`; vistas previas seleccionables con clic.
 

@@ -16,7 +16,7 @@ del menú); la Fase 4 queda como plan. Cada fase aterriza en su propia revisión
 
 ## 1. Estado actual (lo que el código ya resuelve)
 
-- `ApplicationStateMachine` (`src/Estados/ApplicationStateMachine.{h,cpp}`) ya
+- `ApplicationStateMachine` (`src/States/ApplicationStateMachine.{h,cpp}`) ya
   existe como fuente de verdad del alto nivel: `MainMenu`, `Editing`, `Playing`,
   `Exiting`. Su uso hoy es un simple `transitionTo` + consulta `is`, sin
   submáquina, sin eventos de transición.
@@ -72,7 +72,7 @@ de referencia)
   editor de apariencia no necesita saber quién es el manager de escenas.
 
 ### 3.3 Lo que YA encaja con el proyecto (no hay que re-implementar)
-- `ApplicationStateMachine` = semilla del orquestador (estado de faé).
+- `ApplicationStateMachine` = semilla del orquestador (estado de fachada).
 - `GUIManager` = fachada de GUI internas (ya tiene persistencia de ventanas).
 - `MenusGUI` (MVP) = fachada exterior ya desacoplada por MVP.
 - `EventBus` = canal de comunicación ya existente.

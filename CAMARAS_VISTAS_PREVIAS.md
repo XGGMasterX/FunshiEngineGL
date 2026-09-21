@@ -15,7 +15,7 @@ encontrados y el diagnóstico del bug de la ventana de previsualización en negr
 
 | Pieza | Qué resuelve |
 |---|---|
-| `CameraComponent` | Cámara como componente adjuntable a cualquier `GameObject`; la vista se deriva del `Transform` global del dueño. Navegación FPS propia, matrices de vista/proyección, flag `pintar` para la vista previa inédita. |
+| `CameraComponent` | Cámara como componente adjuntable a cualquier `GameObject`; la vista se deriva del `Transform` global del dueño. Navegación FPS propia, matrices de vista/proyección, flag `pintar` para la vista previa en vivo. |
 | `RenderTarget` | Render-to-texture con FBO (framebuffer + textura de color + renderbuffer de profundidad), sin GLAD/glew: las funciones se cargan por puntero con `glfwGetProcAddress`. |
 | Ventana "Cámaras" | Crear cámaras desde la vista activa, elegir cuál se usa para navegar, prender/apagar su vista previa y eliminarlas. |
 | Vistas previas | Ventana ImGui pasiva por cámara que muestra en vivo lo que ve esa cámara. |
@@ -333,8 +333,7 @@ gameScene()                                   (cada frame)
 AddressSanitizer + UBSan por defecto — así se atrapó el overflow de §6.2.
 
 ```bash
-cd FunshiEngineGL/FunshiEngineGL
-cmake --build build --target FunshiEngineGL -- -j4
+cmake --build build --target FunshiEngineGL -j4
 ```
 
 > Nota histórica: para reproducir estos bugs se usó temporalmente una
