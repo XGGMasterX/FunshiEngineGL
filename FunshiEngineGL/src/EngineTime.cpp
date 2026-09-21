@@ -18,7 +18,9 @@
 */
 #include "EngineTime.h"
 
-#include "GLCompat.h"
+// glfwGetTime: solo el reloj de GLFW, sin ningun estado de GL encima.
+#define GLFW_INCLUDE_NONE
+#include <GLFW/glfw3.h>
 #include <chrono>
 #include <thread>
 

@@ -20,6 +20,8 @@
 
 #include <iostream>
 
+#include "Rendering/Backend/IRenderBackend.h"
+
 Ventana* Ventana::instance = nullptr;
 
 Ventana::Ventana() {
@@ -50,27 +52,9 @@ int Ventana::initVentana() {
         return -1;
     }
     glfwMakeContextCurrent(window);
-    const auto imprimir = [](const char* etiqueta, GLenum glenum) {
-        const GLubyte* s = glGetString(glenum);
-        std::cout << etiqueta << (s ? reinterpret_cast<const char*>(s)
-                                    : "(no disponible)")
-                  << std::endl;
-    };
-    imprimir("GPU: ", GL_RENDERER);
-    imprimir("GL_VERSION: ", GL_VERSION);
-#ifndef GL_SHADING_LANGUAGE_VERSION
-#define GL_SHADING_LANGUAGE_VERSION 0x8B30
-#endif
-    imprimir("GLSL: ", GL_SHADING_LANGUAGE_VERSION);
-#ifndef GL_CONTEXT_PROFILE_MASK
-#define GL_CONTEXT_PROFILE_MASK 0x9126
-#define GL_CONTEXT_CORE_PROFILE_BIT 0x00000001
-#define GL_CONTEXT_COMPATIBILITY_PROFILE_BIT 0x00000002
-#endif
-    GLint perfilGL = 0;
-    glGetIntegerv(GL_CONTEXT_PROFILE_MASK, &perfilGL);
-    std::cout << "Perfil GL: " << perfilGL
-              << " (1=core, 2=compatibilidad, 0=desconocido/legacy)"
+    // Info del contexto (GPU, versiones, perfil): lo reporta el backend; aca
+    // solo se imprime para los logs de arranque.
+    std::cout << Rendering::Backend::activeBackend().diagnosticoGPU()
               << std::endl;
     return 0;
 }
@@ -78,10 +62,7 @@ int Ventana::initVentana() {
 void Ventana::redimension(int ventanaWidthEjeX, int ventanaHeightEjeY) {
     width = ventanaWidthEjeX;
     height = ventanaHeightEjeY;
-    glViewport(0, 0, width, height);
-    const float aspect = static_cast<float>(width) / static_cast<float>(height);
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
-    gluPerspective(45.0, aspect, 0.1, 500);
-    glMatrixMode(GL_MODELVIEW);
+    // El viewport del framebuffer lo fija el backend; las matrices de proyec-
+    // cion se establecen cada frame en la pasada de la escena (no viven aca).
+    Rendering::Backend::activeBackend().setViewport(0, 0, width, height);
 }

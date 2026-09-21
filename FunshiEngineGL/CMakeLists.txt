@@ -83,32 +83,6 @@ else()
     target_link_libraries(funshi_engine PRIVATE ${OPENGL_LIBRARIES})
 endif()
 
-# Configuración ESPECÍFICA para GLU (requerido en tu caso)
-if(UNIX AND NOT APPLE)
-    # Método 1: Buscar GLU como componente de OpenGL
-    find_package(OpenGL QUIET COMPONENTS GLU)
-
-    if(TARGET OpenGL::GLU)
-        message(STATUS "Found GLU via OpenGL components")
-        target_link_libraries(funshi_engine PRIVATE OpenGL::GLU)
-    else()
-        # Método 2: Búsqueda manual de GLU
-        find_library(GLU_LIBRARY
-            NAMES GLU MesaGLU
-            PATHS /usr/lib /usr/local/lib /usr/lib/x86_64-linux-gnu
-        )
-
-        if(GLU_LIBRARY)
-            message(STATUS "Found GLU library: ${GLU_LIBRARY}")
-            target_link_libraries(funshi_engine PRIVATE ${GLU_LIBRARY})
-        else()
-            # Método 3: Enlazar directamente si todo falla
-            message(STATUS "Trying direct GLU linking")
-            target_link_libraries(funshi_engine PRIVATE GLU)
-        endif()
-    endif()
-endif()
-
 # Bullet Physics
 find_package(Bullet REQUIRED)
 
@@ -166,7 +140,7 @@ target_link_libraries(funshi_engine PUBLIC funshi_sanitizers)
 if(WIN32)
     # dbghelp: CapturaBackTrace/SymFromAddr/SymInitialize (RuntimeException).
     # En MinGW los #pragma comment(lib) de MSVC se ignoran, hay que enlazarla.
-    target_link_libraries(funshi_engine PRIVATE opengl32 glu32 dbghelp)
+    target_link_libraries(funshi_engine PRIVATE opengl32 dbghelp)
 endif()
 
 # Dependencias específicas de Linux

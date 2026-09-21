@@ -19,7 +19,9 @@
 #ifndef VENTANA_H
 #define VENTANA_H
 
-#include "GLCompat.h"
+// Solo el tipo GLFWwindow; el contexto/estado GL vive en el backend.
+#define GLFW_INCLUDE_NONE
+#include <GLFW/glfw3.h>
 
 class Ventana {
 private:
