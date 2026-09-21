@@ -19,13 +19,12 @@
 #ifndef LIGHTSYSTEM_H
 #define LIGHTSYSTEM_H
 
-// Subsistema de iluminacion: es dueno del estado GL de luces (GL_LIGHT0..
-// GL_LIGHT7 y GL_LIGHT_MODEL_AMBIENT). Cada frame escanea los GameObjects de
-// la escena, toma sus componentes Light y parametriza los slots hardware.
-// GameScene delega en el; no vive logica de luz en el frame loop ni en los
-// componentes (Light es solo data). Tambien expone los mismos datos en CPU
-// (collectLights) para que el renderer moderno (shaders) los suba como
-// uniforms con la MISMA semantica que el pipeline inmediato.
+// Subsistema de iluminacion (solo CPU, sin estado GL): cada frame escanea los
+// GameObjects de la escena, toma sus componentes Light y exporta los datos con
+// la MISMA semantica que el pipeline inmediato (GL_LIGHT0..7) para que el
+// renderer de la escena los suba como uniforms del shader y los aplique al
+// backend (setLegacyLights). El estado GL de luces vive en el backend, no aca;
+// Light es solo data.
 class GameObject;
 
 template <typename T>
@@ -58,26 +57,19 @@ public:
     LightSystem();
     ~LightSystem() = default;
 
-    // Luz global del modelo (GL_LIGHT_MODEL_AMBIENT), default gris tenue.
+    // Luz global del modelo (antes GL_LIGHT_MODEL_AMBIENT), default gris tenue.
     void setGlobalAmbient(float r, float g, float b);
 
     const float* getGlobalAmbient() const noexcept { return globalAmbient_; }
 
-    // Dueno del estado GL de luces: habilita GL_LIGHTING, configura el modelo,
-    // apaga los 8 slots y enciende/parametriza cada componente Light encontrado
-    // en los objetos de la escena. Debe llamarse cada frame, antes de dibujar.
-    void beginFrame(ListaDE<GameObject*>* objects);
-
-    // Version CPU de beginFrame para el renderer con shaders: llena luces[]
-    // (hasta kMaxLights) con la misma semantica que parametriza los slots GL
-    // (escanen del arbol, posicion = Transform, direccional usa rotation del
-    // forward). outCount queda con la cantidad de luces recogidas.
+    // Version CPU de la pasada de luces: llena luces[] (hasta kMaxLights) con
+    // la misma semantica que el backend parametriza en los slots GL_LIGHT0..7
+    // (escaneo del arbol, posicion = Transform, direccional usa la rotacion
+    // del forward). outCount queda con la cantidad de luces recogidas.
     void collectLights(ListaDE<GameObject*>* objects, LightData luces[],
                        int& outCount) const;
 
 private:
-    void aplicarLuz(ListaDE<GameObject*>* objects, int& slotsEnabled);
-
     float globalAmbient_[4] = {0.15f, 0.15f, 0.15f, 1.f};
 };
 

@@ -28,15 +28,12 @@
 #include "../Iluminacion/LightSystem.h"
 #include "../Behaviour/ScriptRuntime.h"
 #include "../Configuracion/Apariencia.h"
-#include "../Rendering/GrillaRenderer.h"
 
 class CameraComponent;
 class EditorController;
 class GUIManager;
 class GameObject;
-class MeshRenderer;
 class PhysicsEngine;
-class RenderTarget;
 class SceneMenuBarInterface;
 class SceneRegistry;
 class SceneSelectedInterface;
@@ -44,6 +41,7 @@ class SceneSerializer;
 class AssetManager;
 class TextureManager;
 class Script;
+class SceneRenderer;
 
 class GameScene {
 private:
@@ -63,11 +61,12 @@ private:
     // EditorController y SceneSerializer para que cada Modelos3D pida su
     // geometria al cache (Flyweight) en lugar de parsear Assimp por objeto.
     std::unique_ptr<AssetManager> assetManager;
-    // Renderer moderno (VBO/VAO + shader) de los objetos de la escena. Vive
-    // aqui porque necesita las matrices de camara y las luces de la pasada; si
-    // el pipeline moderno no esta disponible, cada objeto degrada al modo
+    // Pasada de render de la escena (Fase 3): el SceneRenderer es dueno del
+    // MeshRenderer (VBO/VAO + shader), la grilla y las vistas previas; GameScene
+    // solo le pasa el FrameContext por frame (objetos, luces CPU, apariencia).
+    // Si el pipeline moderno no esta disponible, cada objeto degrada al modo
     // inmediato (fallback preservado).
-    std::unique_ptr<MeshRenderer> meshRenderer;
+    std::unique_ptr<SceneRenderer> sceneRenderer;
     // Registro central de imagenes CPU compartidas (flyweight). Igual que el
     // AssetManager de meshes, se inyecta a quien resuelve recursos: aqui lo
     // usa el MeshRenderer para convertir el path de textura de cada Material
@@ -98,36 +97,10 @@ private:
     int gizmoOperation = 7; // ImGuizmo::TRANSLATE
     bool gizmoReady = false;
 
-    // Vista previa viva por camara con el checkbox "Vista previa" (Fase 2).
-    // Se reconstruye cada frame: texturas FBO + el objeto que las genera.
-    std::vector<std::unique_ptr<RenderTarget>> viewportsCamaras;
-    std::vector<GameObject*> viewportsObjetos;
-    static constexpr int kPreviewW = 400;
-    static constexpr int kPreviewH = 250;
-
-    void dibujarEscena(const float view[16], const float projection[16],
-                       GameObject* camaraOjo);
-    void dibujarGameObjectsConOjo(GameObject* camaraOjo,
-                                  const float view[16],
-                                  const float projection[16]);
-    void dibujarObjectConOjo(GameObject* object, GameObject* camaraOjo,
-                             const float view[16], const float projection[16]);
-    void dibujarGrillaEditor();
-    void dibujarGrilla(GameObject* object);
-    void dibujarViewportsPrevios();
-    void pintarViewportsGUI();
-    // Recoge las luces de la escena (LightSystem::collectLights) y se las
-    // pasa al MeshRenderer como uniforms de la pasada en curso.
-    void prepararLucesFrame();
-    // Crea el objeto especial "Grilla" (Transform + Grid) si la escena no lo
-    // tiene; las escenas viejas (o recien abiertas) quedan con grilla sin
-    // tocar nada manual.
     void asegurarGrilla();
-
-    // Render de la grilla del editor (display lists) en la capa de Rendering.
-    // La escena calcula el color efectivo (perfil B/N) y delega el dibujado;
-    // la geometria se reutiliza hasta que cambian tamano, separacion o color.
-    GrillaRenderer grillaRenderer;
+    // Muestra las vistas previas del SceneRenderer (textura FBO por camara con
+    // "Vista previa" activo) como ventanas ImGui.
+    void pintarViewportsGUI();
 
     // Cola de compilacion de scripts (play mode). Cada script se agenda y se
     // procesa en DOS fases para que la barra de estado muestre "Compilando X
@@ -166,10 +139,6 @@ public:
     void saveScene(const std::string& filename);
     bool isStart();
     void loadScene(const std::string& pathTxt, const std::string& semiPath);
-    void dibujarGameObjects();
-    void dibujarObject(GameObject* object);
-    void dibujarMarcadorLuz(GameObject* object);
-    void dibujarMarcadorCamara(GameObject* object);
     void GUI();
     void pintarVentanaCamaras();
     void update(float deltaTime);

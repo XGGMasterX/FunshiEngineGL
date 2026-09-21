@@ -18,7 +18,6 @@
 */
 #include "LightSystem.h"
 
-#include "../GLCompat.h"
 #include <cmath>
 
 #include "../Estructuras/ListasEnlazadas/ListasDoblementeEnlazada/ListaDE.h"
@@ -63,9 +62,9 @@ void rotarAdelante(float anguloGrados, const float* eje, float out[3]) {
 
 // Extrae los datos de una luz a un LightData (semantica actual de GL) a partir
 // del componente Light y del Transform global del objeto que lo lleva. Es la
-// unica fuente de la derivacion posicion/direccion: la usan tanto el pipeline
-// inmediato (parametrizar GL_LIGHT0..7) como el shader (uniforms), asi las dos
-// pasadas iluminan igual.
+// unica fuente de la derivacion posicion/direccion: la usan tanto el backend
+// (parametrizar GL_LIGHT0..7) como el shader (uniforms), asi las dos pasadas
+// iluminan igual.
 void extraerDatosLuz(Light* light, Transform* transform, LightData& out) {
     const LightType type = light->getType();
     out.type = static_cast<int>(type);
@@ -111,41 +110,6 @@ void extraerDatosLuz(Light* light, Transform* transform, LightData& out) {
     }
 }
 
-// Parametriza un slot GL con los datos del componente Light y el Transform
-// global del objeto que lo lleva.
-void aplicarLightComponent(GLenum lightID, LightData& data) {
-    const bool direccional = (data.type == 0);
-
-    const GLfloat pos[4] = {
-        data.worldPos[0], data.worldPos[1], data.worldPos[2],
-        direccional ? 0.f : 1.f};
-    const GLfloat amb[4] = {
-        data.ambient[0], data.ambient[1], data.ambient[2], 1.f};
-    const GLfloat diff[4] = {
-        data.diffuse[0], data.diffuse[1], data.diffuse[2], 1.f};
-    const GLfloat spec[4] = {
-        data.specular[0], data.specular[1], data.specular[2], 1.f};
-
-    glEnable(lightID);
-    glLightfv(lightID, GL_POSITION, pos);
-    glLightfv(lightID, GL_AMBIENT, amb);
-    glLightfv(lightID, GL_DIFFUSE, diff);
-    glLightfv(lightID, GL_SPECULAR, spec);
-
-    if (data.type == 1 || data.type == 2) {
-        glLightf(lightID, GL_CONSTANT_ATTENUATION, data.constant);
-        glLightf(lightID, GL_LINEAR_ATTENUATION, data.linear);
-        glLightf(lightID, GL_QUADRATIC_ATTENUATION, data.quadratic);
-    }
-    if (data.type == 2) {
-        const GLfloat spotDir[3] = {data.direction[0], data.direction[1],
-                                    data.direction[2]};
-        glLightfv(lightID, GL_SPOT_DIRECTION, spotDir);
-        glLightf(lightID, GL_SPOT_CUTOFF, data.spotCutoffDegrees);
-        glLightf(lightID, GL_SPOT_EXPONENT, 1.f);
-    }
-}
-
 } // namespace
 
 
@@ -156,41 +120,6 @@ void LightSystem::setGlobalAmbient(float r, float g, float b) {
     globalAmbient_[1] = g;
     globalAmbient_[2] = b;
     globalAmbient_[3] = 1.f;
-}
-
-void LightSystem::beginFrame(ListaDE<GameObject*>* objects) {
-    glEnable(GL_LIGHTING);
-    glEnable(GL_NORMALIZE);
-
-    glLightModelfv(GL_LIGHT_MODEL_AMBIENT, globalAmbient_);
-
-    // Apagar todos los slots garantiza que luces removidas no sigan activas:
-    // el sistema es dueno del estado de luz, no vive sobre estado heredado.
-    for (int i = 0; i < 8; ++i) glDisable(GL_LIGHT0 + i);
-
-    /*
-     * Escanear la escena y asignar un slot a cada componente Light
-     * encontrado. El orden de recorrido es estable (orden del arbol),
-     * asi que cada luz conserva su slot entre frames.
-     */
-    int slot = 0;
-
-    if (objects && !objects->isEmpty()) {
-        Position<GameObject*>* pos = objects->first();
-        while (pos && pos->getElement() && slot < 8) {
-            GameObject* object = pos->getElement();
-
-            if (Light* light = object->getComponent<Light>()) {
-                LightData data;
-                extraerDatosLuz(light, object->getGlobalTransform(), data);
-                aplicarLightComponent(
-                    static_cast<GLenum>(GL_LIGHT0 + slot), data);
-                ++slot;
-            }
-
-            pos = (pos != objects->last()) ? objects->next(pos) : nullptr;
-        }
-    }
 }
 
 void LightSystem::collectLights(ListaDE<GameObject*>* objects,

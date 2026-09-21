@@ -65,7 +65,6 @@ public:
 
     // Vista actual segun el Transform del duenio (nunca cachead) : el gizmo,
     // el picking y el render comparten la misma fuente de verdad.
-    void activar();
     void getViewMatrix(float* outMatrix) const;
     void getProjectionMatrix(float* outMatrix, float aspect) const;
 
