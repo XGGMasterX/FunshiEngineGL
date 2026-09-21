@@ -39,14 +39,16 @@ jobs:
       - name: Ejecutar pruebas
         run: ctest --test-dir build --output-on-failure
 
-  # Pruebas headless multiplataforma: compilan y corren sin la pila grafica
-  # en los tres sistemas (con BUILD_ENGINE=OFF no se requieren libs externas).
+  # Pruebas headless multiplataforma: compilan y corren sin la pila grafica en
+  # Linux y Windows (con BUILD_ENGINE=OFF no se requieren libs externas).
+  # macOS queda fuera por ahora: no se quiere mantener esa plataforma en el
+  # build hasta que el sistema multiplataforma este mas maduro.
   tests-multiplataforma:
     name: Pruebas headless (${{ matrix.os }})
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
