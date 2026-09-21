@@ -20,150 +20,91 @@
 
 #include <glm/gtc/type_ptr.hpp>
 
-#include "ShaderException.h"
-
-namespace {
-
-// Lee el log del shader/programa sin reservar mas de lo que el driver reporta.
-std::string infoLog(GLuint object, void (*getiv)(GLuint, GLenum, GLint*),
-                    void (*getInfoLog)(GLuint, GLsizei, GLsizei*, GLchar*)) {
-    GLint length = 0;
-    getiv(object, GL_INFO_LOG_LENGTH, &length);
-    if (length <= 1) return {};
-    std::string log(static_cast<size_t>(length), '\0');
-    GLsizei written = 0;
-    getInfoLog(object, length, &written, log.data());
-    log.resize(static_cast<size_t>(written));
-    return log;
-}
-
-} // namespace
-
-GLuint ShaderProgram::compilarEtapa(GLenum stage, const char* source) {
-    const GLuint id = GLFuncs::pfnCreateShader(stage);
-    if (!id) throw ShaderUnavailableException();
-
-    GLFuncs::pfnShaderSource(id, 1, &source, nullptr);
-    GLFuncs::pfnCompileShader(id);
-
-    GLint estado = GL_FALSE;
-    GLFuncs::pfnGetShaderiv(id, GL_COMPILE_STATUS, &estado);
-    if (estado == GL_FALSE) {
-        const std::string log = infoLog(id, GLFuncs::pfnGetShaderiv,
-                                        GLFuncs::pfnGetShaderInfoLog);
-        GLFuncs::pfnDeleteShader(id);
-        throw ShaderCompileException(
-            stage == GL_VERTEX_SHADER ? "vertex" : "fragment", log);
-    }
-    return id;
-}
+using Rendering::Backend::IRenderBackend;
+using Rendering::Backend::kInvalidHandle;
 
 ShaderProgram ShaderProgram::fromSource(const char* vertexSource,
                                         const char* fragmentSource) {
-    if (!GLFuncs::available()) throw ShaderUnavailableException();
-
     ShaderProgram program;
-    const GLuint vs = compilarEtapa(GL_VERTEX_SHADER, vertexSource);
-    const GLuint fs = compilarEtapa(GL_FRAGMENT_SHADER, fragmentSource);
-
-    program.program_ = GLFuncs::pfnCreateProgram();
-    if (!program.program_) {
-        GLFuncs::pfnDeleteShader(vs);
-        GLFuncs::pfnDeleteShader(fs);
-        throw ShaderUnavailableException();
-    }
-
-    GLFuncs::pfnAttachShader(program.program_, vs);
-    GLFuncs::pfnAttachShader(program.program_, fs);
-    GLFuncs::pfnLinkProgram(program.program_);
-
-    GLFuncs::pfnDeleteShader(vs);
-    GLFuncs::pfnDeleteShader(fs);
-
-    GLint estado = GL_FALSE;
-    GLFuncs::pfnGetProgramiv(program.program_, GL_LINK_STATUS, &estado);
-    if (estado == GL_FALSE) {
-        const std::string log = infoLog(program.program_,
-                                        GLFuncs::pfnGetProgramiv,
-                                        GLFuncs::pfnGetProgramInfoLog);
-        GLFuncs::pfnDeleteProgram(program.program_);
-        program.program_ = 0;
-        throw ShaderLinkException(log);
-    }
+    program.program_ = Rendering::Backend::activeBackend().createProgram(
+        vertexSource, fragmentSource);
     return program;
 }
 
 ShaderProgram::~ShaderProgram() {
-    if (program_ && GLFuncs::pfnDeleteProgram)
-        GLFuncs::pfnDeleteProgram(program_);
+    if (program_ != kInvalidHandle)
+        Rendering::Backend::activeBackend().destroyProgram(program_);
 }
 
 ShaderProgram::ShaderProgram(ShaderProgram&& other) noexcept
     : program_(other.program_) {
-    other.program_ = 0;
+    other.program_ = kInvalidHandle;
 }
 
 ShaderProgram& ShaderProgram::operator=(ShaderProgram&& other) noexcept {
     if (this != &other) {
-        if (program_ && GLFuncs::pfnDeleteProgram)
-            GLFuncs::pfnDeleteProgram(program_);
+        if (program_ != kInvalidHandle)
+            Rendering::Backend::activeBackend().destroyProgram(program_);
         program_ = other.program_;
-        other.program_ = 0;
+        other.program_ = kInvalidHandle;
         uniformLocations_.clear();
     }
     return *this;
 }
 
 void ShaderProgram::use() const {
-    if (program_) GLFuncs::pfnUseProgram(program_);
+    if (program_ != kInvalidHandle)
+        Rendering::Backend::activeBackend().useProgram(program_);
 }
 
 void ShaderProgram::unbind() {
-    GLFuncs::pfnUseProgram(0);
+    Rendering::Backend::activeBackend().useProgram(kInvalidHandle);
 }
 
-GLint ShaderProgram::findUniform(const char* name) const {
+int ShaderProgram::findUniform(const char* name) const {
     auto it = uniformLocations_.find(name);
     if (it != uniformLocations_.end()) return it->second;
 
-    GLint location = program_ ? GLFuncs::pfnGetUniformLocation(program_, name)
-                              : -1;
+    int location = program_ != kInvalidHandle
+                       ? Rendering::Backend::activeBackend().uniformLocation(
+                             program_, name)
+                       : -1;
     uniformLocations_.emplace(name, location);
     return location;
 }
 
 void ShaderProgram::setMat4(const char* name, const glm::mat4& value) {
-    const GLint loc = findUniform(name);
+    const int loc = findUniform(name);
     if (loc < 0) return;
-    GLFuncs::pfnUniformMatrix4fv(loc, 1, GL_FALSE, glm::value_ptr(value));
+    Rendering::Backend::activeBackend().setUniformMat4(loc, value);
 }
 
 void ShaderProgram::setMat3(const char* name, const glm::mat3& value) {
-    const GLint loc = findUniform(name);
+    const int loc = findUniform(name);
     if (loc < 0) return;
-    GLFuncs::pfnUniformMatrix3fv(loc, 1, GL_FALSE, glm::value_ptr(value));
+    Rendering::Backend::activeBackend().setUniformMat3(loc, value);
 }
 
 void ShaderProgram::setVec3(const char* name, const glm::vec3& value) {
-    const GLint loc = findUniform(name);
+    const int loc = findUniform(name);
     if (loc < 0) return;
-    GLFuncs::pfnUniform3fv(loc, 1, glm::value_ptr(value));
+    Rendering::Backend::activeBackend().setUniformVec3(loc, value);
 }
 
 void ShaderProgram::setVec4(const char* name, const float* value) {
-    const GLint loc = findUniform(name);
+    const int loc = findUniform(name);
     if (loc < 0) return;
-    GLFuncs::pfnUniform4fv(loc, 1, value);
+    Rendering::Backend::activeBackend().setUniformVec4(loc, value);
 }
 
 void ShaderProgram::setFloat(const char* name, float value) {
-    const GLint loc = findUniform(name);
+    const int loc = findUniform(name);
     if (loc < 0) return;
-    GLFuncs::pfnUniform1f(loc, value);
+    Rendering::Backend::activeBackend().setUniformFloat(loc, value);
 }
 
 void ShaderProgram::setInt(const char* name, int value) {
-    const GLint loc = findUniform(name);
+    const int loc = findUniform(name);
     if (loc < 0) return;
-    GLFuncs::pfnUniform1i(loc, value);
+    Rendering::Backend::activeBackend().setUniformInt(loc, value);
 }

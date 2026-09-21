@@ -18,7 +18,6 @@
 */
 #include "MeshRenderer.h"
 
-#include "../GLCompat.h"
 #include <glm/gtc/type_ptr.hpp>
 
 #include <algorithm>
@@ -37,6 +36,7 @@
 #include "Shaders/ShaderProgram.h"
 #include "Shaders/ShaderSources.h"
 #include "TextureGL.h"
+#include "Backend/IRenderBackend.h"
 
 namespace {
 
@@ -55,7 +55,7 @@ MeshRenderer::~MeshRenderer() = default;
 
 bool MeshRenderer::inicializar() {
     if (shader_) return true;
-    if (!GLFuncs::init()) return false;
+    if (!Rendering::Backend::activeBackend().init()) return false;
     try {
         shader_ = std::make_unique<ShaderProgram>(
             ShaderProgram::fromSource(kDefaultVertexShader,
@@ -297,7 +297,7 @@ bool MeshRenderer::intentarRender(Modelos3D* objeto, const float view[16],
         it = gpu_.emplace(mesh, std::move(gpu)).first;
     }
 
-    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+    Rendering::Backend::activeBackend().setPolygonFill();
     it->second->draw();
     ShaderProgram::unbind();
     return true;

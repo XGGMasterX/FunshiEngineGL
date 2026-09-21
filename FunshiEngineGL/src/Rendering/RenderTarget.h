@@ -19,16 +19,16 @@
 #ifndef RENDERTARGET_H
 #define RENDERTARGET_H
 
-#include "../GLCompat.h"
+#include "Backend/IRenderBackend.h"
 
-// Render-to-texture (FBO) para las vistas previas de camara (Fase 2).
-// Carga las funciones de framebuffer por puntero via glfwGetProcAddress, asi
-// funciona igual en Linux y Windows sin depender de GLAD/glew externo.
+// Render-to-texture para las vistas previas de camara: wrapper RAII de un
+// handle opaco del backend (FBO en OpenGL, pas-swapchain en Vulkan). No ve GL;
+// la creacion del FBO y la carga de funciones (glfwGetProcAddress) vive en
+// OpenGL3Backend, asi funciona igual en Linux y Windows sin GLAD/glew externo.
 class RenderTarget {
 private:
-    GLuint fbo = 0;
-    GLuint colorTex = 0;
-    GLuint depthRbo = 0;
+    Rendering::Backend::Handle target_ = Rendering::Backend::kInvalidHandle;
+    Rendering::Backend::Handle colorTex_ = Rendering::Backend::kInvalidHandle;
     int width = 0;
     int height = 0;
 
@@ -45,7 +45,7 @@ public:
     void bind();
     static void unbind();
 
-    GLuint getColorTexture() const { return colorTex; }
+    Rendering::Backend::Handle getColorTexture() const { return colorTex_; }
     int getWidth() const { return width; }
     int getHeight() const { return height; }
 };

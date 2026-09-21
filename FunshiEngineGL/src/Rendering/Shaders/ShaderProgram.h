@@ -24,21 +24,21 @@
 #include <string>
 #include <unordered_map>
 
-#include "../GLFuncs.h"
+#include "../Backend/IRenderBackend.h"
 
-// Programa de shaders RAII: compila/linkea y borra el handle GL en el
-// destructor. La factory fromSource() lanza ShaderCompileException /
-// ShaderLinkException / ShaderUnavailableException si el pipeline moderno no
-// esta disponible o el shader falla. Los setters de uniforms cachean la
-// location (glGetUniformLocation es caro y los shaders optimizados devuelven
-// -1 en uniforms no usadas, que se ignoran sin ruido).
+// Programa de shaders RAII: compila/linkea via el backend y libera el handle en
+// el destructor. La factory fromSource() lanza ShaderCompileException /
+// ShaderLinkException / ShaderUnavailableException (se propagan desde
+// OpenGL3Backend::createProgram) si el pipeline moderno no esta disponible o
+// el shader falla. Los setters de uniforms cachean la location contra el
+// backend (la busqueda es costosa y los shaders optimizados devuelven -1 en
+// uniforms no usadas, que se ignoran sin ruido).
 class ShaderProgram {
 private:
-    GLuint program_ = 0;
-    mutable std::unordered_map<std::string, GLint> uniformLocations_;
+    Rendering::Backend::Handle program_ = Rendering::Backend::kInvalidHandle;
+    mutable std::unordered_map<std::string, int> uniformLocations_;
 
-    static GLuint compilarEtapa(GLenum stage, const char* source);
-    GLint findUniform(const char* name) const;
+    int findUniform(const char* name) const;
 
     ShaderProgram() = default;
 
@@ -52,8 +52,10 @@ public:
     static ShaderProgram fromSource(const char* vertexSource,
                                     const char* fragmentSource);
 
-    GLuint getProgramId() const { return program_; }
-    bool isValid() const { return program_ != 0; }
+    Rendering::Backend::Handle getProgramId() const { return program_; }
+    bool isValid() const {
+        return program_ != Rendering::Backend::kInvalidHandle;
+    }
 
     void use() const;
     static void unbind();

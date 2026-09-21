@@ -18,8 +18,8 @@
 */
 #include "ImmediateRenderer.h"
 
-#include "../GLCompat.h"
 #include "../Assets/Mesh.h"
+#include "Backend/IRenderBackend.h"
 #include "../Objetos/Componentes/Color.h"
 #include "../Objetos/Componentes/Material.h"
 #include "../Objetos/Componentes/Model.h"
@@ -28,34 +28,35 @@
 
 namespace ImmediateRenderer {
 
+using RenderUI = Rendering::Backend::IRenderBackend;
+
 // Aplica la matriz modelo, apaga la iluminacion para lineas de color solido
-// y restaurar GL_LIGHTING al terminar (mismo ciclo que el codigo inmediato
-// original: disable -> draw -> enable -> pop).
+// y restaurar la iluminacion al terminar (mismo ciclo que el codigo inmediato
+// original: disable -> draw -> enable -> pop). El estado del ancho de linea es
+// responsabilidad del backend (no se guarda en call lists/comandos).
 static void prepararLineas(const float model[16], float lineWidth) {
-    glPushMatrix();
-    glMultMatrixf(model);
-    glDisable(GL_LIGHTING);
-    if (lineWidth != 1.0f) glLineWidth(lineWidth);
+    RenderUI& b = Rendering::Backend::activeBackend();
+    b.pushMatrix();
+    b.multMatrix(model);
+    b.setLightingEnabled(false);
+    if (lineWidth != 1.0f) b.setLineWidth(lineWidth);
 }
 
 static void finalizarLineas(float lineWidth) {
-    if (lineWidth != 1.0f) glLineWidth(1.0f);
-    glEnable(GL_LIGHTING);
-    glPopMatrix();
+    RenderUI& b = Rendering::Backend::activeBackend();
+    if (lineWidth != 1.0f) b.setLineWidth(1.0f);
+    b.setLightingEnabled(true);
+    b.popMatrix();
 }
 
 void dibujarSegmentos(const float* vertices, int vertexCount,
                       const float color[3], const float model[16],
                       float lineWidth) {
     if (!vertices || vertexCount < 2) return;
+    RenderUI& b = Rendering::Backend::activeBackend();
     prepararLineas(model, lineWidth);
-    glColor3f(color[0], color[1], color[2]);
-    glBegin(GL_LINES);
-    for (int i = 0; i + 1 < vertexCount; i += 2) {
-        glVertex3fv(vertices + 3 * i);
-        glVertex3fv(vertices + 3 * (i + 1));
-    }
-    glEnd();
+    b.setSolidColor(color[0], color[1], color[2]);
+    b.drawLinePairs(vertices, vertexCount);
     finalizarLineas(lineWidth);
 }
 
@@ -63,18 +64,10 @@ void dibujarAristas(const float* vertices, int vertexCount, const int* edges,
                     int edgeCount, const float color[3],
                     const float model[16], float lineWidth) {
     if (!vertices || vertexCount < 1 || !edges || edgeCount < 1) return;
+    RenderUI& b = Rendering::Backend::activeBackend();
     prepararLineas(model, lineWidth);
-    glColor3f(color[0], color[1], color[2]);
-    glBegin(GL_LINES);
-    for (int i = 0; i < edgeCount; ++i) {
-        const int i0 = edges[2 * i];
-        const int i1 = edges[2 * i + 1];
-        if (i0 < 0 || i0 >= vertexCount || i1 < 0 || i1 >= vertexCount)
-            continue;
-        glVertex3fv(vertices + 3 * i0);
-        glVertex3fv(vertices + 3 * i1);
-    }
-    glEnd();
+    b.setSolidColor(color[0], color[1], color[2]);
+    b.drawIndexedLines(vertices, vertexCount, edges, edgeCount);
     finalizarLineas(lineWidth);
 }
 
@@ -82,32 +75,29 @@ void dibujarPolilinea(const float* vertices, int vertexCount, bool cerrada,
                       const float color[3], const float model[16],
                       float lineWidth) {
     if (!vertices || vertexCount < 2) return;
+    RenderUI& b = Rendering::Backend::activeBackend();
     prepararLineas(model, lineWidth);
-    glColor3f(color[0], color[1], color[2]);
-    glBegin(cerrada ? GL_LINE_LOOP : GL_LINE_STRIP);
-    for (int i = 0; i < vertexCount; ++i) glVertex3fv(vertices + 3 * i);
-    glEnd();
+    b.setSolidColor(color[0], color[1], color[2]);
+    b.drawLineStrip(vertices, vertexCount, cerrada);
     finalizarLineas(lineWidth);
 }
 
 void dibujarModeloLegacy(Modelos3D* modelo) {
     if (!modelo) return;
 
+    RenderUI& b = Rendering::Backend::activeBackend();
+
     // El fallback legacy respeta el pipeline de compatibilidad tal y como lo
     // hacia el viejo Modelos3D::dibujar: transform local con el orden
-    // translate/scale/rotate del stack, material (o color, o blanco) via
-    // glMaterialfv y malla con normales. Con GL_LIGHTING activa porque la
-    // malla se dibuja con normales y material.
+    // translate/scale/rotate del stack, material (o color, o blanco) via la
+    // API del backend y malla con normales. Con la iluminacion activa porque
+    // la malla se dibuja con normales y material.
     const bool empujado = modelo->getGlobalTransform() != nullptr;
     Transform* transform = modelo->getGlobalTransform();
     if (empujado) {
-        glPushMatrix();
-        glTranslatef(transform->getTranslatef()[0], transform->getTranslatef()[1],
-                     transform->getTranslatef()[2]);
-        glScalef(transform->getScalef()[0], transform->getScalef()[1],
-                 transform->getScalef()[2]);
-        glRotatef(transform->getRotatef()[0], transform->getRotatef()[1],
-                  transform->getRotatef()[2], transform->getRotatef()[3]);
+        b.pushMatrix();
+        b.applyTransform(transform->getTranslatef(), transform->getScalef(),
+                         transform->getRotatef());
     }
 
     if (Model* model = modelo->getComponent<Model>();
@@ -115,36 +105,44 @@ void dibujarModeloLegacy(Modelos3D* modelo) {
         modelo->setPath(model->getPath());
 
     if (Material* material = modelo->getComponent<Material>()) {
-        glMaterialfv(GL_FRONT, GL_AMBIENT, material->getAmbient());
-        glMaterialfv(GL_FRONT, GL_DIFFUSE, material->getDiffuse());
-        glMaterialfv(GL_FRONT, GL_SPECULAR, material->getSpecular());
-        glMaterialfv(GL_FRONT, GL_EMISSION, material->getEmission());
-        glMaterialf(GL_FRONT, GL_SHININESS, material->getShininess());
+        b.setMaterial(material->getAmbient(), material->getDiffuse(),
+                      material->getSpecular(), material->getEmission(),
+                      material->getShininess());
     } else if (Color* color = modelo->getComponent<Color>()) {
-        glMaterialfv(GL_FRONT, GL_DIFFUSE, color->getColor());
+        // El pipeline inmediato solo seteaba GL_DIFFUSE al color; el resto
+        // quedaba con el default GL (ambiente gris tenue, sin especular).
+        const float ambient[4] = {0.2f, 0.2f, 0.2f, 1.f};
+        const float specular[4] = {0.f, 0.f, 0.f, 1.f};
+        const float emission[4] = {0.f, 0.f, 0.f, 1.f};
+        b.setMaterial(ambient, color->getColor(), specular, emission, 0.f);
     } else {
-        const GLfloat white[] = {1.f, 1.f, 1.f, 1.f};
-        glMaterialfv(GL_FRONT, GL_DIFFUSE, white);
+        const float white[4] = {1.f, 1.f, 1.f, 1.f};
+        const float ambient[4] = {0.2f, 0.2f, 0.2f, 1.f};
+        const float specular[4] = {0.f, 0.f, 0.f, 1.f};
+        const float emission[4] = {0.f, 0.f, 0.f, 1.f};
+        b.setMaterial(ambient, white, specular, emission, 0.f);
     }
 
-    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+    b.setPolygonFill();
     if (const Mesh* mesh = modelo->getMesh()) {
-        const bool dibujaNormales = mesh->hasNormals();
-        const std::vector<vec3>& normals = mesh->normals;
-        glBegin(GL_TRIANGLES);
-        for (unsigned int idx : mesh->indices) {
-            if (idx >= mesh->vertices.size()) continue;
-            if (dibujaNormales) {
-                const vec3& normal = normals[idx];
-                if (!(normal.x == 0.f && normal.y == 0.f && normal.z == 0.f))
-                    glNormal3fv(&normal.x);
-            }
-            glVertex3fv(&mesh->vertices[idx].x);
+        if (mesh->hasNormals()) {
+            b.drawTriangles(
+                reinterpret_cast<const float*>(mesh->vertices.data()),
+                static_cast<int>(mesh->vertices.size()),
+                reinterpret_cast<const float*>(mesh->normals.data()),
+                static_cast<int>(mesh->normals.size()),
+                mesh->indices.data(), static_cast<int>(mesh->indices.size()));
+        } else {
+            // Malla sin normales: misma degradacion que el codigo original
+            // (GL_NORMAL se quedaba en {0,0,0} y la cara salia apagada).
+            b.drawTriangles(
+                reinterpret_cast<const float*>(mesh->vertices.data()),
+                static_cast<int>(mesh->vertices.size()), nullptr, 0,
+                mesh->indices.data(), static_cast<int>(mesh->indices.size()));
         }
-        glEnd();
     }
 
-    if (empujado) glPopMatrix();
+    if (empujado) b.popMatrix();
 }
 
 } // namespace ImmediateRenderer
