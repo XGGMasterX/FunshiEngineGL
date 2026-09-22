@@ -361,8 +361,8 @@ internamente `GUIManager`, `SceneRegistry`, `EditorController`, `SceneSerializer
 - `EditorConfig` (JSON via nlohmann) persiste la configuración del editor:
   menú (proyecto, idioma, sensibilidad de cámara), gizmo, ventana de cámaras,
   ventanas (estado abierto/cerrado de GUIManager), la cámara activa por id y el
-  perfil de apariencia, en `~/MotorGrafico/Configuracion.json` (Linux) /
-  `C:/MotorGraficoArchivos/Configuracion.json` (Windows). Tolerante a
+  perfil de apariencia, en `<directorioEjecutable>/MotorGrafico/Configuracion.json`
+  (junto al binario, en Linux y Windows). Tolerante a
   archivos ausentes o corruptos: los defaults quedan en `EditorConfig.h`.
   El layout `imgui.ini` también se guarda junto al proyecto (no en el CWD).
 - Limitación conocida: la serialización binaria no tiene versionado ni validación
@@ -528,7 +528,7 @@ No están implementados todavía:
 - La manipulación del gizmo pausa `stepSimulation` mientras el usuario arrastra y
   la física solo corre en Play; el sync collider↔rigidbody↔objeto usa la matriz
   global compuesta del dueño, de modo que mover un collider no desincroniza el cuerpo.
-- Las rutas de usuario (`~/MotorGrafico`, `C:/MotorGraficoArchivos`) están
+- Las rutas de usuario (`<directorioEjecutable>/MotorGrafico`) están
   centralizadas en `EditorConfig` para la configuración y el layout, pero los assets
   del proyecto todavía se resuelven a mano; `PathUtils.h` solo comparte el separador.
 - La serialización binaria no tiene versionado ni validación formal de tamaños. Un

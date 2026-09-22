@@ -83,6 +83,17 @@ void MenuModel::setSensibilidadCamara(float sensibilidad) {
     }
 }
 
+float MenuModel::getSensibilidadMovimientoCamara() const noexcept {
+    return sensibilidadMovimientoCamara;
+}
+
+void MenuModel::setSensibilidadMovimientoCamara(float sensibilidad) {
+    if (sensibilidad > 0.0f) {
+        sensibilidadMovimientoCamara = sensibilidad;
+        if (onCampoCambio) onCampoCambio(Campo::SensibilidadMovimientoCamara);
+    }
+}
+
 const Apariencia& MenuModel::getApariencia() const noexcept {
     return apariencia;
 }
@@ -97,7 +108,8 @@ void MenuModel::restablecerConfiguracion() {
     // toca: define la carpeta/proyecto (src<Nombre> + Memory) y un reset aqui
     // crearia otra carpeta y perderia la escena activa.
     idioma = "Espanol";
-    sensibilidadCamara = 1.0f;
+    sensibilidadCamara = 0.15f;
+    sensibilidadMovimientoCamara = 1.0f;
     apariencia.restablecer();
     if (onCampoCambio) onCampoCambio(Campo::Reiniciar);
 }
@@ -127,6 +139,8 @@ std::string MenuModel::traducir(const std::string& clave) const {
         {"juego", {"Juego", "Game"}},
         {"idioma", {"Idioma", "Language"}},
         {"sensibilidad_camara", {"Sensibilidad de camara", "Camera sensitivity"}},
+        {"sensibilidad_movimiento",
+         {"Sensibilidad de movimiento", "Movement sensitivity"}},
         {"apariencia", {"Apariencia", "Appearance"}},
         {"tema_claro", {"Tema claro de la interfaz", "Light UI theme"}},
         {"modo_bn",
@@ -143,10 +157,10 @@ std::string MenuModel::traducir(const std::string& clave) const {
         {"restablecer_configuracion",
          {"Restablecer configuracion", "Reset configuration"}},
         {"ayuda_reset",
-         {"Reinicia idioma, apariencia, sensibilidad y estado del editor a\n"
-          "los valores de fabrica.",
-          "Resets language, appearance, camera sensitivity and editor\n"
-          "state to factory defaults."}},
+         {"Reinicia idioma, apariencia, sensibilidades y estado del editor a\n"
+           "los valores de fabrica.",
+           "Resets language, appearance, sensitivities and editor\n"
+           "state to factory defaults."}},
         {"nombre", {"Nombre", "Name"}},
         {"confirmar", {"Confirmar", "Confirm"}},
         {"actual", {"(actual: %s)", "(current: %s)"}},

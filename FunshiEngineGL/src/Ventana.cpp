@@ -46,10 +46,21 @@ int Ventana::getHeight() const {
 
 int Ventana::initVentana() {
     if (!glfwInit()) return -1;
-    window = glfwCreateWindow(width, height, "Fanshi", nullptr, nullptr);
+
+    // Antialiasing por multisampling (4x): el contexto por defecto de GLFW se
+    // crea sin samples y las lineas (grilla, ejes, wireframes) se ven
+    // escalonadas ("a dientes"). Con MSAA el framebuffer se suaviza entero.
+    glfwWindowHint(GLFW_SAMPLES, 4);
+    window = glfwCreateWindow(width, height, "FunshiEngineGL", nullptr, nullptr);
     if (!window) {
-        glfwTerminate();
-        return -1;
+        // Driver sin framebuffer multisampleado: se reintenta sin MSAA antes
+        // de abortar (la escena se dibuja igual, solo sin suavizado de lineas).
+        glfwWindowHint(GLFW_SAMPLES, 0);
+        window = glfwCreateWindow(width, height, "FunshiEngineGL", nullptr, nullptr);
+        if (!window) {
+            glfwTerminate();
+            return -1;
+        }
     }
     glfwMakeContextCurrent(window);
     // Info del contexto (GPU, versiones, perfil): lo reporta el backend; aca

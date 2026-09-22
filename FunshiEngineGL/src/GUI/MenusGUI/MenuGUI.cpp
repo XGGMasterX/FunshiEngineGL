@@ -68,6 +68,15 @@ void MenuGUI::setSensibilidadCamara(float sensibilidad) {
     model.setSensibilidadCamara(sensibilidad); // publica SensibilidadCambio
 }
 
+float MenuGUI::getSensibilidadMovimientoCamara() const noexcept {
+    return model.getSensibilidadMovimientoCamara();
+}
+
+void MenuGUI::setSensibilidadMovimientoCamara(float sensibilidad) {
+    model.setSensibilidadMovimientoCamara(
+        sensibilidad); // publica SensibilidadMovimientoCambio
+}
+
 const Apariencia& MenuGUI::getApariencia() const noexcept {
     return model.getApariencia();
 }
@@ -130,6 +139,10 @@ void MenuGUI::publicarCambio(MenuModel::Campo campo) {
     case MenuModel::Campo::SensibilidadCamara:
         ev.type = EditorEventType::SensibilidadCambio;
         ev.sensibilidad = model.getSensibilidadCamara();
+        break;
+    case MenuModel::Campo::SensibilidadMovimientoCamara:
+        ev.type = EditorEventType::SensibilidadMovimientoCambio;
+        ev.sensibilidadMovimiento = model.getSensibilidadMovimientoCamara();
         break;
     case MenuModel::Campo::Apariencia:
         ev.type = EditorEventType::AparienciaCambio;

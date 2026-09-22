@@ -28,7 +28,7 @@ Motor y editor 3D en tiempo real escrito en C++17, con interfaz ImGui y renderiz
 - **Cámaras como componente** con vistas previas en vivo (render a FBO) — ver [CAMARAS_VISTAS_PREVIAS.md](CAMARAS_VISTAS_PREVIAS.md).
 - **Iluminación** gestionada por `LightSystem` (slots `GL_LIGHT0..7`, marcadores de luz y cámara en escena) y **materiales** con presets (`MaterialPresets`).
 - Menú de inicio modular (paquete `MenusGUI`, patrón MVP): idioma, nombre del proyecto y sensibilidad de cámara.
-- **Configuración del editor persistida en JSON** (`EditorConfig`, nlohmann/json): proyecto, idioma, sensibilidad, gizmo activo, ventana de cámaras y estado de las ventanas. Se guarda junto al proyecto (`~/MotorGrafico/Configuracion.json` en Linux / `C:/MotorGraficoArchivos/Configuracion.json` en Windows); tolerante a archivos ausentes o corruptos.
+- **Configuración del editor persistida en JSON** (`EditorConfig`, nlohmann/json): proyecto, idioma, sensibilidad, gizmo activo, ventana de cámaras y estado de las ventanas. Se guarda junto al binario (`<directorioEjecutable>/MotorGrafico/Configuracion.json`); tolerante a archivos ausentes o corruptos.
 - **Caché de assets compartida** (Flyweight): `AssetManager` (meshes CPU) y `TextureManager` (imágenes), con rutas normalizadas (`AssetPath`) y loader inyectable.
 - Estructuras de datos propias (listas, árboles, heaps, mergesort) y jerarquía de excepciones propia: las usadas por el motor (`ListaDE`, `ArbolEnlazado`, `PriorityListaDE`) están corregidas y verificadas, y las implementadas para el motor (`MinHeap`, `MaxHeap`, `ListMergeSort`, `ArbolBinarioEnlazado`) cuentan con pruebas headless.
 - **Pruebas headless** (`tests/`, CTest) y **CI multiplataforma** en GitHub Actions.
@@ -91,7 +91,7 @@ cmake -B build -S FunshiEngineGL -DCMAKE_BUILD_TYPE=Release -DENABLE_ASAN=OFF
 
 En Windows la misma receta funciona con el generador de Visual Studio. También existe `FunshiEngineGL.sln`, pero es un proyecto heredado con rutas absolutas de una máquina concreta: **prefiere siempre CMake** (`cmake -B build -S FunshiEngineGL`) para un build portable.
 
-> El primer arranque crea su configuración en `~/MotorGrafico/` (Linux) o `C:/MotorGraficoArchivos/` (Windows): ahí viven la escena serializada, `Configuracion.json` y el layout `imgui.ini` del editor.
+> El primer arranque crea su configuración en `MotorGrafico/` junto al binario (la carpeta que contiene el ejecutable): ahí viven la escena serializada, `Configuracion.json` y el layout `imgui.ini` del editor.
 
 
 ---

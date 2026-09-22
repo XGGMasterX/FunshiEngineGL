@@ -40,10 +40,16 @@ public:
         // Seccion "menu": MenuModel (vista Opciones).
         std::string nombreProyecto = "Nuevo Proyecto";
         std::string idioma = "Espanol";
-        float sensibilidadCamara = 1.0f;
+        float sensibilidadCamara = 0.15f;
+        // Sensibilidad de movimiento (WASD) de la camara del editor. Es global
+        // (vista Opciones del menu), como sensibilidadCamara; se aplica a la
+        // escena por SensibilidadMovimientoCambio.
+        float sensibilidadMovimientoCamara = 1.0f;
         // Seccion "editor": estado de interfaz (GameScene).
         bool ventanaCamarasAbierta = true;
         int gizmoOperacion = 7;
+        // sistema de coordenadas del gizmo: false = LOCAL, true = GLOBAL/WORLD.
+        bool gizmoGlobal = false;
         // Id del GameObject elegido como camara activa ("Usar"), -1 = automatico
         // (GameScene usa la primera camara). Se persiste por id porque los
         // archivos de escena ya usan ese id estable.
@@ -55,12 +61,10 @@ public:
         Apariencia apariencia;
     };
 
-    // Ruta del archivo por plataforma, junto al proyecto del usuario:
-    //   Linux:   <HOME>/MotorGrafico/Configuracion.json
-    //   Windows: C:/MotorGraficoArchivos/Configuracion.json
+    // Ruta del archivo por plataforma, junto al binario del motor:
+    //   Linux y Windows: <directorioEjecutable>/MotorGrafico/Configuracion.json
     // Directorio base de MotorGrafico donde viven todos los proyectos:
-    //   Linux:   <HOME>/MotorGrafico
-    //   Windows: C:/MotorGraficoArchivos
+    //   Linux y Windows: <directorioEjecutable>/MotorGrafico
     static std::string directorioBaseMotorGrafico();
 
     // Directorio raiz de un proyecto especifico: <directorioBase>/<nombreProyecto>

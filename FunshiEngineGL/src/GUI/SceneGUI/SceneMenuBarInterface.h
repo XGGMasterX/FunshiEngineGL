@@ -30,6 +30,10 @@ using namespace std;
 class SceneMenuBarInterface : public GeneralUserInterface {
 protected:
     bool* toggleBool = nullptr;
+    // Sistema de coordenadas del gizmo (true = GLOBAL/ejes del mundo, el gizmo
+    // no rota con el objeto; false = LOCAL). Puntero NO propietario al estado
+    // de GameScene, como toggleBool (la escena lo cede en su constructor).
+    bool* gizmoGlobal = nullptr;
     bool cargarScripts = false;
     // Canal de GUI interna: el menu "Ventanas" publica VentanaEstadoCambio y
     // main/GUIManager aplican y persisten la visibilidad de cada panel.
@@ -43,6 +47,8 @@ public:
     SceneMenuBarInterface(bool stateGUI);
     void setActivador(bool* targetBool);
     bool* getActivador();
+    // Cece el puntero al estado de coordendas globales del gizmo (GameScene).
+    void setGizmoGlobal(bool* target);
     bool getCargarScripts();
     void setCargarScripts(bool value);
     void setEditorEventBus(EditorEventBus* bus);

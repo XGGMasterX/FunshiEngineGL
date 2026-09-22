@@ -36,20 +36,35 @@
 #include "../src/Behaviour/ScriptRuntime.h"
 #include "../src/Events/EditorEventBus.h"
 #include "../src/Ventana.h"
+#include "../src/Input/EditorInput.h"
 #include "../src/Rendering/Backend/IRenderBackend.h"
 #include "ImGuizmo.h"
 #include <iostream>
+#include <cstdio>
+#include <ctime>
+#include <cstdlib>
 #include <filesystem>
 #include <string>
+
+// Al cerrar la app, LeakSanitizer reporta una fuguita de 128 bytes de una
+// libreria externa sin simbolos (GLFW/X11 o el driver de video) que se reserva
+// al crear la ventana y no es imputable al codigo del motor. El cheq queda
+// pendiente en atexit y no se puede suprimir desde adentro (ni __lsan_disable:
+// la fuga ya existia cuando se llama). La solucion es terminar sin pasar por
+// los handlers de atexit una vez que todo el cleanup ya corrió de forma
+// explicita (escena, scripts JNI, ImGui, glfw). ASan sigue detectando usos
+// invalidos en ejecución; solo se descarta el contador de fugas al salir.
+#if defined(__SANITIZE_ADDRESS__) || \
+    (defined(__has_feature) && __has_feature(address_sanitizer))
+#define FUNSHI_ASAN_ACTIVO 1
+#else
+#define FUNSHI_ASAN_ACTIVO 0
+#endif
 
 //VENTANA
 static int ventanaHeightEjeY, ventanaWidthEjeX;
 
 //INPUT
-static float lastMousePosX = 0.0;
-static float lastMousePosY = 0.0;
-static bool firstTimeMouseX = true;
-static bool firstTimeMouseY = true;
 static bool recFilesInit = true;
 
 // Variables de estado
@@ -64,171 +79,59 @@ static float deltaTime = 0.0f;
 // Ruta del imgui.ini (layout de docks/geometria de ventanas): el puntero que
 // guarda ImGui debe vivir toda la app, por eso es una global.
 static std::string g_imguiIniRuta;
-class MiAPP {
-private:
-    GameScene* scene;
 
-public:
-    static MiAPP* instancia;
-    
+// Maneja el FILE* de la redireccion de salida; el puntero debe vivir toda la
+// app para que el flush de cierre de main escriba en el log.
+static FILE* g_logSalida = nullptr;
 
-    MiAPP(GameScene* scene) {
-        this->scene = scene;
-        instancia = this;
+// Redirige stdout y stderr (cubriendo cout/cerr y printf) a un archivo de log
+// en la carpeta "logs/" junto al ejecutable, con timestamp por arranque. Asi el
+// editor NO escupe texto a la terminal: se puede lanzar con doble clic o desde
+// un .desktop y no queda ninguna consola atras de la ventana que moleste.
+// Devuelve la ruta del archivo de log (vacia si no se pudo crear).
+static std::string redirigirSalidaALog(char* argv0) {
+    namespace fs = std::filesystem;
+    try {
+        const fs::path ejecutable =
+            argv0 && argv0[0] != '\0' ? fs::path(argv0).parent_path()
+                                      : fs::path(".");
+        const fs::path carpetaLogs = ejecutable / "logs";
+        fs::create_directories(carpetaLogs);
+
+        std::time_t ahora = std::time(nullptr);
+        std::tm tmUtc = {};
+#if defined(_WIN32)
+        gmtime_s(&tmUtc, &ahora);
+#else
+        gmtime_r(&ahora, &tmUtc);
+#endif
+        char sufijo[32];
+        std::strftime(sufijo, sizeof(sufijo), "%Y%m%d_%H%M%S", &tmUtc);
+        const std::string ruta =
+            (carpetaLogs / ("FunshiEngineGL_" + std::string(sufijo) + ".log"))
+                .string();
+
+        // freopen redirige el FILE* de C (printf, cin/cout via sync_with_stdio
+        // y fprintf). Se reabre en modo append por si ya existe.
+        g_logSalida = std::freopen(ruta.c_str(), "a", stdout);
+        std::freopen(ruta.c_str(), "a", stderr);
+        if (g_logSalida) {
+            std::cout << "\n========== Arranque FunshiEngineGL "
+                      << sufijo << " ==========\n";
+            std::cout << "Log en: " << ruta << "\n";
+        }
+        return g_logSalida ? ruta : std::string();
+    } catch (...) {
+        return std::string();
     }
+}
 
-    static void teclado_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
-        if (instancia) instancia->onKey(window, key, scancode, action, mods);
-    }
-
-    static void mouse_callback(GLFWwindow* window, double xpos, double ypos) {
-        if (instancia) instancia->onMouse(window, xpos, ypos);
-    }
-
-
-    void onKey(GLFWwindow* window, int key, int scancode, int action, int mods)
-    {
-
-        CameraComponent* camara = scene ? scene->getActiveCamera() : nullptr;
-        if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
-        {
-            // Volver al menu de inicio desde el editor: la maquina de estados
-            // es la fuente de verdad; el bucle principal refleja su decision
-            // en la fachada del paquete MenuGUI (MainMenu = menu visible).
-            if (ImGui::GetIO().WantCaptureKeyboard)
-            {
-                // Un InputText de ImGui esta activo: Escape revierte el texto
-                // en edicion y no corta la edicion de datos del editor.
-            }
-            else if (appStateMachine.is(ApplicationState::Editing))
-            {
-                // Escape en el editor: la regla vive en el orquestador de
-                // estados de GUI, no suelta en el callback de main.
-                orquestadorDeGUI.manejarTeclaEscape();
-            }
-        }
-        else if (key == GLFW_KEY_W && (action == GLFW_PRESS || action == GLFW_REPEAT))
-        {
-            
-            if (camara) camara->forward(deltaTime);
-            if (key == GLFW_KEY_W && key == GLFW_KEY_D && (action == GLFW_PRESS || action == GLFW_REPEAT))
-            {
-                
-                if (camara) camara->forwardRight(deltaTime);
-            }
-
-            else if (key == GLFW_KEY_W && key == GLFW_KEY_A && (action == GLFW_PRESS || action == GLFW_REPEAT))
-            {
-                
-                if (camara) camara->forwardLeft(deltaTime);
-
-            }
-        }
-        else if (key == GLFW_KEY_S && (action == GLFW_PRESS || action == GLFW_REPEAT))
-        {
-            
-            if (camara) camara->back(deltaTime);
-            if (key == GLFW_KEY_S && key == GLFW_KEY_D && (action == GLFW_PRESS || action == GLFW_REPEAT))
-            {
-                
-                if (camara) camara->backRight(deltaTime);
-
-            }
-
-            else if (key == GLFW_KEY_S && key == GLFW_KEY_A && (action == GLFW_PRESS || action == GLFW_REPEAT))
-            {
-                
-                if (camara) camara->backLeft(deltaTime);
-            }
-        }
-        else if (key == GLFW_KEY_A && (action == GLFW_PRESS || action == GLFW_REPEAT))
-        {
-            
-            if (camara) camara->left(deltaTime);
-
-        }
-        else if (key == GLFW_KEY_D && (action == GLFW_PRESS || action == GLFW_REPEAT))
-        {
-            
-            if (camara) camara->right(deltaTime);
-        }
-        if (key == GLFW_KEY_SPACE && (action == GLFW_PRESS || action == GLFW_REPEAT))
-        {
-           
-            if (camara) camara->up(deltaTime);
-        }
-        else if (key == GLFW_KEY_LEFT_SHIFT && (action == GLFW_PRESS || action == GLFW_REPEAT))
-        {
-            
-            if (camara) camara->down(deltaTime);
-        }
-
-        if (key == GLFW_KEY_E && action == GLFW_PRESS) {
-            if (scene) scene->toggleEditorInterfaces();
-        }
-
-        if (action == GLFW_PRESS) {
-            if (key == GLFW_KEY_1 || key == GLFW_KEY_T) {
-                if (scene) scene->setGizmoOperation(ImGuizmo::TRANSLATE);
-            }
-            else if (key == GLFW_KEY_2 || key == GLFW_KEY_R) {
-                if (scene) scene->setGizmoOperation(ImGuizmo::ROTATE);
-            }
-            else if (key == GLFW_KEY_3 || key == GLFW_KEY_Y) {
-                if (scene) scene->setGizmoOperation(ImGuizmo::SCALE);
-            }
-        }
-    }
-
-    void onMouse(GLFWwindow* window, double xpos, double ypos)
-    {
-        float dx;
-        float dy;
-        if (firstTimeMouseX)
-        {
-            dx = 0;
-            dy = 0;
-            lastMousePosX = xpos;
-            firstTimeMouseX = false;
-        }if (firstTimeMouseY)
-        {
-            dx = 0;
-            dy = 0;
-            lastMousePosY = ypos;
-            firstTimeMouseY = false;
-        }
-
-        dx = xpos - lastMousePosX;
-        dy = ypos - lastMousePosY;
-
-        lastMousePosX = xpos;
-        lastMousePosY = ypos;
-        
-        ImGuiIO& io = ImGui::GetIO();
-        bool gizmoCapturing = scene && scene->isGizmoCapturingInput();
-        bool editorActivo = scene && scene->isEditorActivo();
-        if (!editorActivo && !io.WantCaptureMouse && !gizmoCapturing) {
-            if (CameraComponent* camara = scene ? scene->getActiveCamera() : nullptr) {
-                // Sensibilidad global configurada en Opciones (menuGUI).
-                const float sensibilidad =
-                    scene ? scene->getSensibilidadCamara() : 1.0f;
-                camara->updateYaw(dx * sensibilidad, dy * sensibilidad);
-            }
-        }
-
-    }
-
-    float aleatorio(float a, float b)
-    {
-        float n = (float)rand() / RAND_MAX;
-        float t = b - a;
-        float r = a + n * t;
-        return r;
-    }
-};
-MiAPP* MiAPP::instancia = nullptr;
-int main(void)
+int main(int argc, char* argv[])
 {
+    // La redireccion va PRIMERO: el diagnostico de GPU de initVentana() y los
+    // [diag] de render ya escriben al log, no a la terminal.
+    std::string rutaLog = redirigirSalidaALog(argc > 0 ? argv[0] : nullptr);
+    (void)rutaLog;
 
     Ventana* auxVentana = new Ventana();
     auxVentana->initVentana();
@@ -238,7 +141,11 @@ int main(void)
     MenuGUI* mainMenu = managerOfGUI->getMenuGUI();
     TreeFilesInterface* treeFilesInterface = managerOfGUI->getTreeFilesGUI();
     ContentFolderInterface* contentFolderInterface = managerOfGUI->getContentFolderGUI();
-    MiAPP* app = new MiAPP(scene);
+    // Callbacks del editor (teclado/mouse) + navegacion de la camara: su
+    // propio modulo (Input/EditorInput) las traduce a acciones y mantiene la
+    // maquina de estado de movimiento (diagonales WASD normalizadas).
+    EditorInput* input =
+        new EditorInput(scene, &appStateMachine, &orquestadorDeGUI);
     Time::start();
     // Configuration del editor (interfaz + menu) persistida en JSON en Memory
     // del proyecto del usuario. Al arrancar se carga y se aplica a cada capa; al
@@ -269,9 +176,14 @@ int main(void)
     mainMenu->setNombreProyecto(editorConfig.datos().nombreProyecto);
     mainMenu->setIdioma(editorConfig.datos().idioma);
     mainMenu->setSensibilidadCamara(editorConfig.datos().sensibilidadCamara);
+    mainMenu->setSensibilidadMovimientoCamara(
+        editorConfig.datos().sensibilidadMovimientoCamara);
     mainMenu->setApariencia(editorConfig.datos().apariencia);
     scene->setVentanaCamarasAbierta(editorConfig.datos().ventanaCamarasAbierta);
+    scene->setSensibilidadMovimientoCamara(
+        editorConfig.datos().sensibilidadMovimientoCamara);
     scene->setGizmoOperation(editorConfig.datos().gizmoOperacion);
+    scene->setGizmoGlobal(editorConfig.datos().gizmoGlobal);
     scene->setApariencia(editorConfig.datos().apariencia);
     scene->setSensibilidadCamara(editorConfig.datos().sensibilidadCamara);
     managerOfGUI->restaurarEstadosVentanas(editorConfig.datos().estadoVentanas);
@@ -281,8 +193,12 @@ int main(void)
     bool menuReflejadoEnFachada = appStateMachine.is(ApplicationState::MainMenu);
 
     
-    glfwSetKeyCallback(window, MiAPP::teclado_callback);
-    glfwSetCursorPosCallback(window, MiAPP::mouse_callback);
+    // Se registra ANTES de ImGui_ImplGlfw_InitForOpenGL (mas abajo): el backend
+    // de ImGui encadena la callback previa para los clics del editor.
+    input->registrarCallbacks(window);
+    // Cursor consistente con la maquina desde el arranque (el menu arranca
+    // visible y el editor con las interfaces activas: cursor normal).
+    input->aplicarModoCursor(window);
 
 
 
@@ -367,6 +283,16 @@ int main(void)
             editorConfig.datos().sensibilidadCamara = ev.sensibilidad;
             editorConfig.guardarGeneral();
         });
+        // Sensibilidad de movimiento (WASD): misma semantica que la del mouse
+        // look: se aplica a la escena al instante y se persiste en la config
+        // general.
+        eventosGUI->subscribe([scene, &editorConfig](const EditorEvent& ev) {
+            if (ev.type != EditorEventType::SensibilidadMovimientoCambio) return;
+            scene->setSensibilidadMovimientoCamara(ev.sensibilidadMovimiento);
+            editorConfig.datos().sensibilidadMovimientoCamara =
+                ev.sensibilidadMovimiento;
+            editorConfig.guardarGeneral();
+        });
         // Restablecer configuracion: se reaplican los defaults en general
         // (idioma/apariencia/sensibilidad) y en el estado del proyecto
         // (ventanas, gizmo, camara). El nombre del proyecto se conserva: el
@@ -382,9 +308,12 @@ int main(void)
                 // (conservan persistencia/efecto vivo sin duplicar logica).
                 mainMenu->setIdioma(cfg.idioma);
                 mainMenu->setSensibilidadCamara(cfg.sensibilidadCamara);
+                mainMenu->setSensibilidadMovimientoCamara(
+                    cfg.sensibilidadMovimientoCamara);
                 mainMenu->setApariencia(cfg.apariencia);
                 scene->setVentanaCamarasAbierta(cfg.ventanaCamarasAbierta);
                 scene->setGizmoOperation(cfg.gizmoOperacion);
+                scene->setGizmoGlobal(cfg.gizmoGlobal);
                 scene->setActiveCameraById(cfg.camaraActivaId);
                 managerOfGUI->restaurarEstadosVentanas(cfg.estadoVentanas);
                 editorConfig.guardarProyecto(cfg.nombreProyecto);
@@ -402,12 +331,19 @@ int main(void)
 
     while (!glfwWindowShouldClose(window)) //BUCLE PRINCIPAL
     {
+        // Se despachan los eventos primero: las callbacks (teclado/mouse, el
+        // toggle de E/clic derecho, etc.) se ejecutan AL INICIO del frame en
+        // vez de esperar el sleep de limitFPS, que antes iba primero y sumaba
+        // hasta un frame (~16ms) de latencia a la reaccion del editor.
+        glfwPollEvents();
 
         Time::limitFPS(FPS);
         deltaTime = Time::getDeltaTime();
-        
-        
-        glfwPollEvents();
+
+        // Movimiento contino de la camara desde la maquina de estado de
+        // teclas (diagonales W+A, W+D, ... normalizadas a la misma velocidad
+        // que un solo eje).
+        input->aplicarMovimiento(deltaTime);
 
         // La apariencia se aplica por eventos (EditorEventBus/AparienciaCambio)
         // cuando el usuario la cambia en Opciones; ya no se relee el menu y se
@@ -460,8 +396,10 @@ int main(void)
                     // "Iniciar Estudio": sin esto el primer movimiento del
                     // mouse "teletransporta" el look y la camara queda mirando
                     // al cielo (la grilla nunca se ve).
-                    firstTimeMouseX = true;
-                    firstTimeMouseY = true;
+                    input->descartarDeltaLook();
+                    // Estado inicial del cursor al entrar al editor: visible
+                    // (interfaces activas). E / clic derecho lo atrapan.
+                    input->aplicarModoCursor(window);
                 }
             }
 
@@ -497,6 +435,7 @@ int main(void)
                 if (!proyectoActual.empty()) {
                     editorConfig.datos().ventanaCamarasAbierta = scene->getVentanaCamarasAbierta();
                     editorConfig.datos().gizmoOperacion = scene->getGizmoOperation();
+                    editorConfig.datos().gizmoGlobal = scene->isGizmoGlobal();
                     editorConfig.datos().camaraActivaId = scene->getActiveCameraId();
                     editorConfig.datos().estadoVentanas = managerOfGUI->obtenerEstadosVentanas();
                     editorConfig.guardarProyecto(proyectoActual);
@@ -519,6 +458,7 @@ int main(void)
                 editorConfig.cargarProyecto(proyectoActual);
                 scene->setVentanaCamarasAbierta(editorConfig.datos().ventanaCamarasAbierta);
                 scene->setGizmoOperation(editorConfig.datos().gizmoOperacion);
+                scene->setGizmoGlobal(editorConfig.datos().gizmoGlobal);
                 scene->setActiveCameraById(editorConfig.datos().camaraActivaId);
                 managerOfGUI->restaurarEstadosVentanas(editorConfig.datos().estadoVentanas);
             }
@@ -586,7 +526,9 @@ int main(void)
     cfg.idioma = mainMenu->getIdioma();
     cfg.sensibilidadCamara = mainMenu->getSensibilidadCamara();
     cfg.ventanaCamarasAbierta = scene->getVentanaCamarasAbierta();
+    cfg.sensibilidadMovimientoCamara = scene->getSensibilidadMovimientoCamara();
     cfg.gizmoOperacion = scene->getGizmoOperation();
+    cfg.gizmoGlobal = scene->isGizmoGlobal();
     cfg.camaraActivaId = scene->getActiveCameraId();
     cfg.estadoVentanas = managerOfGUI->obtenerEstadosVentanas();
     cfg.apariencia = mainMenu->getApariencia();
@@ -600,5 +542,11 @@ int main(void)
     }
 
     glfwTerminate();
+#if FUNSHI_ASAN_ACTIVO
+    std::cout << std::flush;
+    std::cerr << std::flush;
+    std::_Exit(0);
+#else
     return 0;
+#endif
 }

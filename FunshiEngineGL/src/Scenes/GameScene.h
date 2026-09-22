@@ -89,12 +89,21 @@ private:
     bool menuActivo = false;
     // Sensibilidad global del mouse look, sincronizada desde MenuGUI (vista
     // Opciones). La aplica main al offset del raton antes de updateYaw().
-    float sensibilidadCamara = 1.0f;
+    float sensibilidadCamara = 0.15f;
+    // Sensibilidad de MOVIMIENTO (WASD) del editor: multiplica la velocidad
+    // base (speed) de la camara activa. Se configura en la ventana "Camaras"
+    // (state de la scene, se persiste por proyecto); es INDEPENDIENTE del mouse
+    // look (Opciones). La aplica main a DeltaTime antes de trasladar.
+    float sensibilidadMovimientoCamara = 1.0f;
     // Perfil de apariencia sincronizado desde MenuGUI. La escena solo usa el
     // fondo del viewport y el color de la grilla (modo B/N); el estilo ImGui
     // lo aplica main con TemaEditor.
     Apariencia apariencia;
     int gizmoOperation = 7; // ImGuizmo::TRANSLATE
+    // Sistema de coordenadas del gizmo: false = LOCAL (rotacion de los ejes con
+    // el objeto, comportamiento historico); true = GLOBAL/WORLD (ejes del mundo,
+    // el gizmo NO rota con el objeto). Alternable con G o el menu "Gizmo".
+    bool gizmoGlobal = false;
     bool gizmoReady = false;
 
     void asegurarGrilla();
@@ -145,6 +154,10 @@ public:
     void gameScene();
     void setGizmoOperation(int operation);
     int getGizmoOperation() const;
+    // Sistema de coordenadas del gizmo (LOCAL con rotacion de los ejes del
+    // objeto, o GLOBAL con los ejes del mundo fijos). Se persiste por proyecto.
+    bool isGizmoGlobal() const noexcept;
+    void setGizmoGlobal(bool global) noexcept;
     bool isGizmoCapturingInput() const;
     bool gizmoInUse() const;
     GameObject* pickObject(float mouseX, float mouseY);
@@ -181,6 +194,12 @@ public:
     // Sensibilidad del mouse look (la setea main desde MenuGUI/Opciones).
     float getSensibilidadCamara() const noexcept;
     void setSensibilidadCamara(float sensibilidad) noexcept;
+
+    // Sensibilidad de movimiento (WASD) del editor, configurable en la ventana
+    // "Camaras". Multiplica la velocidad base de la camara activa (main lo
+    // aplica a DeltaTime en el callback de teclado).
+    float getSensibilidadMovimientoCamara() const noexcept;
+    void setSensibilidadMovimientoCamara(float sensibilidad) noexcept;
 
     // Perfil de apariencia (lo setea main desde MenuGUI/Opciones). Afecta el
     // fondo de la vista 3D y el color de la grilla.

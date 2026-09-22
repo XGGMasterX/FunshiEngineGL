@@ -66,9 +66,12 @@ int main() {
         cfg.cargarProyecto(proyNombreTest, rutaProyecto);
         CHECK(cfg.datos().nombreProyecto == "Nuevo Proyecto", "default nombreProyecto");
         CHECK(cfg.datos().idioma == "Espanol", "default idioma");
-        CHECK(cfg.datos().sensibilidadCamara == 1.0f, "default sensibilidad");
+        CHECK(cfg.datos().sensibilidadCamara == 0.15f, "default sensibilidad");
+        CHECK(cfg.datos().sensibilidadMovimientoCamara == 1.0f,
+              "default sensibilidad de movimiento");
         CHECK(cfg.datos().ventanaCamarasAbierta == true, "default ventanaCamaras");
         CHECK(cfg.datos().gizmoOperacion == 7, "default gizmoOperacion");
+        CHECK(cfg.datos().gizmoGlobal == false, "default gizmo LOCAL");
         CHECK(cfg.datos().camaraActivaId == -1, "default camaraActivaId");
         CHECK(cfg.datos().estadoVentanas.empty(), "default sin ventanas");
         CHECK(cfg.datos().apariencia.temaClaro == false, "default tema oscuro");
@@ -83,8 +86,10 @@ int main() {
         cfg.datos().nombreProyecto = "MiEscena";
         cfg.datos().idioma = "English";
         cfg.datos().sensibilidadCamara = 2.5f;
+        cfg.datos().sensibilidadMovimientoCamara = 1.8f;
         cfg.datos().ventanaCamarasAbierta = false;
         cfg.datos().gizmoOperacion = 2;
+        cfg.datos().gizmoGlobal = true;
         cfg.datos().camaraActivaId = 7;
         cfg.datos().estadoVentanas["BrowseFile"] = false;
         cfg.datos().estadoVentanas["ShowFolder"] = true;
@@ -109,8 +114,11 @@ int main() {
         CHECK(cfg2.datos().nombreProyecto == "MiEscena",  "roundtrip nombreProyecto");
         CHECK(cfg2.datos().idioma == "English",           "roundtrip idioma");
         CHECK(cfg2.datos().sensibilidadCamara == 2.5f,    "roundtrip sensibilidad");
+        CHECK(cfg2.datos().sensibilidadMovimientoCamara == 1.8f,
+              "roundtrip sensibilidad de movimiento");
         CHECK(cfg2.datos().ventanaCamarasAbierta == false,"roundtrip ventanaCamaras");
         CHECK(cfg2.datos().gizmoOperacion == 2,           "roundtrip gizmoOperacion");
+        CHECK(cfg2.datos().gizmoGlobal == true,      "roundtrip gizmo GLOBAL");
         CHECK(cfg2.datos().camaraActivaId == 7,           "roundtrip camaraActivaId");
         CHECK(cfg2.datos().estadoVentanas.at("BrowseFile") == false,
               "roundtrip ventana BrowseFile");
@@ -150,7 +158,7 @@ int main() {
         cfg.cargarProyecto(proyNombreTest, rutaProyecto);
         CHECK(cfg.datos().ventanaCamarasAbierta == false,
               "parcial: campo presente se aplica");
-        CHECK(cfg.datos().sensibilidadCamara == 1.0f,
+        CHECK(cfg.datos().sensibilidadCamara == 0.15f,
               "parcial: campo ausente conserva default");
         CHECK(cfg.datos().nombreProyecto == "Nuevo Proyecto",
               "parcial: sin seccion general -> default");
@@ -211,10 +219,12 @@ int main() {
         auto& d = cfg.datos();
         d.idioma = "English";
         d.sensibilidadCamara = 2.5f;
+        d.sensibilidadMovimientoCamara = 2.0f;
         d.apariencia.temaClaro = true;
         d.apariencia.blancoYNegro = true;
         d.ventanaCamarasAbierta = false;
         d.gizmoOperacion = 5;
+        d.gizmoGlobal = true;
         d.camaraActivaId = 3;
         d.nombreProyecto = "MiProyecto";
         d.estadoVentanas["Estado"] = false;
@@ -222,14 +232,18 @@ int main() {
         cfg.restablecer();
 
         CHECK(cfg.datos().idioma == "Espanol", "restablecer vuelve el idioma");
-        CHECK(cfg.datos().sensibilidadCamara == 1.0f,
+        CHECK(cfg.datos().sensibilidadCamara == 0.15f,
               "restablecer vuelve la sensibilidad");
+        CHECK(cfg.datos().sensibilidadMovimientoCamara == 1.0f,
+              "restablecer vuelve la sensibilidad de movimiento");
         CHECK(!cfg.datos().apariencia.temaClaro,
               "restablecer vuelve el tema");
         CHECK(!cfg.datos().apariencia.blancoYNegro,
               "restablecer vuelve el modo B/N");
         CHECK(cfg.datos().ventanaCamarasAbierta, "restablecer abre la ventana camaras");
         CHECK(cfg.datos().gizmoOperacion == 7, "restablecer vuelve el gizmo");
+        CHECK(cfg.datos().gizmoGlobal == false,
+              "restablecer vuelve el gizmo a LOCAL");
         CHECK(cfg.datos().camaraActivaId == -1,
               "restablecer vuelve la camara a automatica");
         CHECK(cfg.datos().nombreProyecto == "Nuevo Proyecto",

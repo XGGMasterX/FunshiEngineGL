@@ -79,6 +79,11 @@ public:
     void forwardLeft(float dt);
     void backRight(float dt);
     void backLeft(float dt);
+    // Movimiento por vector unitario combinado (WASD en diagonal): el caller
+    // pasa el vector [derecha, arriba, adelante] ya normalizado y esto aplica
+    // speed*dt a cada eje. Reemplaza el encadenamiento de forward/left que
+    // hacian las callbacks antes (la diagonal salia a sqrt(2) y con jitter).
+    void moverDireccion(const float direccion[3], float dt);
     void updateYaw(float dYawX, float dYawY);
 
     const float* getPosition() const { return m_pos; }

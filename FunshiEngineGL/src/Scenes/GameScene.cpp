@@ -94,6 +94,9 @@ GameScene::GameScene(GUIManager* manager)
     managerGUI->bindScene(sceneRegistry.get(), editorController.get(), &events);
     asegurarGrilla();
     menuBarGUI = managerGUI->getMenuBarGUI(&start);
+    // El menu del editor alterna LOCAL/GLOBAL del gizmo editando este mismo
+    // bool (mismo patron que el boton play/stop con toggleBool).
+    if (menuBarGUI) menuBarGUI->setGizmoGlobal(&gizmoGlobal);
     // El renderer resuelve la textura de cada Material con el cache de imagenes
     // de la escena (un solo decode por archivo, imagen compartida).
     sceneRenderer->setTextureManager(textureManager.get());
@@ -403,6 +406,16 @@ void GameScene::pintarVentanaCamaras() {
     ImGui::SameLine();
     ImGui::TextUnformatted(
         "Crea una camara en la vista activa y abre su vista previa.");
+
+    ImGui::Separator();
+
+    // Sensibilidad de MOVIMIENTO (WASD) del editor: multiplica la velocidad
+    // base (speed) de la camara activa. Vive en la scene (junto al mouse look
+    // de Opciones) y se persiste con el proyecto.
+    float movimiento = sensibilidadMovimientoCamara;
+    if (ImGui::SliderFloat("Sensibilidad de movimiento", &movimiento, 0.1f,
+                           5.0f, "%.2f"))
+        setSensibilidadMovimientoCamara(movimiento);
 
     ImGui::Separator();
 
@@ -988,10 +1001,16 @@ void GameScene::gameScene() {
         const float* ptr = glm::value_ptr(mFull);
         for (int i = 0; i < 16; ++i) matrix[i] = ptr[i];
 
-        static ImGuizmo::MODE mode = ImGuizmo::LOCAL;
+        // Sistema de coordenadas del gizmo: LOCAL (= ejercicio historico, los ejes
+        // rotan con el objeto) o GLOBAL/WORLD (ejes del mundo fijos, el gizmo
+        // NO rota con el objeto). En WORLD el redondeo de la matriz se hace
+        // igual contra inv(parentGlobal), asi que ambos conviven sin tocar la
+        // escritura de vuelta al local.
+        const ImGuizmo::MODE modoGizmo =
+            gizmoGlobal ? ImGuizmo::WORLD : ImGuizmo::LOCAL;
         ImGuizmo::Manipulate(view, projection,
                              static_cast<ImGuizmo::OPERATION>(gizmoOperation),
-                             mode, matrix, nullptr,
+                             modoGizmo, matrix, nullptr,
                              nullptr, nullptr, nullptr);
         gizmoReady = true;
         if (ImGuizmo::IsUsing()) {
@@ -1086,6 +1105,14 @@ int GameScene::getGizmoOperation() const {
     return gizmoOperation;
 }
 
+bool GameScene::isGizmoGlobal() const noexcept {
+    return gizmoGlobal;
+}
+
+void GameScene::setGizmoGlobal(bool global) noexcept {
+    gizmoGlobal = global;
+}
+
 bool GameScene::isGizmoCapturingInput() const {
     return gizmoReady && (ImGuizmo::IsOver() || ImGuizmo::IsUsing());
 }
@@ -1118,6 +1145,14 @@ float GameScene::getSensibilidadCamara() const noexcept {
 
 void GameScene::setSensibilidadCamara(float sensibilidad) noexcept {
     if (sensibilidad > 0.0f) sensibilidadCamara = sensibilidad;
+}
+
+float GameScene::getSensibilidadMovimientoCamara() const noexcept {
+    return sensibilidadMovimientoCamara;
+}
+
+void GameScene::setSensibilidadMovimientoCamara(float sensibilidad) noexcept {
+    if (sensibilidad > 0.0f) sensibilidadMovimientoCamara = sensibilidad;
 }
 
 const Apariencia& GameScene::getApariencia() const noexcept {

@@ -29,6 +29,14 @@
 
 namespace {
 
+constexpr float kPi = 3.14159265358979f;
+constexpr float kGradosARadianes = kPi / 180.f;
+
+// Tope del pitch de la camara (mouse look): sin esto la camara se "da vuelta"
+// al mirar hacia arriba/abajo y el vector "left" degenere (m_up fijo y
+// m_left ortogonal a dir apuntando casi vertical) y la vista hace cosas raras.
+constexpr float kPitchMaxGrados = 89.0f;
+
 // Rota el vector "vec" (0,0,-1) o (0,1,0) segun angulo/eje del Transform;
 // mismo helper que usa LightSystem para derivar la direccion de las luces.
 void rotarVector(const float* vec, float anguloGrados, const float* eje,
@@ -43,7 +51,7 @@ void rotarVector(const float* vec, float anguloGrados, const float* eje,
 
     k[0] /= norma; k[1] /= norma; k[2] /= norma;
 
-    const float radianes = anguloGrados * 3.14159265358979f / 180.f;
+    const float radianes = anguloGrados * kGradosARadianes;
     const float c = std::cos(radianes);
     const float s = std::sin(radianes);
     const float dot = vec[0] * k[0] + vec[1] * k[1] + vec[2] * k[2];
@@ -118,11 +126,15 @@ void CameraComponent::leerDesdeTransform() {
                 &transform->getRotatef()[1], m_up);
 
     // Reconstruir yaw/pitch desde la direccion actual del Transform para que
-    // la navegacion continue donde dejo el gizmo o el inspector.
-    yawX = std::atan2(m_dir[0], -m_dir[2]);
+    // la navegacion continue donde dejo el gizmo o el inspector. TODO se
+    // maneja en GRADOS (el mouse y su tope usan grados); los atan2/asin de
+    // abajo salen en radianes y se convierten.
+    yawX = std::atan2(m_dir[0], -m_dir[2]) / kGradosARadianes;
     float yDir = m_dir[1] > 1.f ? 1.f : m_dir[1];
     yDir = yDir < -1.f ? -1.f : yDir;
-    yawY = std::asin(-yDir);
+    yawY = std::asin(-yDir) / kGradosARadianes;
+    if (yawY > kPitchMaxGrados) yawY = kPitchMaxGrados;
+    if (yawY < -kPitchMaxGrados) yawY = -kPitchMaxGrados;
 
     m_left[0] = m_up[1] * m_dir[2] - m_up[2] * m_dir[1];
     m_left[1] = m_up[2] * m_dir[0] - m_up[0] * m_dir[2];
@@ -148,8 +160,11 @@ void CameraComponent::escribirATransform() {
     mat = glm::translate(mat, glm::vec3(m_pos[0], m_pos[1], m_pos[2]));
     // R = RY(-yawX) * RX(-yawY), misma convencion que la dir FPS:
     // dir = (+sin yawX cos yawY, -sin yawY, -cos yawX cos yawY).
-    mat = glm::rotate(mat, -yawX, glm::vec3(axisY[0], axisY[1], axisY[2]));
-    mat = glm::rotate(mat, -yawY, glm::vec3(axisX[0], axisX[1], axisX[2]));
+    // yawX/yawY se conservan en grados; glm::rotate espera radianes.
+    mat = glm::rotate(mat, -yawX * kGradosARadianes,
+                      glm::vec3(axisY[0], axisY[1], axisY[2]));
+    mat = glm::rotate(mat, -yawY * kGradosARadianes,
+                      glm::vec3(axisX[0], axisX[1], axisX[2]));
     mat = glm::scale(mat, glm::vec3(scale[0], scale[1], scale[2]));
 
     const float* ptr = glm::value_ptr(mat);
@@ -159,8 +174,8 @@ void CameraComponent::escribirATransform() {
 }
 
 void CameraComponent::calculardireccion() {
-    const float radX = yawX * 3.14159265358979f / 180.f;
-    const float radY = yawY * 3.14159265358979f / 180.f;
+    const float radX = yawX * kGradosARadianes;
+    const float radY = yawY * kGradosARadianes;
     m_dir[0] = std::sin(radX) * std::cos(radY);
     m_dir[1] = -std::sin(radY);
     m_dir[2] = -std::cos(radX) * std::cos(radY);
@@ -237,12 +252,25 @@ void CameraComponent::backLeft(float dt) {
     escribirATransform();
 }
 
+void CameraComponent::moverDireccion(const float direccion[3], float dt) {
+    leerDesdeTransform();
+    // direccion = [x: derecho, y: arriba, z: adelante]; "derecho" = -left.
+    const float v = speed * dt;
+    m_pos[0] += (-m_left[0] * direccion[0] + m_up[0] * direccion[1] +
+                 m_dir[0] * direccion[2]) * v;
+    m_pos[1] += (-m_left[1] * direccion[0] + m_up[1] * direccion[1] +
+                 m_dir[1] * direccion[2]) * v;
+    m_pos[2] += (-m_left[2] * direccion[0] + m_up[2] * direccion[1] +
+                 m_dir[2] * direccion[2]) * v;
+    escribirATransform();
+}
+
 void CameraComponent::updateYaw(float dYawX, float dYawY) {
     leerDesdeTransform();
     yawX += dYawX;
     yawY += dYawY;
-    if (yawY > 89.0f) yawY = 89.0f;
-    if (yawY < -89.0f) yawY = -89.0f;
+    if (yawY > kPitchMaxGrados) yawY = kPitchMaxGrados;
+    if (yawY < -kPitchMaxGrados) yawY = -kPitchMaxGrados;
     calculardireccion();
     escribirATransform();
 }

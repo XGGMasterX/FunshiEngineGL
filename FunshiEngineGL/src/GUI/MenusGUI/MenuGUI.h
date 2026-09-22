@@ -96,6 +96,11 @@ public:
     float getSensibilidadCamara() const noexcept;
     void setSensibilidadCamara(float sensibilidad);
 
+    // Sensibilidad de movimiento (WASD) de la camara del editor (vista
+    // Opciones). Se propaga a la escena por SensibilidadMovimientoCambio.
+    float getSensibilidadMovimientoCamara() const noexcept;
+    void setSensibilidadMovimientoCamara(float sensibilidad);
+
     // Perfil de apariencia del editor editado en la vista Opciones. Se aplica
     // a ImGui (TemaEditor) y a la escena (fondo y grilla) por AparienciaCambio.
     const Apariencia& getApariencia() const noexcept;

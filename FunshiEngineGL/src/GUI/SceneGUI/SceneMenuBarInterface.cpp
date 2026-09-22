@@ -23,6 +23,7 @@
 SceneMenuBarInterface::SceneMenuBarInterface(bool state)
     : GeneralUserInterface("MenuBar", state, ImGuiWindowFlags_MenuBar), toggleBool(nullptr) {}
 void SceneMenuBarInterface::setActivador(bool* target) { toggleBool = target; }
+void SceneMenuBarInterface::setGizmoGlobal(bool* target) { gizmoGlobal = target; }
 bool* SceneMenuBarInterface::getActivador() { return toggleBool; }
 bool SceneMenuBarInterface::getCargarScripts() { return cargarScripts; }
 void SceneMenuBarInterface::setCargarScripts(bool value) { cargarScripts = value; }
@@ -68,6 +69,21 @@ void SceneMenuBarInterface::contentGUI() {
                 busEditor->publish(ev);
             }
         }
+        ImGui::EndMenu();
+    }
+    if (gizmoGlobal && ImGui::BeginMenu("Gizmo")) {
+        // Sistema de coordenadas del gizmo: LOCAL (los ejes rotan con el
+        // objeto seleccionado) o GLOBAL (ejes del mundo fijos, el gizmo no
+        // rota con el objeto). Tambien se alterna con la tecla G.
+        if (*gizmoGlobal) {
+            if (ImGui::MenuItem("Local (ejes del objeto)", "G")) *gizmoGlobal = false;
+            ImGui::MenuItem("Global (ejes del mundo)", "G", true);
+        } else {
+            ImGui::MenuItem("Local (ejes del objeto)", "G", true);
+            if (ImGui::MenuItem("Global (ejes del mundo)", "G")) *gizmoGlobal = true;
+        }
+        ImGui::Separator();
+        ImGui::TextDisabled("La tecla G alterna entre ambos.\nOperacion: 1/T mover, 2/R rotar, 3/Y escalar");
         ImGui::EndMenu();
     }
     ImGui::EndMenuBar();

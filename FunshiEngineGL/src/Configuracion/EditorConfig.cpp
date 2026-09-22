@@ -21,8 +21,15 @@
 #include <nlohmann/json.hpp>
 
 #include <cstdlib>
+#include <cstring>
 #include <filesystem>
 #include <fstream>
+
+#ifdef _WIN32
+#include <windows.h>
+#else
+#include <unistd.h>
+#endif
 
 // ============================================================================
 // Persistencia de la configuracion del editor en JSON (nlohmann, vendoriado en
@@ -31,13 +38,39 @@
 // pudo leer. El binario solo persiste datos de escena, no configuracion.
 // ============================================================================
 
-std::string EditorConfig::directorioBaseMotorGrafico() {
-#if defined(_WIN32)
-    return "C:/MotorGraficoArchivos";
+namespace {
+
+// Directorio del ejecutable (sin el nombre del binario, con separador final).
+// Es el ancla de los datos del motor: la config y los proyectos viven junto al
+// binario, sin depender del directorio desde el que se lance ni del HOME.
+std::string directorioEjecutable() {
+#ifdef _WIN32
+    char exe[MAX_PATH] = {};
+    const DWORD n = GetModuleFileNameA(nullptr, exe, MAX_PATH);
+    if (n == 0 || n >= MAX_PATH) return "";
+    const std::string path(exe, static_cast<std::size_t>(n));
+    const std::size_t sep = path.find_last_of("\\/");
+    return (sep == std::string::npos) ? "" : path.substr(0, sep + 1);
 #else
-    const char* home = std::getenv("HOME");
-    return std::string(home ? home : ".") + "/MotorGrafico";
+    char link[4096] = {};
+    const ssize_t n = readlink("/proc/self/exe", link, sizeof(link) - 1);
+    if (n <= 0) return "";
+    link[n] = '\0';
+    const std::string path(link);
+    const std::size_t sep = path.find_last_of('/');
+    return (sep == std::string::npos) ? "" : path.substr(0, sep + 1);
 #endif
+}
+
+} // namespace
+
+// ============================================================================
+
+std::string EditorConfig::directorioBaseMotorGrafico() {
+    // Relativo al ejecutable: los datos de config/proyectos se crean junto al
+    // binario (build portable), no en el HOME ni en el directorio de lanzamiento.
+    const std::string exeDir = directorioEjecutable();
+    return exeDir.empty() ? "MotorGrafico" : exeDir + "MotorGrafico";
 }
 
 std::string EditorConfig::directorioProyecto(const std::string& nombreProyecto) {
@@ -217,6 +250,10 @@ void EditorConfig::cargarGeneral(const std::string& ruta) {
         datos_.idioma = j["idioma"].get<std::string>();
     if (j.contains("sensibilidadCamara") && j["sensibilidadCamara"].is_number())
         datos_.sensibilidadCamara = j["sensibilidadCamara"].get<float>();
+    if (j.contains("sensibilidadMovimientoCamara") &&
+        j["sensibilidadMovimientoCamara"].is_number())
+        datos_.sensibilidadMovimientoCamara =
+            j["sensibilidadMovimientoCamara"].get<float>();
 
     // Apariencia (tema, modo B/N, acento y fondo 3D). Tolerante: cada campo
     // ausente o invalido conserva el default del perfil.
@@ -263,6 +300,8 @@ void EditorConfig::cargarProyecto(const std::string& nombreProyecto,
             datos_.ventanaCamarasAbierta = editor["ventanaCamarasAbierta"].get<bool>();
         if (editor.contains("gizmoOperacion") && editor["gizmoOperacion"].is_number_integer())
             datos_.gizmoOperacion = editor["gizmoOperacion"].get<int>();
+        if (editor.contains("gizmoGlobal") && editor["gizmoGlobal"].is_boolean())
+            datos_.gizmoGlobal = editor["gizmoGlobal"].get<bool>();
         if (editor.contains("camaraActivaId") && editor["camaraActivaId"].is_number_integer())
             datos_.camaraActivaId = editor["camaraActivaId"].get<int>();
 
@@ -298,6 +337,7 @@ void EditorConfig::guardarGeneral(const std::string& ruta) {
     if (!datos_.nombreProyecto.empty()) j["ultimoProyecto"] = datos_.nombreProyecto;
     j["idioma"] = datos_.idioma;
     j["sensibilidadCamara"] = datos_.sensibilidadCamara;
+    j["sensibilidadMovimientoCamara"] = datos_.sensibilidadMovimientoCamara;
     j["apariencia"]["temaClaro"] = datos_.apariencia.temaClaro;
     j["apariencia"]["blancoYNegro"] = datos_.apariencia.blancoYNegro;
     j["apariencia"]["acento"] = {datos_.apariencia.acento[0],
@@ -318,6 +358,7 @@ void EditorConfig::guardarProyecto(const std::string& nombreProyecto,
     j["version"] = datos_.version;
     j["editor"]["ventanaCamarasAbierta"] = datos_.ventanaCamarasAbierta;
     j["editor"]["gizmoOperacion"] = datos_.gizmoOperacion;
+    j["editor"]["gizmoGlobal"] = datos_.gizmoGlobal;
     j["editor"]["camaraActivaId"] = datos_.camaraActivaId;
     for (const auto& [nombre, abierta] : datos_.estadoVentanas)
         j["editor"]["ventanas"][nombre] = abierta;

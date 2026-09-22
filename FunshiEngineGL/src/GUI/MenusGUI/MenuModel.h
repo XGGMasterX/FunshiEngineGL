@@ -84,6 +84,11 @@ public:
     // pixel/grado (comportamiento historico).
     float getSensibilidadCamara() const noexcept;
     void setSensibilidadCamara(float sensibilidad);
+    // Sensibilidad de MOVIMIENTO (WASD) de la camara del editor (vista
+    // Opciones): multiplica la velocidad base de la camara activa. Se aplica a
+    // la escena por SensibilidadMovimientoCambio (independiente del mouse look).
+    float getSensibilidadMovimientoCamara() const noexcept;
+    void setSensibilidadMovimientoCamara(float sensibilidad);
 
     // Perfil de apariencia (tema, modo B/N, acento de la UI y fondo 3D). La
     // vista Opciones lo edita y main lo aplica a ImGui y a la escena.
@@ -105,6 +110,7 @@ public:
         Nombre,
         Idioma,
         SensibilidadCamara,
+        SensibilidadMovimientoCamara,
         Apariencia,
         Reiniciar, // restablecerConfiguracion() completo
     };
@@ -117,7 +123,11 @@ private:
     std::vector<std::string> proyectosDisponibles;
     std::string idioma = "Espanol";
     std::vector<std::string> idiomasDisponibles = {"Espanol", "English"};
-    float sensibilidadCamara = 1.0f;
+    float sensibilidadCamara = 0.15f;
+    // Sensibilidad de movimiento (WASD) de la camara del editor. Se configura
+    // en la vista Opciones junto a la sensibilidad de camara y se aplica a la
+    // escena por SensibilidadMovimientoCambio.
+    float sensibilidadMovimientoCamara = 1.0f;
     Apariencia apariencia;
     // Un solo observador (la fachada). Puntero a funcion/closure NO propietario;
     // si no hay observador, no hacer nada.

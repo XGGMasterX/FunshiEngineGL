@@ -210,6 +210,14 @@ void MenuView::renderizarOpciones() {
         model->setSensibilidadCamara(sensibilidad);
     }
 
+    ImGui::TextUnformatted(model->traducir("sensibilidad_movimiento").c_str());
+    float movimiento = model->getSensibilidadMovimientoCamara();
+    ImGui::SetNextItemWidth(-1.0f);
+    if (ImGui::SliderFloat("##sensibilidadMovimiento", &movimiento, 0.1f,
+                           5.0f, "%.2f")) {
+        model->setSensibilidadMovimientoCamara(movimiento);
+    }
+
     ImGui::SeparatorText(model->traducir("apariencia").c_str());
     // Se edita una copia y se delega al modelo UNA vez si hubo cambios; asi
     // el modelo sigue siendo la unica fuente de verdad (patron MVP).
