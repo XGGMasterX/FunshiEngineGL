@@ -18,9 +18,11 @@ file(GLOB_RECURSE HEADERS CONFIGURE_DEPENDS ${SRC_DIR}/*.h ${SRC_DIR}/*.hpp)
 # (tests, herramientas, otros front-ends) sin recompilar todo. CI puede compilar
 # SOLO las pruebas headless con BUILD_ENGINE=OFF.
 option(BUILD_ENGINE "Build engine library and executable" ON)
-# Soporte de scripts Java via JNI (requiere JDK en tiempo de build para jni.h;
-# el JVM en runtime se carga dinamicamente solo si hay una escena con .java).
-option(FUNSHI_JAVA "Soporte de scripts Java via JNI" OFF)
+# Soporte de scripts Java via JNI: requiere JDK en tiempo de build para jni.h.
+# El JVM en runtime se carga dinamicamente solo si hay una escena con .java.
+# Por defecto ON: si el build encuentra el JDK se habilita solo, si no, el
+# backend Java se omite sin romper la compilacion de nada.
+option(FUNSHI_JAVA "Soporte de scripts Java via JNI (requiere JDK en build)" ON)
 
 if(BUILD_ENGINE)
     # main.cpp es el punto de entrada del ejecutable, no parte de la libreria.
@@ -50,8 +52,10 @@ if(BUILD_ENGINE)
     # Soporte opcional de scripts Java (JNI). Se detecta el JDK con FindJNI y
     # se embeben las rutas de javac/libjvm para el runtime (se pueden
     # sobreescribir con las variables de entorno JAVA_HOME/JAVAC/FUNSHI_LIBJVM).
-    if(FUNSHI_JAVA)
-        find_package(JNI REQUIRED)
+    # Sin JDK en el sistema el backend simplemente no se compila, y la GUI lo
+    # reporta como "sin soporte".
+    find_package(JNI QUIET)
+    if(FUNSHI_JAVA AND JNI_FOUND)
         find_package(Java QUIET COMPONENTS Development)
         target_sources(funshi_engine PRIVATE
             ${SRC_DIR}/Behaviour/Backends/BackendJava.cpp)
@@ -68,12 +72,25 @@ if(BUILD_ENGINE)
         if(UNIX)
             target_link_libraries(funshi_engine PRIVATE ${CMAKE_DL_LIBS})
         endif()
+        message(STATUS
+            "Scripts Java HABILITADOS (javac: ${Java_JAVAC_EXECUTABLE}).")
+    elseif(FUNSHI_JAVA)
+        message(STATUS
+            "FUNSHI_JAVA=ON pero no se encontro el JDK (jni.h): el backend "
+            "Java queda desactivado.")
     endif()
 
     # Ruta al fuente del motor (para que los scripts usen las cabeceras al
     # compilarse en caliente) y compilador C++ a invocar por el BackendCpp.
+    # En Windows los backslashes del path se escapan para el literal C++; el
+    # BackendCpp entrecomilla la ruta al armar el argumento -I al usarla.
+    set(FUNSHI_SRC_ESCAPADO "${SRC_DIR}")
+    if(WIN32)
+        string(REPLACE "\\" "\\\\" FUNSHI_SRC_ESCAPADO
+               "${FUNSHI_SRC_ESCAPADO}")
+    endif()
     target_compile_definitions(funshi_engine
-        PUBLIC FUNSHI_SRC_DIR="${SRC_DIR}"
+        PUBLIC FUNSHI_SRC_DIR="${FUNSHI_SRC_ESCAPADO}"
                FUNSHI_CXX_COMPILER="${CMAKE_CXX_COMPILER}")
 
 # 1. Configuración de GLFW

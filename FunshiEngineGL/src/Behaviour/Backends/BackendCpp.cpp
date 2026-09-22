@@ -83,6 +83,16 @@ std::string escapar(const std::string& ruta) {
     return resultado;
 }
 
+// Directorio con las cabeceras del motor para que el script pueda incluir
+// ScriptGameObject.h. Prioridad: variable de entorno FUNSHI_SRC_DIR; si no,
+// la ruta horneada en el build (el repo en un build dev, o la carpeta de
+// instalacion en un build de CI/instalador). Vacia si no hay cabeceras.
+std::string directorioSrcMotor() {
+    const char* env = std::getenv("FUNSHI_SRC_DIR");
+    if (env && *env) return env;
+    return FUNSHI_SRC_DIR;
+}
+
 std::string directorioCache() {
     std::error_code ec;
     std::filesystem::path base;
@@ -145,10 +155,20 @@ bool BackendCpp::compilarYCargar(const std::string& fuente,
     bool hayQueRecompilar = !std::filesystem::exists(artefactoPath, ec) ||
                             salida.mtimeFuente != mtime;
     if (hayQueRecompilar) {
-        // FUNSHI_SRC_DIR llega como literal con comillas dentro del contenido
-        // (FUNSHI_SRC_DIR=\"/ruta\") usadas para argv del compilador.
-        std::string logic = std::string("-I") + FUNSHI_SRC_DIR + " " +
-                            escapar(fuente);
+        // -I al dir de cabeceras del motor + fuente a compilar, ambos
+        // entrecomillados (rutas con espacios). En Windows ademas del /I no
+        // existia el include path, asi que el script nunca encontraba las
+        // cabeceras del SDK: se arregla aqui.
+        std::string logic;
+        const std::string dirSrc = directorioSrcMotor();
+        if (!dirSrc.empty()) {
+#if defined(_WIN32)
+            logic = "/I\"" + escapar(dirSrc) + "\" ";
+#else
+            logic = "-I\"" + escapar(dirSrc) + "\" ";
+#endif
+        }
+        logic += escapar(fuente);
         const std::string logPath =
             (std::filesystem::path(directorioCache()) / "compilar.log")
                 .string();
