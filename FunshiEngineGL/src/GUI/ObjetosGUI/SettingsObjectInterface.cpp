@@ -30,11 +30,13 @@
 #include "Material/SettingsMaterial.h"
 #include "Light/SettingsLight.h"
 #include "Camera/SettingsCamera.h"
+#include "Audio/SettingsAudioSource.h"
 #include "Grid/SettingsGrid.h"
 #include "../../Objetos/GameObject.h"
 #include "../../Objetos/Componentes/Light.h"
 #include "../../Objetos/Componentes/Material.h"
 #include "../../Objetos/Componentes/CameraComponent.h"
+#include "../../Objetos/Componentes/AudioSource.h"
 #include "../../Objetos/Componentes/Grid.h"
 #include "../../Scenes/EditorController.h"
 #include "../../Herramientas/TypeUtils.h"
@@ -121,6 +123,12 @@ void SettingsObjectInterface::loadComponents() {
 	Grid* grid = object->getComponent<Grid>();
 	if (grid != nullptr) {
 		listaDESettingsComponent->addLast(new SettingsGrid(object));
+	}
+	AudioSource* audioSource = object->getComponent<AudioSource>();
+	if (audioSource != nullptr) {
+		SettingsAudioSource* settingsAudioSource = new SettingsAudioSource(object);
+		settingsAudioSource->setAudioEngine(audioMotor);
+		listaDESettingsComponent->addLast(settingsAudioSource);
 	}
 }
 
@@ -256,6 +264,15 @@ void SettingsObjectInterface::contentGUI() {
 			if (object->getComponent<Model>() == nullptr) {
 				object->addComponent(new Model());
 				listaDESettingsComponent->addLast(new SettingsModel(object));
+			}
+		}
+		if (ImGui::MenuItem("Agregar Fuente de audio")) {
+			if (object->getComponent<AudioSource>() == nullptr) {
+				object->addComponent(new AudioSource());
+				SettingsAudioSource* settingsAudioSource =
+				    new SettingsAudioSource(object);
+				settingsAudioSource->setAudioEngine(audioMotor);
+				listaDESettingsComponent->addLast(settingsAudioSource);
 			}
 		}
 		if (ImGui::MenuItem("Grilla") &&

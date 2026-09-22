@@ -47,6 +47,10 @@ GUIManager::GUIManager(GLFWwindow* window)
     iconosGUI = std::make_unique<IconosGUI>();
     iconosGUI->init();
     statusBarGUI = std::make_unique<StatusBarInterface>(true);
+    // Ventanas del creador de interfaces: arrancan ocultas; se alternan desde
+    // el menu "Ventanas" o al crear una interfaz (se persisten por proyecto).
+    creadorInterfacesGUI = std::make_unique<CreadorDeInterfaces>(false);
+    canvasGUI = std::make_unique<CanvasInterface>(false);
     treeFilesGUI->setIconosGUI(iconosGUI.get());
     contentOfThisFolder->setIconosGUI(iconosGUI.get());
     selecteableGUI->setIconosGUI(iconosGUI.get());
@@ -76,6 +80,8 @@ void GUIManager::bindScene(SceneRegistry* scene, EditorController* editor,
     selecteableGUI->bindScene(scene, editor, events);
     statusBarGUI->bindScene(scene);
     settingGUI->setEditor(editor);
+    settingGUI->setAudioEngine(audioMotor);
+    canvasGUI->setAudioEngine(audioMotor);
 }
 MenuGUI* GUIManager::getMenuGUI() { return menuGUI.get(); }
 TreeFilesInterface* GUIManager::getTreeFilesGUI() { return treeFilesGUI.get(); }
@@ -108,6 +114,12 @@ SceneSelectedInterface* GUIManager::getSelecteableGUI() { return selecteableGUI.
 ContentFolderInterface* GUIManager::getContentFolderGUI() { return contentOfThisFolder.get(); }
 DockSpaceInterface* GUIManager::getDockSpaceGUI() { return dockSpaceGUI.get(); }
 
+void GUIManager::setAudioEngine(AudioEngine* motor) {
+    audioMotor = motor;
+    if (settingGUI) settingGUI->setAudioEngine(motor);
+    if (canvasGUI) canvasGUI->setAudioEngine(motor);
+}
+
 StatusBarInterface* GUIManager::getStatusBarGUI() { return statusBarGUI.get(); }
 
 void GUIManager::restaurarEstadosVentanas(const std::map<std::string, bool>& estados) {
@@ -122,7 +134,8 @@ std::vector<GeneralUserInterface*> GUIManager::ventanasPersistentes() const {
     // La ventana Settings es dinamica (depende de la seleccion) y se deja
     // fuera. El resto se persiste por su WindowName.
     return {selecteableGUI.get(), menuBarGUI.get(), treeFilesGUI.get(),
-            contentOfThisFolder.get(), dockSpaceGUI.get(), statusBarGUI.get()};
+            contentOfThisFolder.get(), dockSpaceGUI.get(), statusBarGUI.get(),
+            creadorInterfacesGUI.get(), canvasGUI.get()};
 }
 
 std::map<std::string, bool> GUIManager::obtenerEstadosVentanas() const {

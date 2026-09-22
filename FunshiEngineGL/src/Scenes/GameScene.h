@@ -28,6 +28,7 @@
 #include "../Iluminacion/LightSystem.h"
 #include "../Behaviour/ScriptRuntime.h"
 #include "../Configuracion/Apariencia.h"
+#include "../Audio/AudioClipsManager.h"
 
 class CameraComponent;
 class EditorController;
@@ -38,10 +39,15 @@ class SceneMenuBarInterface;
 class SceneRegistry;
 class SceneSelectedInterface;
 class SceneSerializer;
+class AssimpMeshLoader;
 class AssetManager;
 class TextureManager;
 class Script;
 class SceneRenderer;
+class AudioEngine;
+class CanvasInterface;
+class CreadorDeInterfaces;
+class MiniAudioBackend;
 
 class GameScene {
 private:
@@ -80,6 +86,11 @@ private:
     std::unique_ptr<EditorController> editorController;
     std::unique_ptr<SceneSerializer> sceneSerializer;
     LightSystem lightSystem;
+    // Motor de audio (facade, hilo de trabajo propio). Siempre existe aunque
+    // el backend de miniaudio no pueda iniciar (falla silenciosa -> mudo).
+    std::unique_ptr<AudioEngine> audioEngine;
+    // Catalogo de clips del proyecto (explora Sonidos/ y registra por nombre).
+    AudioClipsManager clipsAudio;
     float deltaTime = 0.0f;
     bool start = false;
     // version anterior de start: detecta la transicion false->true para
@@ -107,6 +118,9 @@ private:
     bool gizmoReady = false;
 
     void asegurarGrilla();
+    // Reproduce/detiene los AudioSource de la escena en las transiciones de
+    // modo play (entrar = autoplay de los marcados; salir = detener todo).
+    void sincronizarAudioPlay(bool entrarEnPlay);
     // Muestra las vistas previas del SceneRenderer (textura FBO por camara con
     // "Vista previa" activo) como ventanas ImGui.
     void pintarViewportsGUI();
@@ -148,6 +162,10 @@ public:
     void saveScene(const std::string& filename);
     bool isStart();
     void loadScene(const std::string& pathTxt, const std::string& semiPath);
+    // Configura los assets de audio (Sonidos/) e interfaces (Memory/Interfaces)
+    // del proyecto. La llama main al arrancar y al cambiar de proyecto.
+    void configurarProyecto(const std::string& nombreProyecto);
+    AudioEngine* getAudioEngine() const noexcept;
     void GUI();
     void pintarVentanaCamaras();
     void update(float deltaTime);

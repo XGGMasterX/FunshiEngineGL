@@ -220,6 +220,9 @@ static int EjecutarMotor(int argc, char* argv[])
     if (!proyectoActual.empty()) {
         EditorConfig::asegurarEstructuraProyecto(proyectoActual);
         managerOfGUI->configurarProyecto(proyectoActual);
+        // Audio + interfaces: explora Sonidos/ y apunta el creador a
+        // Memory/Interfaces del proyecto (debe correr antes del primer frame).
+        scene->configurarProyecto(proyectoActual);
     }
 
     mainMenu->setNombreProyecto(editorConfig.datos().nombreProyecto);
@@ -494,6 +497,8 @@ static int EjecutarMotor(int argc, char* argv[])
                 proyectoActual = nombreMenu;
                 EditorConfig::asegurarEstructuraProyecto(proyectoActual);
                 managerOfGUI->configurarProyecto(proyectoActual);
+                // Re-explorar Sonidos/ e interfaces del proyecto entrante.
+                scene->configurarProyecto(proyectoActual);
                 editorConfig.datos().nombreProyecto = proyectoActual;
                 g_imguiIniRuta = EditorConfig::rutaImguiIni(proyectoActual);
                 io.IniFilename = g_imguiIniRuta.c_str();

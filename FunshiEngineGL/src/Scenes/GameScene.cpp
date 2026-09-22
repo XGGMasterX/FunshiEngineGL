@@ -44,6 +44,12 @@
 #include "../Rendering/Backend/IRenderBackend.h"
 #include "../Rendering/RenderTarget.h"
 #include "../Rendering/SceneRenderer.h"
+#include "../Audio/AudioEngine.h"
+#include "../Audio/MiniAudioBackend.h"
+#include "../GUI/CreadorUI/CreadorDeInterfaces.h"
+#include "../GUI/CreadorUI/CanvasInterface.h"
+#include "../Objetos/Componentes/AudioSource.h"
+#include "../Configuracion/EditorConfig.h"
 #include "ImGuizmo.h"
 #include <cmath>
 #include <imgui.h>
@@ -89,9 +95,15 @@ GameScene::GameScene(GUIManager* manager)
       sceneSerializer(
           std::make_unique<SceneSerializer>(sceneRegistry.get(),
                                              editorController.get(),
-                                             assetManager.get())) {
+                                             assetManager.get())),
+      // El backend real es miniaudio; si no hay device de audio, iniciar()
+      // devuelve false y el motor queda en modo mudo (todos los reproducir
+      // devuelven -1), sin romper nada: los clips existen pero no suenan.
+      audioEngine(
+          std::make_unique<AudioEngine>(std::make_unique<MiniAudioBackend>())) {
     selecteableGUI = managerGUI->getSelecteableGUI();
     managerGUI->bindScene(sceneRegistry.get(), editorController.get(), &events);
+    managerGUI->setAudioEngine(audioEngine.get());
     asegurarGrilla();
     menuBarGUI = managerGUI->getMenuBarGUI(&start);
     // El menu del editor alterna LOCAL/GLOBAL del gizmo editando este mismo
@@ -110,6 +122,49 @@ GameScene::~GameScene() {
     if (sceneRenderer) sceneRenderer->destruir();
     if (editorController) editorController->clearScene();
     if (selecteableGUI) selecteableGUI->bindScene(nullptr, nullptr, nullptr);
+}
+
+void GameScene::configurarProyecto(const std::string& nombreProyecto) {
+    EditorConfig::asegurarEstructuraProyecto(nombreProyecto);
+    // Re-escanea Sonidos/ del proyecto: limpia el registro y lo repuebla por
+    // nombre (los widgets de AudioSource/interfaces hablan por nombre, no ruta).
+    clipsAudio.configurarCarpeta(EditorConfig::directorioSonidos(nombreProyecto),
+                                 audioEngine.get());
+    // El creador apunta a Memory/Interfaces del nuevo proyecto.
+    if (managerGUI) {
+        CreadorDeInterfaces* creador = managerGUI->getCreadorInterfacesGUI();
+        if (creador) creador->configurarProyecto(
+            EditorConfig::directorioInterfaces(nombreProyecto));
+    }
+}
+
+AudioEngine* GameScene::getAudioEngine() const noexcept {
+    return audioEngine.get();
+}
+
+// Reproduce o detiene los AudioSource de la escena segun la transicion de
+// modo play. Al ENTRAR en play: inyecta el motor y dispara los de reproduccion
+// automatica. Al SALIR de play: detiene todo (evita colas de audio en el
+// editor). El motor se inyecta siempre, para que el inspector pueda probar.
+void GameScene::sincronizarAudioPlay(bool entrarEnPlay) {
+    auto* gameObjects = getGameObjectsScene();
+    if (!gameObjects || gameObjects->isEmpty()) return;
+    Position<GameObject*>* pos = gameObjects->first();
+    while (pos && pos->getElement()) {
+        AudioSource* source = pos->getElement()->getComponent<AudioSource>();
+        if (!source) {
+            pos = (pos != gameObjects->last()) ? gameObjects->next(pos) : nullptr;
+            continue;
+        }
+        source->setMotor(audioEngine.get());
+        if (entrarEnPlay) {
+            if (source->isReproduccionAutomatica() && !source->isReproduciendo())
+                source->reproducir();
+        } else {
+            source->detener();
+        }
+        pos = (pos != gameObjects->last()) ? gameObjects->next(pos) : nullptr;
+    }
 }
 
 ListaDE<GameObject*>* GameScene::getGameObjectsScene() {
@@ -354,6 +409,24 @@ void GameScene::GUI() {
     if (menuBarGUI->getCargarScripts()) {
         menuBarGUI->setCargarScripts(false);
     }
+
+    // Sistema de audio + creador de interfaces: el catalogo de clips se
+    // refresca por frame (tolerante y barato), el canvas refleja la interfaz
+    // activa y cambia su presentacion segun el modo play.
+    if (managerGUI) {
+        CreadorDeInterfaces* creador = managerGUI->getCreadorInterfacesGUI();
+        CanvasInterface* canvas = managerGUI->getCanvasGUI();
+        if (creador) {
+            creador->setClipNames(audioEngine->nombresClips());
+            creador->printGUI();
+        }
+        if (canvas) {
+            canvas->setAudioEngine(audioEngine.get());
+            canvas->setModoPlay(start);
+            canvas->setUI(creador ? creador->getInterfazActiva() : nullptr);
+            canvas->printGUI();
+        }
+    }
 }
 
 void GameScene::pintarViewportsGUI() {
@@ -524,6 +597,9 @@ void GameScene::update(float value) {
             }
         }
 
+        // Audio: inyectar el motor y disparar los AudioSource automaticos.
+        sincronizarAudioPlay(true);
+
         // Todos los scripts que necesitan (re)compilarse entran a la cola: su
         // progreso se ve en la barra "Estado" antes de bloquear con g++/javac.
         encolarScriptsIniciales();
@@ -533,6 +609,8 @@ void GameScene::update(float value) {
     // (onStop) y conservar los valores editados en play mode para la GUI.
     if (previousStart && !start) {
         limpiarColaCompilacion();
+        // Audio: detener los AudioSource (no dejar sonando en el editor).
+        sincronizarAudioPlay(false);
         auto* gameObjects = getGameObjectsScene();
         if (!gameObjects->isEmpty()) {
             Position<GameObject*>* pos = gameObjects->first();
