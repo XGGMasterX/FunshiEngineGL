@@ -107,8 +107,18 @@ public:
     // Ruta del layout de ventanas de ImGui: <directorioMemory>/imgui.ini
     static std::string rutaImguiIni(const std::string& nombreProyecto = "Nuevo Proyecto");
 
+    // Carpeta de assets de audio del proyecto (clips descubiertos por
+    // AudioClipsManager): <directorioProyecto>/Sonidos
+    static std::string directorioSonidos(const std::string& nombreProyecto = "Nuevo Proyecto");
+
+    // Carpeta de interfaces de usuario creadas (assets JSON del creador de
+    // interfaces): <directorioMemory>/Interfaces
+    static std::string directorioInterfaces(const std::string& nombreProyecto = "Nuevo Proyecto");
+
     // Crea en disco la estructura de carpetas requerida para el proyecto:
     //   <directorioBase>/<nombreProyecto>/Memory/Binarios/Scene
+    //   <directorioBase>/<nombreProyecto>/Sonidos
+    //   <directorioBase>/<nombreProyecto>/Memory/Interfaces
     //   <directorioBase>/<nombreProyecto>/src<nombreProyecto>
     // Y migra archivos previos si existian en la raiz de MotorGrafico.
     static void asegurarEstructuraProyecto(const std::string& nombreProyecto = "Nuevo Proyecto");

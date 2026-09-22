@@ -128,15 +128,29 @@ std::string EditorConfig::rutaImguiIni(const std::string& nombreProyecto) {
     return directorioMemory(nombreProyecto) + "/imgui.ini";
 }
 
+std::string EditorConfig::directorioSonidos(const std::string& nombreProyecto) {
+    return directorioProyecto(nombreProyecto) + "/Sonidos";
+}
+
+std::string EditorConfig::directorioInterfaces(const std::string& nombreProyecto) {
+    return directorioMemory(nombreProyecto) + "/Interfaces";
+}
+
 void EditorConfig::asegurarEstructuraProyecto(const std::string& nombreProyecto) {
     const std::string nombre = nombreProyecto.empty() ? "Nuevo Proyecto" : nombreProyecto;
     const std::string dirMemory = directorioMemory(nombre);
     const std::string dirScene = dirMemory + "/Binarios/Scene";
     const std::string dirSrc = directorioSrc(nombre);
+    // Assets del nuevo sistema: sonidos importados por el usuario y las
+    // interfaces creadas en el creador (se guardan como JSON en Memory).
+    const std::string dirSonidos = directorioSonidos(nombre);
+    const std::string dirInterfaces = directorioInterfaces(nombre);
 
     std::error_code ec;
     std::filesystem::create_directories(dirScene, ec);
     std::filesystem::create_directories(dirSrc, ec);
+    std::filesystem::create_directories(dirSonidos, ec);
+    std::filesystem::create_directories(dirInterfaces, ec);
 
     // Migracion automatica si venimos de la version anterior donde se guardaba
     // directamente en MotorGrafico:
