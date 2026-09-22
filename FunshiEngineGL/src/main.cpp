@@ -54,9 +54,16 @@
 // los handlers de atexit una vez que todo el cleanup ya corrió de forma
 // explicita (escena, scripts JNI, ImGui, glfw). ASan sigue detectando usos
 // invalidos en ejecución; solo se descarta el contador de fugas al salir.
-#if defined(__SANITIZE_ADDRESS__) || \
-    (defined(__has_feature) && __has_feature(address_sanitizer))
+// Nota: __has_feature solo existe en Clang; en GCC el "__has_feature(...)"
+// del #if falla al parsear, por eso se anida con defined() antes de usarlo.
+#if defined(__SANITIZE_ADDRESS__)
 #define FUNSHI_ASAN_ACTIVO 1
+#elif defined(__has_feature)
+#if __has_feature(address_sanitizer)
+#define FUNSHI_ASAN_ACTIVO 1
+#else
+#define FUNSHI_ASAN_ACTIVO 0
+#endif
 #else
 #define FUNSHI_ASAN_ACTIVO 0
 #endif
@@ -98,13 +105,12 @@ static std::string redirigirSalidaALog(char* argv0) {
         const fs::path carpetaLogs = ejecutable / "logs";
         fs::create_directories(carpetaLogs);
 
-        std::time_t ahora = std::time(nullptr);
-        std::tm tmUtc = {};
-#if defined(_WIN32)
-        gmtime_s(&tmUtc, &ahora);
-#else
-        gmtime_r(&ahora, &tmUtc);
-#endif
+        const std::time_t ahora = std::time(nullptr);
+        // gmtime() del <ctime> estandar: portable entre MSVC, MinGW y Linux
+        // (gmtime_s y gmtime_r no existen en todos los compiladores de Windows).
+        // No hay threads en este punto del arranque, asi que la zona estatica
+        // que devuelve es segura.
+        const std::tm tmUtc = *std::gmtime(&ahora);
         char sufijo[32];
         std::strftime(sufijo, sizeof(sufijo), "%Y%m%d_%H%M%S", &tmUtc);
         const std::string ruta =
@@ -114,7 +120,9 @@ static std::string redirigirSalidaALog(char* argv0) {
         // freopen redirige el FILE* de C (printf, cin/cout via sync_with_stdio
         // y fprintf). Se reabre en modo append por si ya existe.
         g_logSalida = std::freopen(ruta.c_str(), "a", stdout);
-        std::freopen(ruta.c_str(), "a", stderr);
+        if (std::freopen(ruta.c_str(), "a", stderr) == nullptr) {
+            g_logSalida = nullptr;
+        }
         if (g_logSalida) {
             std::cout << "\n========== Arranque FunshiEngineGL "
                       << sufijo << " ==========\n";
@@ -126,7 +134,48 @@ static std::string redirigirSalidaALog(char* argv0) {
     }
 }
 
-int main(int argc, char* argv[])
+#if defined(_WIN32)
+// Windows con subsistema GUI (/SUBSYSTEM:WINDOWS, WIN32_EXECUTABLE=TRUE):
+// MSVC y MinGW exigen WinMain como entrada, no main. Este wrapper construye
+// argc/argv (ANSI, el codepage que usa std::filesystem en Windows) desde
+// GetCommandLineW y delega en el mismo arranque que usa main en Linux. Asi el
+// doble clic no abre ninguna consola detras de la ventana.
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <shellapi.h>
+#include <vector>
+
+static int EjecutarMotor(int argc, char* argv[]);
+
+int WINAPI WinMain(HINSTANCE /*hInstance*/, HINSTANCE /*hPrevInstance*/,
+                   LPSTR /*lpCmdLine*/, int /*nCmdShow*/) {
+    int argc = 0;
+    LPWSTR* wargv = CommandLineToArgvW(GetCommandLineW(), &argc);
+    std::vector<char*> argvAnsi;
+    std::vector<std::string> almacen;
+    if (wargv) {
+        almacen.reserve(static_cast<size_t>(argc));
+        for (int i = 0; i < argc; ++i) {
+            int largo = WideCharToMultiByte(CP_ACP, 0, wargv[i], -1, nullptr, 0,
+                                            nullptr, nullptr);
+            std::string s(static_cast<size_t>(largo), '\0');
+            WideCharToMultiByte(CP_ACP, 0, wargv[i], -1, &s[0], largo, nullptr,
+                                nullptr);
+            if (!s.empty()) {
+                s.pop_back();  // el -1 de W2CB deja el '\0' incluido en s.
+            }
+            almacen.push_back(std::move(s));
+        }
+        for (auto& s : almacen) {
+            argvAnsi.push_back(s.data());
+        }
+        LocalFree(wargv);
+    }
+    return EjecutarMotor(static_cast<int>(argvAnsi.size()), argvAnsi.data());
+}
+#endif  // _WIN32
+
+static int EjecutarMotor(int argc, char* argv[])
 {
     // La redireccion va PRIMERO: el diagnostico de GPU de initVentana() y los
     // [diag] de render ya escriben al log, no a la terminal.
@@ -550,3 +599,7 @@ int main(int argc, char* argv[])
     return 0;
 #endif
 }
+
+// Entrada portable (Linux y consola en Windows). En Windows con subsistema
+// GUI la CPU llama a WinMain (arriba); aqui main queda solo como fallback.
+int main(int argc, char* argv[]) { return EjecutarMotor(argc, argv); }

@@ -35,14 +35,15 @@ if(BUILD_ENGINE)
     # Ejecutable principal (solo el entry point).
     add_executable(${PROJECT_NAME} ${SRC_DIR}/main.cpp)
     target_link_libraries(${PROJECT_NAME} PRIVATE funshi_engine)
-    # En Windows el binario es GUI (sin consola): la salida va al archivo de
-    # logs (redireccion al inicio de main), asi no se abre ninguna terminal.
-    # En Linux no tiene efecto.
+    # En Windows el binario es GUI (sin consola): WinMain arma argc/argv desde
+    # GetCommandLineW y delega en el arranque comun, y la salida va al log, asi
+    # no se abre ninguna terminal. En Linux no tiene efecto.
+    if(WIN32)
+        target_link_libraries(${PROJECT_NAME} PRIVATE shell32)
+    endif()
     set_target_properties(${PROJECT_NAME} PROPERTIES
         WIN32_EXECUTABLE TRUE
     )
-
-    # Cabeceras del engine y definiciones que expone a sus consumidores.
     target_include_directories(funshi_engine PUBLIC ${SRC_DIR})
     target_compile_definitions(funshi_engine PUBLIC GLM_ENABLE_EXPERIMENTAL)
 
