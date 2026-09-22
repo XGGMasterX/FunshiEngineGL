@@ -19,7 +19,7 @@
 #ifndef EDITOR_INPUT_H
 #define EDITOR_INPUT_H
 
-class GLFWwindow;
+struct GLFWwindow;
 
 class GameScene;
 class ApplicationStateMachine;
