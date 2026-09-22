@@ -24,6 +24,7 @@ jobs:
             libncurses-dev \
             libassimp-dev \
             libbullet-dev \
+            libasound2-dev \
             libxrandr-dev \
             libxi-dev
 
@@ -34,7 +35,7 @@ jobs:
         run: cmake --build build --target FunshiEngineGL
 
       - name: Compilar pruebas
-        run: cmake --build build --target filemanager-tests configuracion-tests eventbus-tests menu-tests assetmanager-tests texturemanager-tests estructuras-tests scripts-tests scripts-runtime-tests
+        run: cmake --build build --target filemanager-tests configuracion-tests eventbus-tests menu-tests assetmanager-tests texturemanager-tests estructuras-tests scripts-tests scripts-runtime-tests audio-tests userinterface-tests
 
       - name: Ejecutar pruebas
         run: ctest --test-dir build --output-on-failure
@@ -57,7 +58,7 @@ jobs:
         run: cmake -B build -S FunshiEngineGL -G Ninja -DBUILD_ENGINE=OFF -DENABLE_ASAN=OFF
 
       - name: Compilar pruebas
-        run: cmake --build build --target filemanager-tests configuracion-tests eventbus-tests menu-tests assetmanager-tests texturemanager-tests estructuras-tests scripts-tests scripts-runtime-tests
+        run: cmake --build build --target filemanager-tests configuracion-tests eventbus-tests menu-tests assetmanager-tests texturemanager-tests estructuras-tests scripts-tests scripts-runtime-tests audio-tests userinterface-tests
 
       - name: Ejecutar pruebas
         run: ctest --test-dir build --output-on-failure

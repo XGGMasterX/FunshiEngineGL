@@ -365,6 +365,42 @@ add_test(NAME scripts-runtime-tests COMMAND scripts-runtime-tests)
 # en PATH): ctest lo reporta como SKIP en lugar de fallo.
 set_tests_properties(scripts-runtime-tests PROPERTIES SKIP_RETURN_CODE 77)
 
+# AudioEngine (facade de audio, hilo de trabajo) headless y portatil: se monta
+# con NullAudioBackend (sin dispositivo) y se prueba el contrato de la cola de
+# comandos: registro de clips, handles, encolado no bloqueante, detencion,
+# volumen y limpieza. Necesita hilos (El worker thread del motor).
+add_executable(audio-tests
+    ${SRC_DIR}/Audio/AudioEngine.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../tests/AudioEngineTests.cpp
+)
+target_include_directories(audio-tests PRIVATE ${SRC_DIR})
+set_target_properties(audio-tests PROPERTIES
+    CXX_STANDARD 17
+    CXX_STANDARD_REQUIRED ON
+    CXX_EXTENSIONS OFF
+)
+find_package(Threads QUIET)
+if(Threads_FOUND)
+    target_link_libraries(audio-tests PRIVATE Threads::Threads)
+endif()
+add_test(NAME audio-tests COMMAND audio-tests)
+
+# UserInterfaceCustom (asset de interfaces de usuario) headless y portatil:
+# modelo puro, solo std C++17 + nlohmann/json vendoriado. Cubre el round-trip
+# JSON de los 5 tipos de widget, la persistencia guardar/cargar en un proyecto
+# temporal y la tolerancia a JSON parcial.
+add_executable(userinterface-tests
+    ${SRC_DIR}/GUI/CreadorUI/UserInterfaceCustom.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../tests/UserInterfaceTests.cpp
+)
+target_include_directories(userinterface-tests PRIVATE ${SRC_DIR} ${CMAKE_SOURCE_DIR}/External)
+set_target_properties(userinterface-tests PROPERTIES
+    CXX_STANDARD 17
+    CXX_STANDARD_REQUIRED ON
+    CXX_EXTENSIONS OFF
+)
+add_test(NAME userinterface-tests COMMAND userinterface-tests)
+
 # Prueba end-to-end del backend Java (se compila solo con FUNSHI_JAVA=ON).
 if(FUNSHI_JAVA)
     find_package(JNI REQUIRED)
