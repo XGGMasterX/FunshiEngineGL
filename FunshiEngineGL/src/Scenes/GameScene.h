@@ -27,6 +27,8 @@
 #include "../Estructuras/ListasEnlazadas/ListasDoblementeEnlazada/ListaDE.h"
 #include "../Iluminacion/LightSystem.h"
 #include "../Behaviour/ScriptRuntime.h"
+#include "../Behaviour/ScriptGameObject.h"
+#include "../Input/InputScripts.h"
 #include "../Configuracion/Apariencia.h"
 #include "../Audio/AudioClipsManager.h"
 
@@ -89,6 +91,10 @@ private:
     // Motor de audio (facade, hilo de trabajo propio). Siempre existe aunque
     // el backend de miniaudio no pueda iniciar (falla silenciosa -> mudo).
     std::unique_ptr<AudioEngine> audioEngine;
+    // Consulta de teclado para scripts (GLFW key names). EditorInput vive en
+    // main.cpp para la camara; este es un canal independiente de solo lectura
+    // que se alimenta de los mismos callbacks.
+    InputScripts inputScripts;
     // Catalogo de clips del proyecto (explora Sonidos/ y registra por nombre).
     AudioClipsManager clipsAudio;
     float deltaTime = 0.0f;

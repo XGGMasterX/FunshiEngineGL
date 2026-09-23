@@ -18,7 +18,6 @@
 */
 #ifndef EDITOR_INPUT_H
 #define EDITOR_INPUT_H
-
 struct GLFWwindow;
 
 class GameScene;

@@ -13,7 +13,7 @@ Motor y editor 3D en tiempo real escrito en C++17, con interfaz ImGui y renderiz
 
 - Ventana y contexto OpenGL con **GLFW**; renderizado con **OpenGL / GLU** (pipeline inmediato).
 - Interfaz de editor con **Dear ImGui** (docking) y gizmos con **ImGuizmo**.
-- Sistema **Entity–Component**: `Transform`, `Color`, `Model`, `Material`, `Light`, `CameraComponent`, colliders (esfera / cubo / malla), `RigidBody` y `Script`.
+- Sistema **Entity–Component**: `Transform`, `Color`, `Model`, `Material`, `Light`, `CameraComponent`, `Grid`, colliders (esfera / cubo / malla), `RigidBody`, `AudioSource`, `InterfaceComponent` (HUD por asset JSON del CreadorDeInterfaces) y `Script`.
 - **Scripts dinámicos** (`Script` + `IScriptBehaviour`): reflexión por macros con campos `SerializeField` (escalares, arrays y grupos anidados) editables en el inspector; compilación en caliente de C++ a `.so`/`.dll` (`BackendCpp`) y soporte de **Java vía JNI** (`BackendJava`, se activa automáticamente si el build encuentra el JDK). Hot reload por fecha de modificación que reinyecta los valores serializados, y ciclo `onStart`/`onUpdate`/`onStop`.
 - **Jerarquía de objetos** con árbol enlazado propio (`ArbolEnlazado<GameObject*>`) y reparentado seguro (rechaza ciclos y la raíz).
 - Carga de modelos 3D con **Assimp** (`.obj`, `.fbx` y formatos soportados por Assimp).
@@ -21,7 +21,9 @@ Motor y editor 3D en tiempo real escrito en C++17, con interfaz ImGui y renderiz
 - **Serialización binaria de escenas** en preorden con marcadores `=>`/`<=`: guarda y recupera la jerarquía completa (padres e hijos) de forma recursiva.
 - **EventBus** con suscripción tipada (creación, eliminación, reparentado, selección y cambios de componentes) + **EditorEventBus**: canal tipado de GUI interna (apariencia, idioma, sensibilidad, cámara activa y visibilidad de ventanas) que median entre el menú, las ventanas del editor y la escena sin pasarse punteros.
 - **Máquina de estados** de la aplicación: `MainMenu`, `Editing`, `Playing`, `Exiting`, con reglas de transición centralizadas en `OrquestadorEstadoGUI`.
+- **Input modularizado** (`src/Input/EditorInput`): las callbacks de teclado/mouse de GLFW viven en su propio módulo (extraídas de `main.cpp`); traducen los eventos a acciones del editor (E, G, gizmos, Escape, clic derecho para navegar) y mantienen una máquina de estado de teclas WASD/Espacio/Shift con movimiento continuo normalizado por frame (diagonales a la misma velocidad que un eje).
 - **Render híbrido**: los `Modelos3D` se dibujan con `MeshRenderer` (VBO/VAO + shaders vía `ShaderProgram`) y degradan a `glBegin/glEnd` en contextos legacy o mallas sin normales. La **grilla** es un componente (`Grid`, con visible/color/tamaño/separación) en una pasada independiente, cuyo color acompaña a la apariencia (incluido el modo blanco y negro).
+- **Audio en runtime** (`src/Audio/`): `AudioEngine` (fachada thread-safe con cola + hilo de audio) sobre backends intercambiables (`MiniAudioBackend` con miniaudio, `NullAudioBackend`); `AudioClipsManager` descubre los clips de `Sonidos/` y los registra por nombre; `AudioSource` reproduce con volumen, loop y autoplay.
 - **Ventana "Estado"** (`StatusBarInterface`): muestra el toolchain externo (compilador C++, javac, libjvm) y el estado de compilación/carga de los scripts de la escena.
 - Explorador de archivos del proyecto con fachada propia (`FileManager`), estado de navegación compartido (`FileSelection`) y vigilancia de cambios externos (`FileSystemWatcher`).
 - **Apariencia del editor configurable** (perfil persisto en `Configuracion.json`):
@@ -103,8 +105,8 @@ En Windows la misma receta funciona con el generador de Visual Studio. También 
 
 ## Pruebas y CI
 
-Las pruebas son headless (sin pila gráfica), corren con CTest y hay **10 targets**
-(nueve siempre + `scripts-java-tests` si el build encontró el JDK):
+Las pruebas son headless (sin pila gráfica), corren con CTest y hay **12 targets**
+(doce siempre + `scripts-java-tests` si el build encontró el JDK):
 
 ```bash
 cmake --build build --target filemanager-tests configuracion-tests eventbus-tests menu-tests assetmanager-tests texturemanager-tests estructuras-tests scripts-tests scripts-runtime-tests
@@ -120,6 +122,8 @@ ctest --test-dir build --output-on-failure
 - `scripts-tests` (42): reflexión `SerializeField` (campos, arrays, grupos y round-trip binario).
 - `scripts-runtime-tests`: compila un script C++ real con `BackendCpp`, lo carga con `dlopen` y ejecuta el ciclo; se omite en Windows (SKIP, requiere `cl.exe` con entorno de Visual Studio).
 - `scripts-java-tests`: end-to-end del backend Java (JNI); se compila si el build detecta el JDK (SKIP sin JDK).
+- `audio-tests` (16): `AudioEngine`/`AudioClipsManager` con `NullAudioBackend` (contrato de la cola de comandos: clips, handles, encolado, detención, volumen).
+- `userinterface-tests` (34): `UserInterfaceCustom` (modelo del Creador de interfaces, `src/GUI/CreadorUI/`): round-trip JSON de los 5 tipos de widget, guardar/cargar y tolerancia a JSON parcial.
 
 Con `-DBUILD_ENGINE=OFF` se compilan **solo** las pruebas: no se requieren GLFW/OpenGL/Bullet/Assimp y funcionan en cualquier plataforma. `.github/workflows/ci.yml` hace exactamente eso en Linux, Windows y macOS (más el backend Java en Ubuntu con JDK), además de un build completo del engine en Ubuntu.
 
@@ -137,7 +141,8 @@ FunshiEngineGL/            ← raíz del repo
 ├── .github/workflows/            ← CI (build del engine + pruebas multiplataforma)
 ├── tests/                        ← pruebas headless: FileManager, EditorConfig,
 │                                   EditorEventBus, MenuModel, Assets, Estructuras,
-│                                   Scripts (reflexión y runtime C++/Java)
+│                                   Scripts (reflexión y runtime C++/Java), Audio
+│                                   y Creador de interfaces (UserInterface)
 └── FunshiEngineGL/        ← proyecto principal
     ├── CMakeLists.txt
     ├── ImGuizmo/          ← dependencia externa integrada
@@ -146,9 +151,10 @@ FunshiEngineGL/            ← raíz del repo
     └── src/               ← todo el código fuente
         ├── main.cpp       ← composition root y bucle principal
         ├── Assets/        Behaviour/  Entity/  Estructuras/  Events/
-        ├── ExcepcionesCPP/  Fisicas/  FileManager/  GestorDeArchivos/
-        ├── Configuracion/ GUI/  GUIManager/  Herramientas/  Iluminacion/
-        ├── ImGui/  Matematicas/  Rendering/  Objetos/
+        ├── Audio/         ExcepcionesCPP/  Fisicas/  FileManager/
+        ├── GestorDeArchivos/  Configuracion/  GUI/  GUIManager/
+        ├── Herramientas/  Iluminacion/  Input/  ImGui/
+        ├── Matematicas/  Rendering/  Objetos/
         ├── Scenes/  States/  Ventana.*  EngineTime.*
 ```
 
@@ -181,7 +187,7 @@ Ver **PROJECT_STRUCTURE.md** para la descripción completa de cada módulo, las 
 - [ ] `CommandManager` para undo/redo.
 - [ ] Cuadro de log de errores en el editor.
 - [ ] Resolver IDs duplicados al crear objetos; limpiar binarios huérfanos al eliminar.
-- [ ] Clase `Input` independiente (hoy el input vive en callbacks de `main.cpp`).
+- [ ] Puente de input/audio/búsqueda para scripts (la infraestructura existe: `EditorInput`, `AudioEngine`, `SceneRegistry`; falta exponerla en la tabla `ApiScriptGameObject`).
 - [ ] Terminar los popups del inspector; prefabs y duplicación de objetos.
 - [ ] Portabilidad de rutas de assets (centralizar `HOME` / rutas de Windows).
 - [ ] Migrar o eliminar el `FunshiEngineGL.vcxproj` (aún arrastra rutas absolutas de una máquina concreta; el build soportado es CMake).

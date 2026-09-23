@@ -19,6 +19,8 @@
 #include "Script.h"
 
 #include "../Behaviour/ComportamientoCargado.h"
+#include "../Behaviour/IScriptBehaviour.h"
+#include "../Behaviour/ScriptGameObject.h"
 #include "../Behaviour/ScriptRuntime.h"
 #include "../Objetos/GameObject.h"
 
@@ -65,6 +67,16 @@ void Script::cargarSiNecesario() {
     if (cargado_ || dllPath.empty()) return;
     cargado_ = true;
     if (!cargarActual(error_)) return;
+
+    // Servicios de escena (audio, busqueda, teclado): la tabla global se
+    // entrega aca, en el motor (los tests de scripts usan su propio stub de
+    // tablaApi y no enlazan ScriptGameObject.cpp). El contexto real de la
+    // escena lo cablea GameScene via inyectarServiciosScript al entrar en
+    // Play, antes del primer onStart. Solo para C++: en Java `instancia` es
+    // un jobject, no un IScriptBehaviour*.
+    if (comportamiento_.lenguaje == "cpp" && comportamiento_.instancia)
+        static_cast<IScriptBehaviour*>(comportamiento_.instancia)->servicios =
+            MotorScript::tablaServicios();
 
     // Restaurar los valores de SerializeField persistidos en la escena sobre
     // la instancia recien compilada (reemplazos en caliente o editados).

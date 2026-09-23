@@ -600,6 +600,12 @@ void GameScene::update(float value) {
         // Audio: inyectar el motor y disparar los AudioSource automaticos.
         sincronizarAudioPlay(true);
 
+        // Scripts: cablear los servicios de escena (audio, busqueda, teclado)
+        // a la tabla que consultan los comportamientos via `servicios->...`.
+        MotorScript::inyectarServiciosScript(audioEngine.get(),
+                                             sceneRegistry.get(),
+                                             &inputScripts);
+
         // Todos los scripts que necesitan (re)compilarse entran a la cola: su
         // progreso se ve en la barra "Estado" antes de bloquear con g++/javac.
         encolarScriptsIniciales();
@@ -609,6 +615,9 @@ void GameScene::update(float value) {
     // (onStop) y conservar los valores editados en play mode para la GUI.
     if (previousStart && !start) {
         limpiarColaCompilacion();
+        // Scripts: desconectar los servicios (los comportamientos deben
+        // tolerar servicios == nullptr / tablas inoperativas al salir).
+        MotorScript::inyectarServiciosScript(nullptr, nullptr, nullptr);
         // Audio: detener los AudioSource (no dejar sonando en el editor).
         sincronizarAudioPlay(false);
         auto* gameObjects = getGameObjectsScene();

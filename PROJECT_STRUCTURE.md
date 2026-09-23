@@ -42,8 +42,11 @@ dependencias de terceros.
 FunshiEngineGL/                          ← raíz del repo
 ├── README.md                            ← visión general, build, controles y pendientes
 ├── PROJECT_STRUCTURE.md                 ← este documento
+├── MANUAL_DE_USO.md                     ← manual de usuario (editor + scripting C++/Java)
 ├── CAMARAS_VISTAS_PREVIAS.md            ← Fase 2: cámaras componente + vistas previas
 ├── ARQUITECTURA_ESTADOS_GUI.md          ← estados/menú/GUI internas (diseño + Fases 1-3)
+├── MANUAL_DE_USO.md                     ← manual de usuario (editor + scripting C++/Java)
+├── FLUJO_DE_RAMAS.md                    ← convención de ramas (develop/test/staging/release)
 ├── FunshiEngineGL.sln                   ← solución Visual Studio (Windows)
 ├── .github/workflows/ci.yml             ← CI: engine en Ubuntu + pruebas en Linux/Win/macOS
 ├── .github/workflows/release.yml        ← instaladores Qt IFW (.run) e Inno (.exe) por tag
@@ -59,7 +62,9 @@ FunshiEngineGL/                          ← raíz del repo
 │   ├── EstructurasTests.cpp             ← listas, árboles, heaps y ordenamiento propios
 │   ├── ScriptsTests.cpp                 ← reflexión SerializeField + round-trip binario
 │   ├── ScriptsRuntimeTests.cpp          ← BackendCpp end-to-end (compila y dlopen un .so)
-│   └── ScriptsJavaTests.cpp             ← BackendJava end-to-end (solo con FUNSHI_JAVA)
+│   ├── ScriptsJavaTests.cpp             ← BackendJava end-to-end (solo con FUNSHI_JAVA)
+│   ├── AudioEngineTests.cpp             ← AudioEngine/AudioClipsManager con NullAudioBackend
+│   └── UserInterfaceTests.cpp           ← modelo del Creador de interfaces (round-trip JSON)
 └── FunshiEngineGL/                      ← proyecto CMake principal
     ├── CMakeLists.txt                   ← GLOB de fuentes, dependencias, sanitizers,
     │                                      pruebas (CTest) y opción BUILD_ENGINE
@@ -81,6 +86,13 @@ FunshiEngineGL/                          ← raíz del repo
         │   ├── Mesh.h/.cpp              ← geometría CPU (vértices, normales, índices)
         │   ├── AssimpMeshLoader.*       ← loader Assimp→Mesh
         │   └── StbImageLoader.*         ← loader stb_image→Image (solo engine)
+        ├── Audio/                       ← audio del motor (backend inyectable)
+        │   ├── AudioEngine.h/.cpp       ← fachada thread-safe (cola de comandos + hilo)
+        │   ├── AudioClipsManager.h/.cpp ← descubre clips en Sonidos/ y registra por nombre
+        │   ├── IAudioBackend.h          ← contrato Strategy del backend de audio
+        │   ├── MiniAudioBackend.*       ← backend concreto (miniaudio vendoriado)
+        │   ├── NullAudioBackend.h       ← backend nulo para pruebas headless
+        │   └── AudioClip.h              ← handle/metadata del clip
         ├── Behaviour/
         │   ├── IScriptBehaviour.h       ← interfaz de scripts (onStart/onUpdate/onStop, campos)
         │   ├── ScriptGameObject.*       ← tabla de acceso al GameObject inyectada al script
@@ -153,8 +165,12 @@ FunshiEngineGL/                          ← raíz del repo
         │   │   ├── Material/SettingsMaterial.*  Light/SettingsLight.*
         │   │   ├── Camera/SettingsCamera.*       ← FOV, planos, velocidad, vista previa
         │   │   ├── Grid/SettingsGrid.*           ← visible/color/tamaño/separación de la grilla
+        │   │   ├── AudioSource/SettingsAudioSource.* ← dropdown de clip (Sonidos/), volumen, loop
+        │   │   ├── Interface/SettingsInterface.* ← dropdown de asset de interfaz (Interfaces/)
         │   │   ├── RigidBody/SettingsRigidBody.*
         │   │   └── Colliders/ (Esfera, Cubo, Malla) ← sync transform/shape con física
+        │   ├── CreadorUI/                        ← Creador de interfaces (editor de HUD;
+        │   │                                      UserInterfaceCustom, JSON en Interfaces/)
         │   └── SceneGUI/
         │       ├── SceneSelectedInterface.h/.cpp  ← jerarquía y selección; usa EditorController
         │       ├── SceneObjectTree.h/.cpp         ← árbol de objetos (con drag & drop)
@@ -169,6 +185,9 @@ FunshiEngineGL/                          ← raíz del repo
         │   └── IconosGUI/                ← carga de íconos con stb_image
         ├── Iluminacion/
         │   └── LightSystem.h/.cpp        ← dueño del estado GL de luces (GL_LIGHT0..7) por frame
+        ├── Input/
+        │   └── EditorInput.h/.cpp       ← callbacks GLFW de teclado/mouse + máquina de
+        │                                  movimiento de cámara (extraídas de main.cpp)
         ├── ImGui/                        ← Dear ImGui v1.x integrado (+ backends glfw/opengl3)
         ├── Matematicas/
         │   └── StructVec3.h/.cpp         ← vec3 propio
@@ -245,8 +264,11 @@ main.cpp
       └── al salir: saveScene + guardar EditorConfig
 ```
 
-`main.cpp` es el composition root y registra los callbacks de teclado y ratón sobre
-GLFW (`MiAPP`). El estado del menú lo gobierna el modelo del paquete `MenuGUI`,
+`main.cpp` es el composition root; las callbacks de teclado y ratón de GLFW
+viven en el módulo `src/Input/EditorInput` (`EditorInput::registrarCallbacks`,
+instancia única creada por `main`), que las traduce a acciones del editor y
+mantiene la máquina de estado del movimiento de cámara. El estado del menú lo
+gobierna el modelo del paquete `MenuGUI`,
 sincronizado por frame desde `ApplicationStateMachine`. `GameScene` configura
 internamente `GUIManager`, `SceneRegistry`, `EditorController`, `SceneSerializer` y
 `EventBus`.
@@ -289,8 +311,9 @@ internamente `GUIManager`, `SceneRegistry`, `EditorController`, `SceneSerializer
   mediante Assimp, la dibuja con `glBegin/glEnd` (OpenGL inmediato) y serializa
   adicionalmente la ruta del archivo del modelo.
 - Los componentes concretos son: `Transform`, `Color`, `Model`, `Material`, `Light`,
-  `CameraComponent`, `Script`, `EsfereCollider`, `CubeCollider`, `MallaCollider` y
-  `RigidBody`. Todos heredan de `Component` y serializan sus datos binarios.
+  `AudioSource`, `InterfaceComponent`, `Grid`, `Script`, `EsfereCollider`,
+  `CubeCollider`, `MallaCollider` y `RigidBody`. Todos heredan de `Component`
+  y serializan sus datos binarios.
 - `ComponentFactory` centraliza la creación por nombre de tipo tanto desde la GUI
   como durante la deserialización (`"CameraComponent"` acepta el alias `"Camera"`).
 - `Transform` provee transformaciones locales y globales usando GLM; expone
@@ -377,7 +400,11 @@ internamente `GUIManager`, `SceneRegistry`, `EditorController`, `SceneSerializer
   valores por nombre de campo).
 - `IScriptBehaviour` define la interfaz: `onStart`/`onUpdate`/`onStop` y
   `camposReflejados()`; el motor inyecta la tabla `MotorScript::ApiScriptGameObject`
-  (nombre, transform, log) para que el script no enlace contra el motor.
+  (nombre, transform completo con getters de rotacion/escala, log) y la tabla
+  `MotorScript::ScriptServices` (audio, busqueda de objetos por nombre y
+  consulta de teclado via `InputScripts`, inyectadas por `GameScene` al entrar
+  en Play) para que el script no enlace contra el motor. Ambas tablas siguen
+  versionado APPEND-ONLY con campo `version` final para guardas en runtime.
 - `BehaviourReflection` implementa la reflexión por macros (`REFLECT_INICIO`,
   `CAMPO`, `ARRAY`, `GRUPO`, `GRUPOS`, `FIN`), la conversión de valores tipados y la
   serialización binaria autodescriptiva de los campos.
@@ -421,7 +448,7 @@ La convención general es un par `.h`/`.cpp` por clase. Las excepciones son:
 al build sin enumerarlos manualmente. Los archivos de ImGui se recopilan por separado
 desde `src/ImGui/` y los de ImGuizmo desde `ImGuizmo/` (fuera de `src/`).
 
-Además del ejecutable, el proyecto define **diez targets de prueba headless**
+Además del ejecutable, el proyecto define **doce targets de prueba headless**
 registrados en CTest (compilan en cualquier plataforma con `BUILD_ENGINE=OFF`;
 `scripts-java-tests` solo se registra con `-DFUNSHI_JAVA=ON`):
 
@@ -441,6 +468,11 @@ registrados en CTest (compilan en cualquier plataforma con `BUILD_ENGINE=OFF`;
 - `scripts-runtime-tests`: compila un `.cpp` real con `BackendCpp`, lo carga con
   `dlopen` y ejecuta el ciclo + hot reload (en Windows sale con 77/SKIP).
 - `scripts-java-tests`: end-to-end del backend Java (JNI); solo con `FUNSHI_JAVA=ON`.
+- `audio-tests` (16): `AudioEngine`/`AudioClipsManager` con `NullAudioBackend`
+  (contrato de la cola de comandos: clips, handles, encolado, detención, volumen).
+- `userinterface-tests` (34): `UserInterfaceCustom` (modelo del Creador de
+  interfaces, `src/GUI/CreadorUI/`): round-trip JSON de los 5 tipos de widget,
+  guardar/cargar y tolerancia a JSON parcial.
 
 La opción `BUILD_ENGINE=OFF` compila solo las pruebas (útil en CI y plataformas
 sin las librerías gráficas), y `ENABLE_ASAN` (ON por defecto en Debug) activa
@@ -453,7 +485,7 @@ ASan+UBSan en GCC/Clang.
 ```text
 main.cpp
   │
-  ├─ input GLFW ──► MiAPP::onKey/onMouse ──► CameraComponent activa (movimiento)
+  ├─ input GLFW ──► EditorInput (callbacks + máquina de teclas) ──► cámara activa (movimiento continuo)
   │                                       ──► tecla E: toggleEditorInterfaces()
   │                                       ──► 1/T, 2/R, 3/Y: operación del gizmo
   │                                       ──► Escape: volver al menú (máquina de estados)
@@ -582,7 +614,7 @@ GameScene → coordina todos los subsistemas del frame
   `ArbolEnlazado` (hoja, nodo interno y raíz), `PriorityListaDE`, la extracción
   ordenada de `MinHeap`/`MaxHeap`, la estabilidad de `ListMergeSort` y el árbol
   binario (addLeft/addRight, childsOf, preorden RID, borrado de hoja e interno).
-- Los diez targets compilan en cualquier plataforma y se ejecutan con `ctest`.
+- Los doce targets compilan en cualquier plataforma y se ejecutan con `ctest`.
 - `.github/workflows/ci.yml` compila el engine completo en Ubuntu (Release, sin
   ASan) y ejecuta las pruebas; además ejecuta las headless en
   Linux/Windows/macOS con `BUILD_ENGINE=OFF` y el backend Java en Ubuntu con JDK.
@@ -600,7 +632,7 @@ Los bugs de la Fase 2 (cámaras/vistas previas) y sus fixes están documentados 
 - [ ] `CommandManager` para undo/redo.
 - [ ] Cuadro de log de errores en el editor.
 - [ ] Resolver IDs duplicados al crear objetos; limpiar binarios huérfanos al eliminar.
-- [ ] Clase `Input` independiente (hoy el input vive en callbacks de `main.cpp`).
+- [ ] Clase `Input` de gameplay (el input del editor ya está modularizado en `src/Input/EditorInput`; falta exponer teclado/mouse a los scripts vía la tabla `api`).
 - [ ] Terminar los popups del inspector.
 - [ ] Prefabs y duplicación de objetos.
 - [ ] Portabilidad de rutas de assets (centralizar `HOME` / rutas de Windows).
