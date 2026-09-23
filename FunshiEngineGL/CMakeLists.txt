@@ -288,6 +288,22 @@ set_target_properties(eventbus-tests PROPERTIES
 )
 add_test(NAME eventbus-tests COMMAND eventbus-tests)
 
+# Model (componente de malla) serializa el path con prefijo de longitud. Se
+# prueba headless el round-trip y, sobre todo, que un path mas largo que el
+# buffer de lectura NO desalinee el stream: regresion del core al cargar
+# escenas con paths de mas de 99 bytes (std::length_error -> abort).
+add_executable(model-serialization-tests
+    ${SRC_DIR}/Objetos/Componentes/Model.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../tests/ModelSerializationTests.cpp
+)
+target_include_directories(model-serialization-tests PRIVATE ${SRC_DIR})
+set_target_properties(model-serialization-tests PROPERTIES
+    CXX_STANDARD 17
+    CXX_STANDARD_REQUIRED ON
+    CXX_EXTENSIONS OFF
+)
+add_test(NAME model-serialization-tests COMMAND model-serialization-tests)
+
 # MenuModel (logica pura del menu: traduccion, observer de cambios y reset) se
 # prueba headless como los demas: no depende de ImGui/GLFW.
 add_executable(menu-tests

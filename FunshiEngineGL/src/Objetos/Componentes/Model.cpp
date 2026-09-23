@@ -49,19 +49,20 @@ void Model::deserializeComponent(std::ifstream* fileNamePathContentObject) {
                                     sizeof(size_t));
 
     if (len > 0) {
-        char buffer[100] = { 0 };
-        size_t toRead = std::min(len, static_cast<size_t>(sizeof(buffer) - 1));
-        fileNamePathContentObject->read(buffer, toRead);
-        buffer[toRead] = '\0';
-
-#if defined(_WIN32)
-        strncpy_s(filePath, sizeof(filePath), buffer, _TRUNCATE);
-#elif defined(__linux__)
-        strncpy(this->filePath, buffer, sizeof(this->filePath) - 1);
-        this->filePath[sizeof(this->filePath) - 1] = '\0';
-#endif
+        // El escritor guarda el path completo, que puede superar lo que entra
+        // en filePath: hay que consumir del stream exactamente `len` bytes
+        // aunque se descarte el excedente. Leer de menos desalinea los
+        // componentes siguientes y la carga termina leyendo basura (mismo
+        // criterio que Material::leerPathTextura).
+        const size_t toRead = std::min(len, sizeof(filePath) - 1);
+        fileNamePathContentObject->read(
+            filePath, static_cast<std::streamsize>(toRead));
+        filePath[toRead] = '\0';
+        if (len > toRead) {
+            fileNamePathContentObject->seekg(
+                static_cast<std::streamoff>(len - toRead), std::ios::cur);
+        }
         std::cout << filePath << std::endl;
-        setPath(filePath); // reconstruye buffers
     } else {
         filePath[0] = '\0';
         std::cout << "No hay un path en el binario" << std::endl;

@@ -377,6 +377,23 @@ void GameObject::deserializeTransformOrigin() {
         sizeof(size_t)
     );
 
+    // Misma cota de sanidad que en deserializeEntityComponents: un length
+    // absurdo delata un stream corrupto o desalineado y no debe abortar el
+    // proceso al construir el string.
+    if (length == 0 || length > 256) {
+
+        std::cerr
+            << "Nombre de tipo invalido en el binario (len "
+            << length
+            << "); se descarta el TransformOrigin\n";
+
+        ownedTransformOrigin.reset();
+
+        transformOrigin = nullptr;
+
+        return;
+    }
+
     std::string typeName(
         length,
         '\0'
@@ -483,6 +500,20 @@ void GameObject::deserializeEntityComponents() {
             reinterpret_cast<char*>(&length),
             sizeof(size_t)
         );
+
+        // Cota de sanidad: los nombres de tipo de los componentes son cortos.
+        // Un length mayor delata un stream corrupto o desalineado y construir
+        // el string con ese valor lanzaria std::length_error, abortando el
+        // proceso. Se corta la lectura del objeto con un error claro.
+        if (length == 0 || length > 256) {
+
+            std::cerr
+                << "Nombre de componente invalido en el binario (len "
+                << length
+                << "); se corta la lectura del objeto\n";
+
+            return;
+        }
 
         std::string typeName(
             length,
