@@ -27,8 +27,6 @@
 
 using namespace std;
 
-class IconosGUI;
-
 class SceneMenuBarInterface : public GeneralUserInterface {
 protected:
     bool* toggleBool = nullptr;
@@ -44,9 +42,6 @@ protected:
     // (etiqueta por WindowName). La alimenta GUIManager cada frame para que
     // las casillas del menu reflejen el estado real (incluido el cierre con X).
     std::map<std::string, bool> ventanas_;
-    // Catalogo de iconos del editor: el logo se pinta en la esquina de la
-    // barra de menu (puntero sin propiedad, lo cede GUIManager).
-    IconosGUI* iconosGUI = nullptr;
 
 public:
     SceneMenuBarInterface(bool stateGUI);
@@ -58,7 +53,6 @@ public:
     void setCargarScripts(bool value);
     void setEditorEventBus(EditorEventBus* bus);
     void setVentanas(const std::map<std::string, bool>& estados);
-    void setIconosGUI(IconosGUI* iconos);
     virtual void initGUI() override;
     virtual void contentGUI() override;
     virtual void endGUI() override;

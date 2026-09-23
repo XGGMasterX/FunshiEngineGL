@@ -62,8 +62,6 @@ GUIManager::GUIManager(GLFWwindow* window)
     // El menu "Ventanas" de la barra publica VentanaEstadoCambio para alternar
     // la visibilidad de los paneles del editor (explorador, contenido, etc).
     menuBarGUI->setEditorEventBus(&eventosEditor);
-    // El logo del motor se pinta en la esquina de la barra de menu.
-    if (iconosGUI) menuBarGUI->setIconosGUI(iconosGUI.get());
     // "Usar" una camara en la ventana Camaras: la escena publica y la fachada
     // reacciona seleccionando el objeto para el inspector (antes GameScene
     // llamaba a EditorController directamente).
