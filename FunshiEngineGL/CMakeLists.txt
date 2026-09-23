@@ -1,9 +1,9 @@
 cmake_minimum_required(VERSION 3.15)
-project(FunshiEngineGL VERSION 0.5.5 LANGUAGES CXX)
+project(FunshiEngineGL VERSION 0.5.4 LANGUAGES CXX)
 
 # Versión del producto: fuente única para el recurso VERSIONINFO del .exe de
 # Windows (packaging/icon/app.rc.in); subir al cortar releases.
-set(FUNSHI_VERSION "0.5.5")
+set(FUNSHI_VERSION "0.5.4")
 # Sustituciones de configure_file para el .rc: el icono se referencia relativo
 # al .rc (se copia al build), la version se lleva a comas (1,2,3,0).
 set(FUNSHI_APP_ICON "app.ico")
