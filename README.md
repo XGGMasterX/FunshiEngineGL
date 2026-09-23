@@ -5,7 +5,7 @@
        alt="FunshiEngineGL" width="180">
 </p>
 
-Motor y editor 3D en tiempo real escrito en C++17, con interfaz ImGui y renderizado OpenGL construido desde cero: los modelos usan un pipeline moderno (VBO/VAO + shaders) con degradación automática al modo inmediato de compatibilidad, y la grilla se dibuja en una pasada independiente como componente (`Grid`).
+Motor y editor 3D en tiempo real escrito en C++17, con interfaz ImGui y renderizado OpenGL construido desde cero.
 
 ---
 
