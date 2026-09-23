@@ -124,9 +124,6 @@ private:
     // Muestra las vistas previas del SceneRenderer (textura FBO por camara con
     // "Vista previa" activo) como ventanas ImGui.
     void pintarViewportsGUI();
-    // Logo del motor en la esquina superior izquierda de la ventana de la app.
-    // Se dibuja como overlay sobre la escena (no pertenece a ningun panel).
-    void pintarLogoVentana();
 
     // Cola de compilacion de scripts (play mode). Cada script se agenda y se
     // procesa en DOS fases para que la barra de estado muestre "Compilando X

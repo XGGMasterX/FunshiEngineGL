@@ -105,8 +105,6 @@ public:
 	ContentFolderInterface* getContentFolderGUI();
 	DockSpaceInterface* getDockSpaceGUI();
 	StatusBarInterface* getStatusBarGUI();
-	// Catalogo de iconos del editor (la ventana de la app pinta el logo).
-	IconosGUI* getIconosGUI() { return iconosGUI.get(); }
 
 	// Acceso a las ventanas del sistema de audio + creador de interfaces.
 	CreadorDeInterfaces* getCreadorInterfacesGUI() { return creadorInterfacesGUI.get(); }

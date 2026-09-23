@@ -427,23 +427,6 @@ void GameScene::GUI() {
             canvas->printGUI();
         }
     }
-    pintarLogoVentana();
-}
-
-// Logo fijo de la ventana de la app: la textura se dibuja con la draw list de
-// primer plano (sobre la escena y los paneles, anclada a la esquina superior
-// izquierda de la propia ventana). El tamano respeta la proporcion del asset
-// y no depende de ninguna ventana ImGui; si el catalogo de iconos no cargo la
-// textura (build sin Imagenes/) se omite sin romper el layout.
-void GameScene::pintarLogoVentana() {
-    IconosGUI* iconos = managerGUI ? managerGUI->getIconosGUI() : nullptr;
-    if (!iconos) return;
-    const ImTextureID logo = iconos->getIconoLogo();
-    if (logo == ImTextureID_Invalid) return;
-    const float alto = ImGui::GetTextLineHeight() * 1.35f;
-    const float ancho = alto * iconos->aspectoLogo();
-    const ImVec2 p0(14.0f, 14.0f);
-    ImGui::GetForegroundDrawList()->AddImage(logo, p0, ImVec2(p0.x + ancho, p0.y + alto));
 }
 
 void GameScene::pintarViewportsGUI() {
