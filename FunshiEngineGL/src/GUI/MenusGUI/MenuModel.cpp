@@ -162,6 +162,7 @@ std::string MenuModel::traducir(const std::string& clave) const {
            "Resets language, appearance, sensitivities and editor\n"
            "state to factory defaults."}},
         {"nombre", {"Nombre", "Name"}},
+        {"editar_nombre", {"Editar nombre", "Edit name"}},
         {"confirmar", {"Confirmar", "Confirm"}},
         {"actual", {"(actual: %s)", "(current: %s)"}},
     };

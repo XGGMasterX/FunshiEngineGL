@@ -76,13 +76,13 @@ void MenuView::contentGUI() {
     // Un solo Begin por frame: switch sobre la vista activa del modelo.
     switch (model->getVista()) {
     case MenuModel::Vista::Principal:
-        renderizarListaProyectos();
         renderizarPrincipal();
         break;
     case MenuModel::Vista::Opciones:
         renderizarOpciones();
         break;
     case MenuModel::Vista::ConfigProyecto:
+        renderizarListaProyectos();
         renderizarConfigProyecto();
         break;
     case MenuModel::Vista::Ninguna:
@@ -153,6 +153,8 @@ void MenuView::renderizarListaProyectos() {
     // <directorioBase>/MotorGrafico. Elegir una carpeta la vuelve el proyecto
     // activo (setNombreProyecto); main sincroniza el FileManager al detectar
     // el cambio de nombre. La lista se rellena desde la fachada por frame.
+    // El layout es: lista fija a la izquierda (ancho 300), formulario de
+    // edicion a la derecha (ver renderizarConfigProyecto).
     const ImVec2 win = ImGui::GetWindowSize();
     ImGui::SetCursorPos(ImVec2(40.0f, 60.0f));
     ImGui::BeginChild("##listaProyectos", ImVec2(300.0f, win.y - 140.0f), true);
@@ -162,10 +164,34 @@ void MenuView::renderizarListaProyectos() {
     if (proyectos.empty()) {
         ImGui::TextDisabled("%s", model->traducir("sin_proyectos").c_str());
     } else {
-        for (const std::string& nombre : proyectos) {
+        for (size_t i = 0; i < proyectos.size(); i++) {
+            const std::string& nombre = proyectos[i];
             const bool seleccionado = (nombre == model->getNombreProyecto());
-            if (ImGui::Selectable(nombre.c_str(), seleccionado)) {
+            // ID unico por fila (incluye el indice) para que ningun Selectable
+            // colisione, incluso si dos carpetas tienen el mismo nombre.
+            if (ImGui::Selectable((nombre + "###proyecto" + std::to_string(i)).c_str(),
+                                  seleccionado)) {
+                // Cambiar de proyecto: actualiza el modelo Y sincroniza el
+                // buffer de edicion para que el InputText muestre el proyecto
+                // recien elegido (sin marcarlo como pendiente).
                 model->setNombreProyecto(nombre);
+                std::strncpy(nombreProyectoBuffer, nombre.c_str(),
+                             sizeof(nombreProyectoBuffer) - 1);
+                nombreProyectoBuffer[sizeof(nombreProyectoBuffer) - 1] = '\0';
+                nombreProyectoPendiente = false;
+            }
+            // Popup sin ID explicito: usa el ID del item anterior (unico por
+            // fila). Al hacer boton derecho sobre el Selectable se abre este
+            // popup y al confirmar se carga el nombre del proyecto en el buffer
+            // para editarlo en el formulario de la derecha.
+            if (ImGui::BeginPopupContextItem()) {
+                if (ImGui::MenuItem(model->traducir("editar_nombre").c_str())) {
+                    std::strncpy(nombreProyectoBuffer, nombre.c_str(),
+                                  sizeof(nombreProyectoBuffer) - 1);
+                    nombreProyectoBuffer[sizeof(nombreProyectoBuffer) - 1] = '\0';
+                    nombreProyectoPendiente = true;
+                }
+                ImGui::EndPopup();
             }
         }
     }
@@ -261,10 +287,15 @@ void MenuView::renderizarOpciones() {
 }
 
 void MenuView::renderizarConfigProyecto() {
-    cursorFila(0);
+    // Formulario a la derecha de la lista: la lista ocupa [40, 340] en X, asi
+    // que el formulario arranca en X=380. No se usa cursorFila (centrado en la
+    // ventana) porque solaparia el child de la izquierda.
+    const ImVec2 win = ImGui::GetWindowSize();
+    constexpr float kFormularioX = 380.0f;
+    ImGui::SetCursorPos(ImVec2(kFormularioX, 60.0f));
     ImGui::Text("%s", model->traducir("config_proyecto").c_str());
 
-    cursorFila(1);
+    ImGui::SetCursorPos(ImVec2(kFormularioX, 120.0f));
     ImGui::Text("%s", model->traducir("nombre").c_str());
     ImGui::SameLine();
 
@@ -293,7 +324,7 @@ void MenuView::renderizarConfigProyecto() {
                             model->getNombreProyecto().c_str());
     }
 
-    cursorFila(2);
+    ImGui::SetCursorPos(ImVec2(kFormularioX, 240.0f));
     // Confirmar: solo aqui se notifica al modelo (lo que dispara la creacion
     // de carpetas en main la proxima vez que se lea getNombreProyecto).
     const bool confirmarDeshabilitado =
@@ -310,7 +341,7 @@ void MenuView::renderizarConfigProyecto() {
         ImGui::EndDisabled();
     }
 
-    cursorFila(3);
+    ImGui::SetCursorPos(ImVec2(kFormularioX, 320.0f));
     if (ImGui::Button(model->traducir("volver").c_str(),
                       ImVec2(kBotonAncho, kBotonAlto))) {
         // Descartar cambios pendientes: resetear el buffer para que la proxima
@@ -321,4 +352,5 @@ void MenuView::renderizarConfigProyecto() {
         }
         model->volver();
     }
+    (void)win;
 }
