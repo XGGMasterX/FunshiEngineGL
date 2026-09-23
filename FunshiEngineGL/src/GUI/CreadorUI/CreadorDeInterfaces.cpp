@@ -215,9 +215,14 @@ void CreadorDeInterfaces::contentGUI() {
         opciones.push_back(kSinSonido);
         for (const std::string& c : clipNames_) opciones.push_back(c.c_str());
         int actualSonido = 0;
-        const auto it = std::find(opciones.begin(), opciones.end(),
-                                  w.sonido.c_str());
-        actualSonido = static_cast<int>(it - opciones.begin());
+        if (!w.sonido.empty()) {
+            // Comparar por contenido (std::find con const char* compararia
+            // punteros y nunca encontraria el clip seleccionado).
+            const auto it = std::find_if(
+                opciones.begin(), opciones.end(),
+                [&w](const char* op) { return w.sonido == op; });
+            actualSonido = static_cast<int>(it - opciones.begin());
+        }
         if (ImGui::Combo("Sonido", &actualSonido, opciones.data(),
                          static_cast<int>(opciones.size())))
             w.sonido = opciones[static_cast<std::size_t>(actualSonido)];
