@@ -614,10 +614,14 @@ GameScene → coordina todos los subsistemas del frame
   `ArbolEnlazado` (hoja, nodo interno y raíz), `PriorityListaDE`, la extracción
   ordenada de `MinHeap`/`MaxHeap`, la estabilidad de `ListMergeSort` y el árbol
   binario (addLeft/addRight, childsOf, preorden RID, borrado de hoja e interno).
-- Los doce targets compilan en cualquier plataforma y se ejecutan con `ctest`.
+- `tests/ModelSerializationTests.cpp`: serialización binaria del componente
+  `Model` (path con prefijo de longitud). Cubre la regresión del core al cargar
+  escenas: verifica que un path más largo que el buffer de lectura no desalinee
+  el stream, además de round-trip corto/largo/vacío y archivos truncados.
+- Los trece targets compilan en cualquier plataforma y se ejecutan con `ctest`.
 - `.github/workflows/ci.yml` compila el engine completo en Ubuntu (Release, sin
   ASan) y ejecuta las pruebas; además ejecuta las headless en
-  Linux/Windows/macOS con `BUILD_ENGINE=OFF` y el backend Java en Ubuntu con JDK.
+  Linux/Windows con `BUILD_ENGINE=OFF` y el backend Java en Ubuntu con JDK.
 - `.github/workflows/release.yml` y `windows-release.yml` también ejecutan la
   suite (y `estructuras-tests`) al generar los instaladores por tag.
 
