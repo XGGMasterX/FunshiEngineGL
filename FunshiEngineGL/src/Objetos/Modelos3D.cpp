@@ -87,6 +87,12 @@ void Modelos3D::deserializeEntity() {
         std::string buffer(toRead, '\0');
         in->read(buffer.data(), static_cast<std::streamsize>(toRead));
         filePath_.assign(buffer, 0, toRead);
+        // El escritor guarda el path completo: descartar el excedente para no
+        // desalinear el stream (los objetos siguientes se leen del mismo
+        // archivo de escena).
+        if (length > toRead) {
+            in->seekg(static_cast<std::streamoff>(length - toRead), std::ios::cur);
+        }
         setObject();
     } else {
         filePath_.clear();
