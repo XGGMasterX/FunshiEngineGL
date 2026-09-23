@@ -34,6 +34,7 @@
 #include <iostream>
 #include <string>
 
+#include "TempPruebas.h"
 #include "../FunshiEngineGL/src/GUI/CreadorUI/UserInterfaceCustom.h"
 
 namespace fs = std::filesystem;
@@ -128,10 +129,9 @@ void probarRoundTripJson() {
 }
 
 void probarPersistencia() {
-    const fs::path base = fs::temp_directory_path() /
-                          "funshi_userinterface_tests";
-    fs::remove_all(base);
-    fs::create_directories(base);
+    // Carpeta temporal unica por proceso: crea y se limpia al salir (RAII).
+    TempPruebas::CarpetaPrueba carpetaBase("funshi_userinterface_tests");
+    const fs::path base = carpetaBase.ruta();
 
     UserInterfaceCustom ui;
     ui.nombre = "Opciones";

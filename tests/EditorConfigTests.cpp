@@ -32,6 +32,7 @@
 #include <iostream>
 #include <string>
 
+#include "TempPruebas.h"
 #include "../FunshiEngineGL/src/Configuracion/EditorConfig.h"
 
 namespace fs = std::filesystem;
@@ -52,9 +53,9 @@ int fallos = 0;
 } // namespace
 
 int main() {
-    const fs::path base = fs::temp_directory_path() / "funshi_editorconfig_tests";
-    fs::remove_all(base);
-    fs::create_directories(base);
+    // Carpeta temporal unica por proceso: crea y se limpia al salir (RAII).
+    TempPruebas::CarpetaPrueba carpetaBase("funshi_editorconfig_tests");
+    const fs::path base = carpetaBase.ruta();
     const std::string rutaGeneral  = (base / "Configuracion.json").string();
     const std::string proyNombreTest = "TestProyecto";
     const std::string rutaProyecto = (base / "ConfiguracionProyecto.json").string();
