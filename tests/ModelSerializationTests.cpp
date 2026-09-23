@@ -32,6 +32,7 @@
 #include <iostream>
 #include <string>
 
+#include "TempPruebas.h"
 #include "../FunshiEngineGL/src/Objetos/Componentes/Model.h"
 
 namespace fs = std::filesystem;
@@ -77,9 +78,9 @@ std::string leerPayloadCrudo(std::ifstream& in) {
 } // namespace
 
 int main() {
-    const fs::path base = fs::temp_directory_path() / "funshi_model_tests";
-    fs::remove_all(base);
-    fs::create_directories(base);
+    // Carpeta temporal unica por proceso: crea y se limpia al salir (RAII).
+    TempPruebas::CarpetaPrueba carpetaBase("funshi_model_tests");
+    const fs::path base = carpetaBase.ruta();
 
     const std::string marcador = "SIGUIENTE_COMPONENTE";
 
