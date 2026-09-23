@@ -129,7 +129,9 @@ std::string EditorConfig::rutaImguiIni(const std::string& nombreProyecto) {
 }
 
 std::string EditorConfig::directorioSonidos(const std::string& nombreProyecto) {
-    return directorioProyecto(nombreProyecto) + "/Sonidos";
+    // Dentro del src: es un asset y el explorador de archivos (raiz src<nombre>)
+    // debe listar la carpeta junto a los demas archivos del proyecto.
+    return directorioSrc(nombreProyecto) + "/Sonidos";
 }
 
 std::string EditorConfig::directorioInterfaces(const std::string& nombreProyecto) {
@@ -149,7 +151,6 @@ void EditorConfig::asegurarEstructuraProyecto(const std::string& nombreProyecto)
     std::error_code ec;
     std::filesystem::create_directories(dirScene, ec);
     std::filesystem::create_directories(dirSrc, ec);
-    std::filesystem::create_directories(dirSonidos, ec);
     std::filesystem::create_directories(dirInterfaces, ec);
 
     // Migracion automatica si venimos de la version anterior donde se guardaba
@@ -171,6 +172,33 @@ void EditorConfig::asegurarEstructuraProyecto(const std::string& nombreProyecto)
     const std::string newConfig = dirMemory + "/Configuracion.json";
     if (!std::filesystem::exists(newConfig, ec) && std::filesystem::exists(oldConfig, ec)) {
         std::filesystem::copy_file(oldConfig, newConfig, std::filesystem::copy_options::overwrite_existing, ec);
+    }
+
+    // Migracion de la carpeta Sonidos de versiones anteriores: vivia en la
+    // raiz del proyecto y ahora pertenece al src (es un asset visible en el
+    // explorador). Se mueve con sus clips ANTES de crear el destino, o el
+    // create_directories dejaria la carpeta vieja sin tocar.
+    const std::string sonidosViejo = directorioProyecto(nombre) + "/Sonidos";
+    ec.clear();
+    const bool existeViejo = std::filesystem::is_directory(sonidosViejo, ec);
+    ec.clear();
+    const bool existeNuevo = std::filesystem::exists(dirSonidos, ec);
+    if (existeViejo && !existeNuevo) {
+        ec.clear();
+        std::filesystem::rename(sonidosViejo, dirSonidos, ec);
+        if (ec) {
+            // Fallback entre dispositivos: copiar y retirar el original.
+            ec.clear();
+            std::filesystem::copy(sonidosViejo, dirSonidos,
+                                  std::filesystem::copy_options::recursive, ec);
+            if (!ec) {
+                std::error_code ec2;
+                std::filesystem::remove_all(sonidosViejo, ec2);
+            }
+        }
+    } else {
+        ec.clear();
+        std::filesystem::create_directories(dirSonidos, ec);
     }
 }
 

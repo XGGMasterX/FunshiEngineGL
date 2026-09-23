@@ -108,7 +108,9 @@ public:
     static std::string rutaImguiIni(const std::string& nombreProyecto = "Nuevo Proyecto");
 
     // Carpeta de assets de audio del proyecto (clips descubiertos por
-    // AudioClipsManager): <directorioProyecto>/Sonidos
+    // AudioClipsManager): vive dentro del src para que el explorador de
+    // archivos (raiz src<nombre>) la liste junto a los demas assets:
+    // <directorioProyecto>/src<nombreProyecto>/Sonidos
     static std::string directorioSonidos(const std::string& nombreProyecto = "Nuevo Proyecto");
 
     // Carpeta de interfaces de usuario creadas (assets JSON del creador de
@@ -117,10 +119,11 @@ public:
 
     // Crea en disco la estructura de carpetas requerida para el proyecto:
     //   <directorioBase>/<nombreProyecto>/Memory/Binarios/Scene
-    //   <directorioBase>/<nombreProyecto>/Sonidos
     //   <directorioBase>/<nombreProyecto>/Memory/Interfaces
+    //   <directorioBase>/<nombreProyecto>/src<nombreProyecto>/Sonidos
     //   <directorioBase>/<nombreProyecto>/src<nombreProyecto>
-    // Y migra archivos previos si existian en la raiz de MotorGrafico.
+    // Migra archivos previos: escena/config en la raiz de MotorGrafico y la
+    // carpeta Sonidos que antes vivia en la raiz del proyecto (ahora en src).
     static void asegurarEstructuraProyecto(const std::string& nombreProyecto = "Nuevo Proyecto");
 
     // Ruta por defecto: apunta a Configuracion.json en la raiz de MotorGrafico

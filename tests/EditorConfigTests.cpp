@@ -206,9 +206,39 @@ int main() {
               "asegurarEstructuraProyecto creo Memory/Binarios/Scene");
         CHECK(fs::is_directory(srcDir),
               "asegurarEstructuraProyecto creo srcJuegoPrueba");
+        // Sonidos es un asset: vive dentro del src (raiz del explorador).
+        const std::string sonidosDir = EditorConfig::directorioSonidos(proyNombre);
+        CHECK(sonidosDir == srcDir + "/Sonidos",
+              "directorioSonidos dentro de src<proyecto>");
+        CHECK(fs::is_directory(sonidosDir),
+              "asegurarEstructuraProyecto creo src<proyecto>/Sonidos");
 
         // Limpieza de prueba
         std::error_code ec;
+        fs::remove_all(proyDir, ec);
+    }
+
+    // 5b. Migracion de Sonidos: la carpeta que vivia en la raiz del proyecto
+    //     se mueve al src conservando sus clips.
+    {
+        const std::string proyNombre = "JuegoMigracion";
+        const std::string proyDir = EditorConfig::directorioProyecto(proyNombre);
+        const std::string sonidosViejo = proyDir + "/Sonidos";
+        std::error_code ec;
+        fs::create_directories(sonidosViejo, ec);
+        { std::ofstream out(sonidosViejo + "/tema.wav"); out << "clip"; }
+
+        EditorConfig::asegurarEstructuraProyecto(proyNombre);
+
+        const std::string sonidosNuevo =
+            EditorConfig::directorioSonidos(proyNombre);
+        CHECK(!fs::exists(sonidosViejo),
+              "migracion retira Sonidos de la raiz del proyecto");
+        CHECK(fs::is_directory(sonidosNuevo),
+              "migracion crea Sonidos dentro del src");
+        CHECK(fs::exists(sonidosNuevo + "/tema.wav"),
+              "migracion conserva los clips de audio");
+
         fs::remove_all(proyDir, ec);
     }
 
