@@ -55,7 +55,7 @@ public:
     GameObject();
     ~GameObject() override;
 
-    char inputName[256] = "";
+    char inputName[25] = "";
     color auxColor = {0.0f, 0.0f, 0.0f, 1.0f};
 
     void addComponent(Component* component) override;
