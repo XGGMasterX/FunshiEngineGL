@@ -44,7 +44,7 @@ private:
     GLFWwindow* window;
     // Buffer de edicion del nombre del proyecto. Vive en la vista porque es
     // estado de UI (la vista avisa al modelo del cambio, no al reves).
-    char nombreProyectoBuffer[128];
+    char nombreProyectoBuffer[256];
     // Indica que el buffer tiene cambios sin confirmar (el usuario escribio
     // en el InputText pero aun no presiono "Confirmar"). La creacion de la
     // carpeta y la notificacion al modelo solo ocurren al confirmar.

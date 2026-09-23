@@ -59,12 +59,12 @@ std::string ContentFolderInterface::seleccionarCarpetaSistema() {
     bi.lpszTitle = "Selecciona una carpeta para copiar";
     LPITEMIDLIST pidl = SHBrowseForFolderA(&bi);
     if (pidl != 0) {
-        char path[MAX_PATH];
+        char path[4096];
         if (SHGetPathFromIDListA(pidl, path)) return std::string(path);
     }
     return "";
 #elif defined(__linux__)
-    char buffer[512];
+    char buffer[4096];
     FILE* fp = popen("zenity --file-selection --directory 2>/dev/null", "r");
     if (fp) {
         if (fgets(buffer, sizeof(buffer), fp) != NULL) {
@@ -82,7 +82,7 @@ std::string ContentFolderInterface::seleccionarCarpetaSistema() {
 std::string ContentFolderInterface::seleccionarArchivoSistema() {
 #if defined(_WIN32)
     OPENFILENAMEA ofn;
-    CHAR szFile[MAX_PATH] = { 0 };
+    CHAR szFile[4096] = { 0 };
     ZeroMemory(&ofn, sizeof(ofn));
     ofn.lStructSize = sizeof(ofn);
     ofn.hwndOwner = NULL;
@@ -93,7 +93,7 @@ std::string ContentFolderInterface::seleccionarArchivoSistema() {
     if (GetOpenFileNameA(&ofn) == TRUE) return std::string(szFile);
     return "";
 #elif defined(__linux__)
-    char buffer[512];
+    char buffer[4096];
     FILE* fp = popen("zenity --file-selection 2>/dev/null", "r");
     if (fp) {
         if (fgets(buffer, sizeof(buffer), fp) != NULL) {

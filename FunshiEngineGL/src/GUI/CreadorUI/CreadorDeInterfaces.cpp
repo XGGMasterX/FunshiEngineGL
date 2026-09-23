@@ -142,7 +142,7 @@ void CreadorDeInterfaces::contentGUI() {
     ImGui::TextUnformatted("Edicion:");
 
     {
-        char nombre[128] = {};
+        char nombre[256] = {};
         std::snprintf(nombre, sizeof(nombre), "%s", borrador_.nombre.c_str());
         if (ImGui::InputText("Nombre", nombre, sizeof(nombre)))
             borrador_.nombre = nombre;
@@ -150,7 +150,7 @@ void CreadorDeInterfaces::contentGUI() {
             ImGui::TextDisabled("(nombre vacio: no se puede guardar)");
     }
     {
-        char titulo[128] = {};
+        char titulo[256] = {};
         std::snprintf(titulo, sizeof(titulo), "%s", borrador_.titulo.c_str());
         if (ImGui::InputText("Titulo", titulo, sizeof(titulo)))
             borrador_.titulo = titulo;
@@ -200,12 +200,12 @@ void CreadorDeInterfaces::contentGUI() {
         if (ImGui::Combo("Tipo", &actual, tipos, 5))
             w.tipo = static_cast<TipoWidget>(actual);
 
-        char nombre[64] = {};
+        char nombre[256] = {};
         std::snprintf(nombre, sizeof(nombre), "%s", w.nombre.c_str());
         if (ImGui::InputText("Nombre", nombre, sizeof(nombre)))
             w.nombre = nombre;
 
-        char etiqueta[128] = {};
+        char etiqueta[256] = {};
         std::snprintf(etiqueta, sizeof(etiqueta), "%s", w.etiqueta.c_str());
         if (ImGui::InputText("Etiqueta", etiqueta, sizeof(etiqueta)))
             w.etiqueta = etiqueta;
@@ -233,7 +233,7 @@ void CreadorDeInterfaces::contentGUI() {
                 ImGui::Checkbox("Activado", &w.activado);
                 break;
             case TipoWidget::EntradaTexto: {
-                char txt[256] = {};
+                char txt[512] = {};
                 std::snprintf(txt, sizeof(txt), "%s", w.texto.c_str());
                 if (ImGui::InputText("Texto", txt, sizeof(txt))) w.texto = txt;
                 break;

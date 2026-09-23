@@ -37,7 +37,7 @@ void SettingsAudioSource::showDataComponent() {
 	// Nombre del clip (texto editable): debe coincidir con un clip de la
 	// carpeta Sonidos/ del proyecto. Si no existe, reproducir devuelve -1 y no
 	// suena (tolerante; el clip puede agregarse despues).
-	char buffer[128] = {};
+	char buffer[512] = {};
 	std::strncpy(buffer, source->getClip().c_str(), sizeof(buffer) - 1);
 	if (ImGui::InputText("Clip", buffer, sizeof(buffer))) {
 		source->setClip(buffer);

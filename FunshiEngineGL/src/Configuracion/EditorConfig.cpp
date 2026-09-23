@@ -45,9 +45,9 @@ namespace {
 // binario, sin depender del directorio desde el que se lance ni del HOME.
 std::string directorioEjecutable() {
 #ifdef _WIN32
-    char exe[MAX_PATH] = {};
-    const DWORD n = GetModuleFileNameA(nullptr, exe, MAX_PATH);
-    if (n == 0 || n >= MAX_PATH) return "";
+    char exe[4096] = {};
+    const DWORD n = GetModuleFileNameA(nullptr, exe, sizeof(exe));
+    if (n == 0 || n >= sizeof(exe)) return "";
     const std::string path(exe, static_cast<std::size_t>(n));
     const std::size_t sep = path.find_last_of("\\/");
     return (sep == std::string::npos) ? "" : path.substr(0, sep + 1);

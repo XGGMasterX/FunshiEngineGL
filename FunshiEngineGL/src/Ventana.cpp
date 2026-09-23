@@ -37,9 +37,9 @@ namespace {
 // desde el que se lance el engine).
 std::string directorioEjecutable() {
 #ifdef _WIN32
-    char exe[MAX_PATH] = {};
-    DWORD n = GetModuleFileNameA(nullptr, exe, MAX_PATH);
-    if (n == 0 || n >= MAX_PATH) return "";
+    char exe[4096] = {};
+    DWORD n = GetModuleFileNameA(nullptr, exe, sizeof(exe));
+    if (n == 0 || n >= sizeof(exe)) return "";
     const std::string path(exe, static_cast<std::size_t>(n));
     const std::size_t sep = path.find_last_of("\\/");
     return (sep == std::string::npos) ? "" : path.substr(0, sep + 1);
@@ -57,7 +57,7 @@ std::string directorioEjecutable() {
 // Ruta del logo del motor (busqueda identica a IconosGUI: junto al ejecutable
 // o un nivel arriba, y fallback relativo al cwd).
 std::string ubicarLogoVentana() {
-    const char* nombre = "LogoMinimalistaFunshiEngineGL.png";
+    const char* nombre = "FunshiEngineGL_Isotipo_Blanco.png";
     const std::string exeDir = directorioEjecutable();
     std::vector<std::string> carpetas;
     if (!exeDir.empty()) {

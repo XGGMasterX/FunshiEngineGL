@@ -51,7 +51,7 @@ private:
     bool creandoCarpeta = false;
     bool creandoScript = false;
     bool creandoScriptJava = false;
-    char nombreNuevo[128] = "";
+    char nombreNuevo[256] = "";
     IconosGUI* iconosGUI = nullptr;
 
     // Estado de renombrado (R6): ruta del elemento, si es carpeta (sube el
@@ -59,7 +59,7 @@ private:
     std::string renombrarRuta;
     bool renombrarEsCarpeta = false;
     bool abrirPopupRenombrar = false;
-    char bufferRenombrar[128] = "";
+    char bufferRenombrar[256] = "";
 
     // Cache del grid (R5).
     std::vector<GridEntry> cacheEntradas;

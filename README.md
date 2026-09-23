@@ -1,7 +1,7 @@
 # FunshiEngineGL
 
 <p align="center">
-  <img src="FunshiEngineGL/Imagenes/LogoPrincipalFunshiEngineGL.jpeg"
+  <img src="FunshiEngineGL/Imagenes/FunshiEngineGL_Logo_Principal_Blanco.png"
        alt="FunshiEngineGL" width="180">
 </p>
 

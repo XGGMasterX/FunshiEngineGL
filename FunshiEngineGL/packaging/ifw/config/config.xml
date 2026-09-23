@@ -7,10 +7,12 @@
 
     <WizardStyle>Modern</WizardStyle>
 
-    <!-- Logo del wizard + icono de la ventana del instalador (PNG en config/).
-         El icono de la aplicacion instalada (.exe en Windows) vive en
-         packaging/icon/app.ico via el recurso de CMake. -->
-    <Logo>logo.png</Logo>
+    <!-- Logo del wizard + icono de la ventana del instalador (PNGs en config/).
+         Deben ser ARCHIVOS DISTINTOS: binarycreator copia cada uno a su propio
+         destino y usar el mismo archivo en ambos campos lo hace chocar
+         ("Target already exist"). El icono de la aplicacion instalada
+         (.exe en Windows) vive en packaging/icon/app.ico via el recurso CMake. -->
+    <Logo>logo_banner.png</Logo>
     <InstallerWindowIcon>logo.png</InstallerWindowIcon>
 
     <TargetDir>@HomeDir@/Desktop/FunshiEngineGL</TargetDir>
