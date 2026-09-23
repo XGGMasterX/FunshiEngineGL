@@ -126,6 +126,13 @@ public:
     // carpeta Sonidos que antes vivia en la raiz del proyecto (ahora en src).
     static void asegurarEstructuraProyecto(const std::string& nombreProyecto = "Nuevo Proyecto");
 
+    // Renombra un proyecto en disco: <base>/<viejo> -> <base>/<nuevo> y su raiz
+    // src dentro (<nuevo>/src<viejo> -> <nuevo>/src<nuevo>). Devuelve false sin
+    // tocar nada si falta el origen, si el destino ya existe o ante errores
+    // de E/S. El llamador (main) solo conmuta cuando el destino ya existe.
+    static bool renombrarProyecto(const std::string& viejo,
+                                  const std::string& nuevo);
+
     // Ruta por defecto: apunta a Configuracion.json en la raiz de MotorGrafico
     static std::string rutaPorDefecto();
 

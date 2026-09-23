@@ -175,6 +175,7 @@ void MenuView::renderizarListaProyectos() {
                 // buffer de edicion para que el InputText muestre el proyecto
                 // recien elegido (sin marcarlo como pendiente).
                 model->setNombreProyecto(nombre);
+                model->limpiarProyectoARenombrar();
                 std::strncpy(nombreProyectoBuffer, nombre.c_str(),
                              sizeof(nombreProyectoBuffer) - 1);
                 nombreProyectoBuffer[sizeof(nombreProyectoBuffer) - 1] = '\0';
@@ -183,9 +184,12 @@ void MenuView::renderizarListaProyectos() {
             // Popup sin ID explicito: usa el ID del item anterior (unico por
             // fila). Al hacer boton derecho sobre el Selectable se abre este
             // popup y al confirmar se carga el nombre del proyecto en el buffer
-            // para editarlo en el formulario de la derecha.
+            // para editarlo en el formulario de la derecha. Se registra la
+            // carpeta original en el modelo: solo Confirmar con este registro
+            // renombra en disco (main); el tecleado normal crea/cambia.
             if (ImGui::BeginPopupContextItem()) {
                 if (ImGui::MenuItem(model->traducir("editar_nombre").c_str())) {
+                    model->setProyectoARenombrar(nombre);
                     std::strncpy(nombreProyectoBuffer, nombre.c_str(),
                                   sizeof(nombreProyectoBuffer) - 1);
                     nombreProyectoBuffer[sizeof(nombreProyectoBuffer) - 1] = '\0';
@@ -335,6 +339,8 @@ void MenuView::renderizarConfigProyecto() {
     if (ImGui::Button(model->traducir("confirmar").c_str(),
                       ImVec2(kBotonAncho, kBotonAlto))) {
         model->setNombreProyecto(nombreProyectoBuffer);
+        // Confirmar conserva el registro de renombre: main lo consume este
+        // mismo frame (renombra en disco solo si vino de click derecho).
         nombreProyectoPendiente = false;
     }
     if (confirmarDeshabilitado) {
@@ -345,11 +351,13 @@ void MenuView::renderizarConfigProyecto() {
     if (ImGui::Button(model->traducir("volver").c_str(),
                       ImVec2(kBotonAncho, kBotonAlto))) {
         // Descartar cambios pendientes: resetear el buffer para que la proxima
-        // apertura lo rellene desde el modelo (que no fue modificado).
+        // apertura lo rellene desde el modelo (que no fue modificado). Tambien
+        // se cancela cualquier edicion por click derecho.
         if (nombreProyectoPendiente) {
             nombreProyectoBuffer[0] = '\0';
             nombreProyectoPendiente = false;
         }
+        model->limpiarProyectoARenombrar();
         model->volver();
     }
     (void)win;

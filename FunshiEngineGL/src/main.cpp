@@ -480,8 +480,10 @@ static int EjecutarMotor(int argc, char* argv[])
             // (o se eligio una carpeta en el listado del menu). Reconfigura el
             // FileManager y, si aun no habia proyecto, fija el imgui.ini del
             // nuevo proyecto en lugar de quedarse sin ini.
-            const std::string nombreMenu = mainMenu->getNombreProyecto();
-            if (!nombreMenu.empty() && nombreMenu != proyectoActual) {
+            // Renombre literal: solo si Confirmar vino de click derecho
+            // (MenuGUI::getProyectoARenombrar). Destino existente = conmutar;
+            // destino libre = renombrar la carpeta en disco y luego conmutar.
+            auto guardarEstadoProyecto = [&]() {
                 // Guardar el estado del proyecto actual antes de cambiar
                 // (solo si ya habia un proyecto cargado)
                 if (!proyectoActual.empty()) {
@@ -492,9 +494,10 @@ static int EjecutarMotor(int argc, char* argv[])
                     editorConfig.datos().estadoVentanas = managerOfGUI->obtenerEstadosVentanas();
                     editorConfig.guardarProyecto(proyectoActual);
                 }
-
+            };
+            auto entrarAProyecto = [&](const std::string& destino) {
                 // Cambiar al nuevo proyecto
-                proyectoActual = nombreMenu;
+                proyectoActual = destino;
                 EditorConfig::asegurarEstructuraProyecto(proyectoActual);
                 managerOfGUI->configurarProyecto(proyectoActual);
                 // Re-explorar Sonidos/ e interfaces del proyecto entrante.
@@ -515,6 +518,46 @@ static int EjecutarMotor(int argc, char* argv[])
                 scene->setGizmoGlobal(editorConfig.datos().gizmoGlobal);
                 scene->setActiveCameraById(editorConfig.datos().camaraActivaId);
                 managerOfGUI->restaurarEstadosVentanas(editorConfig.datos().estadoVentanas);
+            };
+            const std::string nombreMenu = mainMenu->getNombreProyecto();
+            if (!nombreMenu.empty() && nombreMenu != proyectoActual) {
+                const std::string aRenombrar = mainMenu->getProyectoARenombrar();
+                if (!aRenombrar.empty()) {
+                    // Flujo de renombre (click derecho -> Editar nombre).
+                    const bool destinoExiste = std::filesystem::exists(
+                        EditorConfig::directorioProyecto(nombreMenu));
+                    if (!destinoExiste) {
+                        // Guardar el estado vigente ANTES de mover la carpeta
+                        // (la vieja desaparece); luego renombrar y entrar.
+                        if (aRenombrar == proyectoActual) guardarEstadoProyecto();
+                        if (EditorConfig::renombrarProyecto(aRenombrar, nombreMenu)) {
+                            mainMenu->limpiarProyectoARenombrar();
+                            if (aRenombrar == proyectoActual) {
+                                entrarAProyecto(nombreMenu);
+                            } else {
+                                // Carpeta renombrada en segundo plano: el estado
+                                // del activo ya se salvo en el flujo normal de
+                                // abajo al conmutar hacia el nuevo nombre.
+                                guardarEstadoProyecto();
+                                entrarAProyecto(nombreMenu);
+                            }
+                        } else {
+                            // Fallo de E/S: no renombrar, no conmutar.
+                            mainMenu->limpiarProyectoARenombrar();
+                        }
+                    } else {
+                        // Destino ocupado: no tocar carpetas, solo conmutar.
+                        mainMenu->limpiarProyectoARenombrar();
+                        guardarEstadoProyecto();
+                        entrarAProyecto(nombreMenu);
+                    }
+                } else {
+                    guardarEstadoProyecto();
+                    entrarAProyecto(nombreMenu);
+                }
+            } else {
+                // Limpiar registro vencido (nombre igual al activo o vacio).
+                mainMenu->limpiarProyectoARenombrar();
             }
 
             if (mainMenu->ConsultarMenu()) {

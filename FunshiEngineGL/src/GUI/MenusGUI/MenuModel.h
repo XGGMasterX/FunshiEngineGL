@@ -65,6 +65,14 @@ public:
     const std::vector<std::string>& getProyectosDisponibles() const noexcept;
     void setProyectosDisponibles(const std::vector<std::string>& proyectos);
 
+    // Edicion de nombre por click derecho: la vista registra aqui el nombre
+    // original de la carpeta a renombrar y main la consume al confirmar.
+    // Vacia = confirmacion normal (crear/cambiar). Con valor = renombrar esa
+    // carpeta al nombre confirmado (modelo puro, sin disco/ImGui).
+    const std::string& getProyectoARenombrar() const noexcept;
+    void setProyectoARenombrar(const std::string& nombre);
+    void limpiarProyectoARenombrar() noexcept;
+
     const std::string& getIdioma() const noexcept;
     void setIdioma(const std::string& valor);
     const std::vector<std::string>& getIdiomas() const noexcept;
@@ -121,6 +129,8 @@ private:
     Vista vista = Vista::Principal;
     std::string nombreProyecto = "Nuevo Proyecto";
     std::vector<std::string> proyectosDisponibles;
+    // Carpeta original en edicion por click derecho (vacia = confirmar normal).
+    std::string proyectoARenombrar;
     std::string idioma = "Espanol";
     std::vector<std::string> idiomasDisponibles = {"Espanol", "English"};
     float sensibilidadCamara = 0.15f;

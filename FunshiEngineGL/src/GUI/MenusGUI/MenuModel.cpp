@@ -61,6 +61,16 @@ void MenuModel::setProyectosDisponibles(const std::vector<std::string>& proyecto
     proyectosDisponibles = proyectos;
 }
 
+const std::string& MenuModel::getProyectoARenombrar() const noexcept {
+    return proyectoARenombrar;
+}
+
+void MenuModel::setProyectoARenombrar(const std::string& nombre) {
+    proyectoARenombrar = nombre;
+}
+
+void MenuModel::limpiarProyectoARenombrar() noexcept { proyectoARenombrar.clear(); }
+
 const std::string& MenuModel::getIdioma() const noexcept { return idioma; }
 
 void MenuModel::setIdioma(const std::string& valor) {

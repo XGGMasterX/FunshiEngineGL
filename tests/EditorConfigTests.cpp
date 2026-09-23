@@ -242,6 +242,33 @@ int main() {
         fs::remove_all(proyDir, ec);
     }
 
+    // 5c. Renombre fisico de proyecto: mueve la carpeta raiz y la raiz src
+    //     (src<viejo> -> src<nuevo>); no hace nada si falta el origen o si el
+    //     destino ya existe (main conmuta en ese caso).
+    {
+        const std::string viejo = "JuegoRenombrado";
+        const std::string nuevo = "JuegoRenombradoV2";
+        const std::string dirViejo = EditorConfig::directorioProyecto(viejo);
+        const std::string dirNuevo = EditorConfig::directorioProyecto(nuevo);
+        std::error_code ec;
+        EditorConfig::asegurarEstructuraProyecto(viejo);
+        CHECK(EditorConfig::renombrarProyecto("", nuevo) == false,
+              "renombrar con origen vacio falla");
+        CHECK(EditorConfig::renombrarProyecto(viejo, viejo) == false,
+              "renombrar al mismo nombre falla");
+        CHECK(EditorConfig::renombrarProyecto(viejo, nuevo),
+              "renombrar mueve la carpeta del proyecto");
+        CHECK(!fs::exists(dirViejo), "la carpeta vieja desaparece");
+        CHECK(fs::is_directory(dirNuevo), "la carpeta nueva existe");
+        CHECK(fs::is_directory(dirNuevo + "/src" + nuevo),
+              "la raiz src tambien cambia de nombre");
+        CHECK(!fs::exists(dirNuevo + "/src" + viejo),
+              "la raiz src vieja no queda como fantasma");
+        CHECK(EditorConfig::renombrarProyecto(viejo, nuevo) == false,
+              "sin origen ya no se puede renombrar de nuevo");
+        fs::remove_all(dirNuevo, ec);
+    }
+
     // Reset (Fase 3): restablecer vuelve a los defaults de fabrica.
     {
         EditorConfig cfg;

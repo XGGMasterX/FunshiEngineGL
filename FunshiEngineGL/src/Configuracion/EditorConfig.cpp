@@ -209,6 +209,36 @@ std::string EditorConfig::rutaPorDefecto() {
     return rutaConfiguracionGeneral();
 }
 
+bool EditorConfig::renombrarProyecto(const std::string& viejo,
+                                     const std::string& nuevo) {
+    if (viejo.empty() || nuevo.empty() || viejo == nuevo) return false;
+
+    const std::string rutaViejo = directorioProyecto(viejo);
+    const std::string rutaNuevo = directorioProyecto(nuevo);
+
+    std::error_code ec;
+    if (!std::filesystem::is_directory(rutaViejo, ec) || ec) return false;
+    ec.clear();
+    // Destino ocupado: no tocar (el llamador conmuta a ese proyecto).
+    if (std::filesystem::exists(rutaNuevo, ec)) return false;
+
+    ec.clear();
+    std::filesystem::rename(rutaViejo, rutaNuevo, ec);
+    if (ec) return false;
+
+    // La raiz del explorador deriva del nombre (src<nombre>): hay que
+    // renombrarla tambien, o el FileManager apuntaria a una carpeta fantasma.
+    const std::string srcViejo = rutaNuevo + "/" + nombreRaizSrc(viejo);
+    const std::string srcNuevo = rutaNuevo + "/" + nombreRaizSrc(nuevo);
+    ec.clear();
+    if (std::filesystem::is_directory(srcViejo, ec) && !ec) {
+        ec.clear();
+        std::filesystem::rename(srcViejo, srcNuevo, ec);
+        if (ec) return false;
+    }
+    return true;
+}
+
 std::string EditorConfig::directorioProyectoPorDefecto() {
     return directorioMemory("Nuevo Proyecto");
 }

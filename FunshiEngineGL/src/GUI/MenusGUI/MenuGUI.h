@@ -116,6 +116,12 @@ public:
     const std::string& getNombreProyecto() const noexcept;
     void setNombreProyecto(const std::string& nombre) noexcept;
 
+    // Edicion de nombre por click derecho (passthrough al modelo, sin disco).
+    // La vista registra la carpeta original; main lo consume al confirmar.
+    const std::string& getProyectoARenombrar() const noexcept;
+    void setProyectoARenombrar(const std::string& nombre) noexcept;
+    void limpiarProyectoARenombrar() noexcept;
+
     // Refresca el listado de proyectos disponibles mostrado en el menu: los
     // proyectos SON las carpetas del directorio base de MotorGrafico. La
     // fachada lo lee del disco y lo vuelca al modelo (nunca la vista); main lo
