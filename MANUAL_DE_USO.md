@@ -364,18 +364,25 @@ Notas:
 El motor inyecta en cada instancia la tabla `MotorScript::ApiScriptGameObject`
 (via `conectarApi`, que el backend llama al crear el comportamiento). Los
 scripts la usan como `this->api->...` y **deben comprobar `if (api)`** antes
-de usarla. Firmas reales de la tabla:
+de usarla.
 
-| Funcion | Firma en la tabla | Descripcion |
-|---|---|---|
-| `api->nombre(owner)` | `const char* (const void* objeto)` | nombre del objeto |
-| `api->posicionX(owner)` | `float (const void* objeto)` | posicion mundo, eje X |
-| `api->posicionY(owner)` | `float (const void* objeto)` | posicion mundo, eje Y |
-| `api->posicionZ(owner)` | `float (const void* objeto)` | posicion mundo, eje Z |
-| `api->fijarPosicion(owner, x, y, z)` | `void (void*, float, float, float)` | fija la posicion |
-| `api->fijarEscala(owner, x, y, z)` | `void (void*, float, float, float)` | fija la escala |
-| `api->fijarRotacionEjes(owner, angulo, x, y, z)` | `void (void*, float, float, float, float)` | rota `angulo` radianes sobre el eje `(x,y,z)` |
-| `api->imprimirConsola("texto")` | `void (const char* texto)` | escribe en la consola/log del editor |
+**Versionado APPEND-ONLY:** los miembros nuevos se agregan siempre al final de
+la struct, sin reordenar ni cambiar tipos, de modo que un `.so` compilado
+contra una version anterior siga leyendo los miembros viejos en la misma
+direccion. El campo `version` (al final) permite guardas:
+`if (api->version >= 2) { float y = api->rotacionEjeY(owner); }`.
+
+| Funcion | Version | Firma | Descripcion |
+|---|---|---|---|
+| `api->nombre(owner)` | 1 | `const char* (const void*)` | nombre del objeto |
+| `api->posicionX/Y/Z(owner)` | 1 | `float (const void*)` | posicion mundo por eje |
+| `api->fijarPosicion(owner,x,y,z)` | 1 | `void (void*, float, float, float)` | fija la posicion |
+| `api->fijarEscala(owner,x,y,z)` | 1 | `void (void*, float, float, float)` | fija la escala |
+| `api->fijarRotacionEjes(owner,ang,x,y,z)` | 1 | `void (void*, float, float, float, float)` | rota `ang` rad sobre el eje `(x,y,z)` |
+| `api->imprimirConsola("texto")` | 1 | `void (const char*)` | log a la consola del editor |
+| `api->rotacionAngulo(owner)` | 2 | `float (const void*)` | angulo de rotacion (radianes) |
+| `api->rotacionEjeX/Y/Z(owner)` | 2 | `float (const void*)` | eje de rotacion por componente |
+| `api->escalaX/Y/Z(owner)` | 2 | `float (const void*)` | escala por eje |
 
 Ejemplo de uso combinado:
 
@@ -385,11 +392,73 @@ void onUpdate(GameObject* owner, float deltaTime) override {
     float x = api->posicionX(owner);
     api->fijarPosicion(owner, x + velocidad * deltaTime,
                        api->posicionY(owner), api->posicionZ(owner));
+    if (api->version >= 2) {
+        // Leer la rotacion actual y girar un poco mas cada frame:
+        float ang = api->rotacionAngulo(owner);
+        api->fijarRotacionEjes(owner, ang + 0.5f * deltaTime,
+                               0.0f, 1.0f, 0.0f);
+    }
     if (x > 10.0f) api->imprimirConsola("llego al limite");
 }
 ```
 
-### 13.4 Notas del backend C++
+### 13.4 Servicios de escena: tabla `servicios` (v1)
+
+Ademas de `api`, `IScriptBehaviour` expone `this->servicios`: acceso a los
+servicios del motor que **no son del objeto** sino de la escena (audio,
+busqueda de objetos y teclado). GameScene la inyecta al entrar en Play, antes
+del primer `onStart`, y la desconecta al salir (fuera de Play las funciones
+son no-ops tolerantes: devuelven `false`/`nullptr`/`-1`, sin bloquear).
+Misma convencion APPEND-ONLY con `servicios->version` al final.
+
+| Funcion | Firma | Descripcion |
+|---|---|---|
+| `servicios->reproducirSonido(clip, vol, loop)` | `int (const char*, float, bool)` | reproduce un clip de `Sonidos/` por **nombre**; devuelve handle >= 0, o -1 si el clip no existe |
+| `servicios->detenerSonido(handle)` | `void (int)` | detiene la reproduccion del handle |
+| `servicios->objetoPorNombre("Enemigo")` | `void* (const char*)` | busca un GameObject por nombre en la escena; `nullptr` si no existe. El puntero vale mientras el objeto viva (todavia no se crean/destruyen objetos desde scripts) |
+| `servicios->teclaSostiene("W")` | `bool (const char*)` | tecla mantenida apretada |
+| `servicios->teclaPresionada("SPACE")` | `bool (const char*)` | tecla apretada este frame (edge press) |
+| `servicios->teclaSoltada("F")` | `bool (const char*)` | tecla soltada este frame (edge release) |
+
+Las teclas usan nombres de tecla GLFW sin el prefijo `GLFW_KEY_`:
+`"A"`..`"Z"`, `"0"`..`"9"`, `"F1"`..`"F12"`, `"SPACE"`, `"ENTER"`, `"TAB"`,
+`"ESCAPE"`, `"LEFT_SHIFT"`, `"RIGHT_SHIFT"`, `"LEFT_CONTROL"`, `"UP"`,
+`"DOWN"`, `"LEFT"`, `"RIGHT"`, entre otras. Las letras son mayusculas.
+
+Ejemplo: control por teclado + sonido + busqueda de objetos:
+
+```cpp
+void onUpdate(GameObject* owner, float deltaTime) override {
+    if (!api || !servicios) return;
+
+    // Movimiento con teclado (A/D + flechas):
+    float dx = 0;
+    if (servicios->teclaSostiene("A") || servicios->teclaSostiene("LEFT"))
+        dx -= velocidad * deltaTime;
+    if (servicios->teclaSostiene("D") || servicios->teclaSostiene("RIGHT"))
+        dx += velocidad * deltaTime;
+    api->fijarPosicion(owner, api->posicionX(owner) + dx,
+                       api->posicionY(owner), api->posicionZ(owner));
+
+    // Efecto de sonido al disparar (una sola vez por pulsacion):
+    if (servicios->teclaPresionada("SPACE"))
+        servicios->reproducirSonido("disparo.wav", 0.8f, false);
+
+    // Alcanzar otro objeto por nombre (o usar el campo GameObject*
+    // expuesto en el inspector, que es lo recomendado):
+    void* meta = servicios->objetoPorNombre("Meta");
+    if (meta) api->imprimirConsola("meta encontrada");
+}
+```
+
+> **Notas de modularidad:** la tabla `servicios` es distinta de `api` a
+> proposito: audio/busqueda/teclado son servicios de escena, no del objeto, y
+> se inyectan como punteros opacos (`AudioEngine*`, `SceneRegistry*`,
+> `InputScripts*`) que el modulo de scripts envuelve sin conocer sus
+> cabeceras. En Java, la tabla `servicios` todavia no esta expuesta por el
+> bridge JNI (solo C++); la version Java recibe `api` con `version >= 2`.
+
+### 13.5 Notas del backend C++
 
 - El fuente se compila a `.so` (Linux), `.dll` (Windows/MSVC) o `.dylib`
   (macOS) con `-std=c++17 -shared -fPIC -O2` y

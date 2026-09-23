@@ -400,7 +400,11 @@ internamente `GUIManager`, `SceneRegistry`, `EditorController`, `SceneSerializer
   valores por nombre de campo).
 - `IScriptBehaviour` define la interfaz: `onStart`/`onUpdate`/`onStop` y
   `camposReflejados()`; el motor inyecta la tabla `MotorScript::ApiScriptGameObject`
-  (nombre, transform, log) para que el script no enlace contra el motor.
+  (nombre, transform completo con getters de rotacion/escala, log) y la tabla
+  `MotorScript::ScriptServices` (audio, busqueda de objetos por nombre y
+  consulta de teclado via `InputScripts`, inyectadas por `GameScene` al entrar
+  en Play) para que el script no enlace contra el motor. Ambas tablas siguen
+  versionado APPEND-ONLY con campo `version` final para guardas en runtime.
 - `BehaviourReflection` implementa la reflexión por macros (`REFLECT_INICIO`,
   `CAMPO`, `ARRAY`, `GRUPO`, `GRUPOS`, `FIN`), la conversión de valores tipados y la
   serialización binaria autodescriptiva de los campos.
