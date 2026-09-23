@@ -70,7 +70,7 @@ Al crear un proyecto, el motor genera la estructura bajo
     ├── modelos/                 ← .obj/.fbx que arrastra el editor
     ├── Sonidos/                 ← clips de audio (.wav/.mp3/...)
     ├── Interfaces/              ← assets JSON del CreadorDeInterfaces
-    └── src<proyecto>/           ← scripts del usuario (.cpp/.java)
+    └── Scripts/                 ← scripts del usuario (.cpp/.java)
 ```
 
 La convencion de assets por nombre usa carpetas `Sonidos/` e `Interfaces/` con
