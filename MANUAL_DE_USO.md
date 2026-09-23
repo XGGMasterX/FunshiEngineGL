@@ -51,8 +51,12 @@ cmake --build FunshiEngineGL/build -j$(nproc)
 
 **Primeros pasos:**
 
-1. En el menu de inicio elegi idioma, nombre del proyecto y sensibilidad de
-   camara. "Iniciar Estudio" crea el proyecto y sus carpetas automaticamente.
+1. En el menu de inicio elegi idioma y sensibilidad de camara. Abri **Config Proyect**: a la izquierda se lista la
+   carpeta de proyectos (cada carpeta de `MotorGrafico/` es un proyecto);
+   elegi uno con click o crea uno escribiendo su nombre en el campo de la
+   derecha y pulsando **Confirmar**. Con boton derecho sobre un proyecto se
+   abre **Editar nombre** para cargarlo en el campo y confirmarlo.
+   "Iniciar Estudio" crea el proyecto y sus carpetas automaticamente.
 2. Navega la escena con `W`/`A`/`S`/`D`, `Espacio`/`Shift` y el mouse (nav FPS).
    `E` oculta la UI; `Escape` vuelve al menu.
 
