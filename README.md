@@ -1,5 +1,10 @@
 # FunshiEngineGL
 
+<p align="center">
+  <img src="FunshiEngineGL/Imagenes/LogoPrincipalFunshiEngineGL.jpeg"
+       alt="FunshiEngineGL" width="180">
+</p>
+
 Motor y editor 3D en tiempo real escrito en C++17, con interfaz ImGui y renderizado OpenGL construido desde cero: los modelos usan un pipeline moderno (VBO/VAO + shaders) con degradación automática al modo inmediato de compatibilidad, y la grilla se dibuja en una pasada independiente como componente (`Grid`).
 
 ---
@@ -9,7 +14,7 @@ Motor y editor 3D en tiempo real escrito en C++17, con interfaz ImGui y renderiz
 - Ventana y contexto OpenGL con **GLFW**; renderizado con **OpenGL / GLU** (pipeline inmediato).
 - Interfaz de editor con **Dear ImGui** (docking) y gizmos con **ImGuizmo**.
 - Sistema **Entity–Component**: `Transform`, `Color`, `Model`, `Material`, `Light`, `CameraComponent`, colliders (esfera / cubo / malla), `RigidBody` y `Script`.
-- **Scripts dinámicos** (`Script` + `IScriptBehaviour`): reflexión por macros con campos `SerializeField` (escalares, arrays y grupos anidados) editables en el inspector; compilación en caliente de C++ a `.so`/`.dll` (`BackendCpp`) y soporte opcional de **Java vía JNI** (`BackendJava`, se activa con `-DFUNSHI_JAVA=ON`). Hot reload por fecha de modificación que reinyecta los valores serializados, y ciclo `onStart`/`onUpdate`/`onStop`.
+- **Scripts dinámicos** (`Script` + `IScriptBehaviour`): reflexión por macros con campos `SerializeField` (escalares, arrays y grupos anidados) editables en el inspector; compilación en caliente de C++ a `.so`/`.dll` (`BackendCpp`) y soporte de **Java vía JNI** (`BackendJava`, se activa automáticamente si el build encuentra el JDK). Hot reload por fecha de modificación que reinyecta los valores serializados, y ciclo `onStart`/`onUpdate`/`onStop`.
 - **Jerarquía de objetos** con árbol enlazado propio (`ArbolEnlazado<GameObject*>`) y reparentado seguro (rechaza ciclos y la raíz).
 - Carga de modelos 3D con **Assimp** (`.obj`, `.fbx` y formatos soportados por Assimp).
 - **Física con Bullet** detrás de una fachada desacoplada (`PhysicsEngine` → `IPhysicsBackend` → `BulletPhysicsAdapter`): solo simula en modo Play, sincroniza transformaciones entre objeto, collider y cuerpo, y admite un gizmo dedicado para el collider activo.
@@ -50,7 +55,7 @@ Motor y editor 3D en tiempo real escrito en C++17, con interfaz ImGui y renderiz
 | nlohmann/json  | —              | Vendoriado en `FunshiEngineGL/External/nlohmann`             |
 | ncurses        | cualquiera     | `libncurses-dev` (solo Linux)                                |
 | X11            | —              | `libx11-dev`, `libxrandr-dev`, `libxi-dev`                   |
-| JDK            | 17+            | Solo para scripts **Java** (`-DFUNSHI_JAVA=ON`); opcional en runtime via `JAVA_HOME` |
+| JDK            | 17+            | Solo scripts **Java**; se auto-habilita si el build encuentra el JDK (opcional en runtime via `JAVA_HOME`) |
 
 ### Instalar dependencias en Ubuntu/Debian
 
@@ -99,7 +104,7 @@ En Windows la misma receta funciona con el generador de Visual Studio. También 
 ## Pruebas y CI
 
 Las pruebas son headless (sin pila gráfica), corren con CTest y hay **10 targets**
-(nueve siempre + `scripts-java-tests` solo con `-DFUNSHI_JAVA=ON`):
+(nueve siempre + `scripts-java-tests` si el build encontró el JDK):
 
 ```bash
 cmake --build build --target filemanager-tests configuracion-tests eventbus-tests menu-tests assetmanager-tests texturemanager-tests estructuras-tests scripts-tests scripts-runtime-tests
@@ -114,7 +119,7 @@ ctest --test-dir build --output-on-failure
 - `estructuras-tests` (87): listas, árboles, heaps y ordenamiento propios.
 - `scripts-tests` (42): reflexión `SerializeField` (campos, arrays, grupos y round-trip binario).
 - `scripts-runtime-tests`: compila un script C++ real con `BackendCpp`, lo carga con `dlopen` y ejecuta el ciclo; se omite en Windows (SKIP, requiere `cl.exe` con entorno de Visual Studio).
-- `scripts-java-tests`: end-to-end del backend Java (JNI); solo con `-DFUNSHI_JAVA=ON` (SKIP si no hay JDK).
+- `scripts-java-tests`: end-to-end del backend Java (JNI); se compila si el build detecta el JDK (SKIP sin JDK).
 
 Con `-DBUILD_ENGINE=OFF` se compilan **solo** las pruebas: no se requieren GLFW/OpenGL/Bullet/Assimp y funcionan en cualquier plataforma. `.github/workflows/ci.yml` hace exactamente eso en Linux, Windows y macOS (más el backend Java en Ubuntu con JDK), además de un build completo del engine en Ubuntu.
 
@@ -172,7 +177,7 @@ Ver **PROJECT_STRUCTURE.md** para la descripción completa de cada módulo, las 
 ## Roadmap / Pendientes conocidos
 
 - [ ] Sistema de animaciones.
-- [x] Scripts dinámicos: `SerializeField` con reflexión, compilación en caliente de C++ (`BackendCpp`) y Java opcional vía JNI (`BackendJava`, `-DFUNSHI_JAVA=ON` + JDK en build), ciclo `onStart`/`onUpdate`/`onStop` y hot reload.
+- [x] Scripts dinámicos: `SerializeField` con reflexión, compilación en caliente de C++ (`BackendCpp`) y Java vía JNI (`BackendJava`, auto-activado con JDK en build), ciclo `onStart`/`onUpdate`/`onStop` y hot reload.
 - [ ] `CommandManager` para undo/redo.
 - [ ] Cuadro de log de errores en el editor.
 - [ ] Resolver IDs duplicados al crear objetos; limpiar binarios huérfanos al eliminar.

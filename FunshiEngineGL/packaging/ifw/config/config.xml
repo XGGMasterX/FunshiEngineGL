@@ -1,11 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Installer>
     <Name>FunshiEngineGL</Name>
-    <Version>0.5.0-alpha</Version>
+    <Version>0.5.5</Version>
     <Title>FunshiEngineGL Installer</Title>
     <Publisher>FunshiEngineGL</Publisher>
 
     <WizardStyle>Modern</WizardStyle>
+
+    <!-- Logo del wizard + icono de la ventana del instalador (PNG en config/).
+         El icono de la aplicacion instalada (.exe en Windows) vive en
+         packaging/icon/app.ico via el recurso de CMake. -->
+    <Logo>logo.png</Logo>
+    <InstallerWindowIcon>logo.png</InstallerWindowIcon>
 
     <TargetDir>@HomeDir@/Desktop/FunshiEngineGL</TargetDir>
 

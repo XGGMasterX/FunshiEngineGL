@@ -19,6 +19,7 @@
 #include "SceneMenuBarInterface.h"
 
 #include "../WindowNames.h"
+#include "../../Herramientas/IconosGUI/IconosGUI.h"
 
 SceneMenuBarInterface::SceneMenuBarInterface(bool state)
     : GeneralUserInterface("MenuBar", state, ImGuiWindowFlags_MenuBar), toggleBool(nullptr) {}
@@ -27,6 +28,7 @@ void SceneMenuBarInterface::setGizmoGlobal(bool* target) { gizmoGlobal = target;
 bool* SceneMenuBarInterface::getActivador() { return toggleBool; }
 bool SceneMenuBarInterface::getCargarScripts() { return cargarScripts; }
 void SceneMenuBarInterface::setCargarScripts(bool value) { cargarScripts = value; }
+void SceneMenuBarInterface::setIconosGUI(IconosGUI* iconos) { iconosGUI = iconos; }
 void SceneMenuBarInterface::setEditorEventBus(EditorEventBus* bus) {
     busEditor = bus;
 }
@@ -47,11 +49,22 @@ static const char* etiquetaVentana(const std::string& nombre) {
     return nullptr;
 }
 void SceneMenuBarInterface::contentGUI() {
+    ImGui::BeginMenuBar();
+    // Logo del motor en la esquina izquierda de la barra. El alto del item se
+    // limita a la barra y el ancho mantiene la proporcion del asset; si no hay
+    // iconos (build sin Imagenes/) se omite el dibujo sin romper el layout.
+    if (iconosGUI) {
+        const ImTextureID logo = iconosGUI->getIconoLogo();
+        if (logo != ImTextureID_Invalid) {
+            const float alto = ImGui::GetTextLineHeight();
+            ImGui::Image(logo, ImVec2(alto * iconosGUI->aspectoLogo(), alto));
+            ImGui::SameLine();
+        }
+    }
     // Menu "Ventanas": permite reabrir los paneles cerrados (p. ej. el
     // explorador, que la config persistia cerrado y no se podia volver a
     // mostrar). Al tildar/destildar se publica VentanaEstadoCambio; main lo
     // aplica a la ventana y lo persiste en la config del proyecto.
-    ImGui::BeginMenuBar();
     if (ImGui::BeginMenu("Ventanas")) {
         static const char* kVentanasEditables[] = {
             WindowNames::BrowseFile, WindowNames::ShowFolder,

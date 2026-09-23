@@ -1,5 +1,14 @@
 cmake_minimum_required(VERSION 3.15)
-project(FunshiEngineGL LANGUAGES CXX)
+project(FunshiEngineGL VERSION 0.5.5 LANGUAGES CXX)
+
+# Versión del producto: fuente única para el recurso VERSIONINFO del .exe de
+# Windows (packaging/icon/app.rc.in); subir al cortar releases.
+set(FUNSHI_VERSION "0.5.5")
+# Sustituciones de configure_file para el .rc: el icono se referencia relativo
+# al .rc (se copia al build), la version se lleva a comas (1,2,3,0).
+set(FUNSHI_APP_ICON "app.ico")
+string(REPLACE "." "," FUNSHI_VERSION_COMMA "${FUNSHI_VERSION}")
+set(FUNSHI_VERSION_COMMA "${FUNSHI_VERSION_COMMA},0")
 
 # Configuración básica
 set(CMAKE_CXX_STANDARD 17)
@@ -42,6 +51,17 @@ if(BUILD_ENGINE)
     # no se abre ninguna terminal. En Linux no tiene efecto.
     if(WIN32)
         target_link_libraries(${PROJECT_NAME} PRIVATE shell32)
+        # Recurso Windows del ejecutable: icono (app.ico) + bloque VERSIONINFO
+        # con CompanyName/ProductVersion. El .rc se genera por configure_file
+        # al directorio de build (junto a una copia del .ico) y el compilador de
+        # recursos de MSVC/MinGW lo enlaza al .exe.
+        configure_file(
+            ${CMAKE_SOURCE_DIR}/packaging/icon/app.rc.in
+            ${CMAKE_BINARY_DIR}/FunshiEngineGL.rc @ONLY)
+        file(COPY ${CMAKE_SOURCE_DIR}/packaging/icon/app.ico
+             DESTINATION ${CMAKE_BINARY_DIR})
+        target_sources(${PROJECT_NAME} PRIVATE
+            ${CMAKE_BINARY_DIR}/FunshiEngineGL.rc)
     endif()
     set_target_properties(${PROJECT_NAME} PROPERTIES
         WIN32_EXECUTABLE TRUE
