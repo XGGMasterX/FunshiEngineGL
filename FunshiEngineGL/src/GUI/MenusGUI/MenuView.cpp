@@ -182,24 +182,70 @@ void MenuView::renderizarListaProyectos() {
                 nombreProyectoPendiente = false;
             }
             // Popup sin ID explicito: usa el ID del item anterior (unico por
-            // fila). Al hacer boton derecho sobre el Selectable se abre este
-            // popup y al confirmar se carga el nombre del proyecto en el buffer
-            // para editarlo en el formulario de la derecha. Se registra la
-            // carpeta original en el modelo: solo Confirmar con este registro
-            // renombra en disco (main); el tecleado normal crea/cambia.
+            // fila). "Editar nombre" abre el modal de renombre: una ventana
+            // con InputText para el nuevo nombre + botones Renombrar/Cancelar
+            // (igual que ContentFolderInterface). El renombre se registra en
+            // el modelo y lo ejecuta main en disco.
             if (ImGui::BeginPopupContextItem()) {
                 if (ImGui::MenuItem(model->traducir("editar_nombre").c_str())) {
-                    model->setProyectoARenombrar(nombre);
-                    std::strncpy(nombreProyectoBuffer, nombre.c_str(),
-                                  sizeof(nombreProyectoBuffer) - 1);
-                    nombreProyectoBuffer[sizeof(nombreProyectoBuffer) - 1] = '\0';
-                    nombreProyectoPendiente = true;
+                    proyectoRenombrando = nombre;
+                    std::memset(nombreRenombrarBuffer, 0,
+                                sizeof(nombreRenombrarBuffer));
+                    std::strncpy(nombreRenombrarBuffer, nombre.c_str(),
+                                  sizeof(nombreRenombrarBuffer) - 1);
+                    abrirModalRenombrar = true;
+                    ImGui::CloseCurrentPopup();
                 }
                 ImGui::EndPopup();
             }
         }
     }
     ImGui::EndChild();
+
+    if (abrirModalRenombrar) {
+        ImGui::OpenPopup("RenombrarProyecto");
+        abrirModalRenombrar = false;
+    }
+    if (!proyectoRenombrando.empty() &&
+        ImGui::BeginPopupModal("RenombrarProyecto", NULL,
+                               ImGuiWindowFlags_AlwaysAutoResize)) {
+        ImGui::Text("%s", model->traducir("nombre").c_str());
+        ImGui::InputText("##renombrarProyecto", nombreRenombrarBuffer,
+                         sizeof(nombreRenombrarBuffer));
+        const bool esValido = nombreRenombrarBuffer[0] != '\0' &&
+                              proyectoRenombrando != nombreRenombrarBuffer;
+        if (!esValido) {
+            ImGui::BeginDisabled();
+        }
+        const bool confirmado =
+            ImGui::Button(model->traducir("confirmar").c_str(),
+                          ImVec2(140, 0)) ||
+            (ImGui::IsItemFocused() && ImGui::IsKeyPressed(ImGuiKey_Enter));
+        if (!esValido) {
+            ImGui::EndDisabled();
+        }
+        ImGui::SameLine();
+        if (ImGui::Button(model->traducir("volver").c_str(), ImVec2(140, 0))) {
+            proyectoRenombrando.clear();
+            std::memset(nombreRenombrarBuffer, 0,
+                        sizeof(nombreRenombrarBuffer));
+            ImGui::CloseCurrentPopup();
+        }
+        if (confirmado && esValido) {
+            // Registra la carpeta original para que main renombre en disco;
+            // tambien precarga el formulario lateral con el nuevo nombre.
+            model->setProyectoARenombrar(proyectoRenombrando);
+            std::strncpy(nombreProyectoBuffer, nombreRenombrarBuffer,
+                          sizeof(nombreProyectoBuffer) - 1);
+            nombreProyectoBuffer[sizeof(nombreProyectoBuffer) - 1] = '\0';
+            nombreProyectoPendiente = true;
+            proyectoRenombrando.clear();
+            std::memset(nombreRenombrarBuffer, 0,
+                        sizeof(nombreRenombrarBuffer));
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndPopup();
+    }
 }
 
 void MenuView::renderizarOpciones() {
