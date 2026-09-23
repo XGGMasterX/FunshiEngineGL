@@ -23,6 +23,7 @@
 
 #include "../Objetos/GameObject.h"
 #include "../Objetos/Modelos3D.h"
+#include "../Objetos/ObjetoEscena.h"
 #include "../Objetos/Componentes/Transform.h"
 
 SceneRegistry::SceneRegistry() { createDefaultRoot(); }
@@ -35,7 +36,13 @@ SceneRegistry::~SceneRegistry() {
 
 void SceneRegistry::createDefaultRoot() {
     viewDirty = true;
-    auto root = std::make_unique<Modelos3D>();
+    // La raiz de la escena es el GameObject "Scene": un contenedor sin
+    // geometria que agrupa como hijos a todas las entidades (objetos y
+    // camaras). Queda excluida de la vista plana (refreshGameObjectView) y no
+    // se dibuja; solo estructura la jerarquia. Es compatible con escenas
+    // viejas: al cargar un binario raiz que habia guardado malla, los bytes
+    // sobrantes quedan sin leer (EOF) y no rompen el formato.
+    auto root = std::make_unique<ObjetoEscena>();
     root->setId(0);
     root->setParentEntity(nullptr);
     GameObject* rootRaw = root.get();

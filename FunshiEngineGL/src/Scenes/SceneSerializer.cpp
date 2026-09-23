@@ -26,6 +26,7 @@
 #include "SceneRegistry.h"
 #include "../Objetos/GameObject.h"
 #include "../Objetos/Modelos3D.h"
+#include "../Objetos/ObjetoEscena.h"
 
 
 SceneSerializer::SceneSerializer(SceneRegistry* value,
@@ -256,14 +257,22 @@ void SceneSerializer::loadPreOrder(
 
         /*
          * Crear un nuevo objeto.
+         *
+         * La raiz (sin padre) es el GameObject "Scene": un contenedor sin
+         * geometria (ObjetoEscena) que agrupa a todas las entidades. El resto
+         * de los nodos se cargan como Modelos3D con la fuente de mallas
+         * inyectada ANTES de loadEntity(): la deserializacion lee el path del
+         * modelo y carga la geometria; con el manager ya asignado se comparte
+         * el asset cacheado.
          */
-        auto object =
-            std::make_unique<Modelos3D>();
-
-        // Inyectar la fuente de mallas ANTES de loadEntity(): la
-        // deserializacion lee el path del modelo y carga la geometria; con el
-        // manager ya asignado se comparte el asset cacheado.
-        object->setAssetManager(assets);
+        std::unique_ptr<GameObject> object;
+        if (!parent) {
+            object = std::make_unique<ObjetoEscena>();
+        } else {
+            auto modelo = std::make_unique<Modelos3D>();
+            modelo->setAssetManager(assets);
+            object = std::move(modelo);
+        }
 
         /*
          * ========================================================
