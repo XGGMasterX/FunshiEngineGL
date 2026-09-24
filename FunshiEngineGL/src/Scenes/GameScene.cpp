@@ -50,6 +50,7 @@
 #include "../GUI/CreadorUI/CreadorDeInterfaces.h"
 #include "../GUI/CreadorUI/CanvasInterface.h"
 #include "../Objetos/Componentes/AudioSource.h"
+#include "../Objetos/Componentes/InterfaceComponent.h"
 #include "../Configuracion/EditorConfig.h"
 #include "ImGuizmo.h"
 #include <cmath>
@@ -456,7 +457,29 @@ void GameScene::GUI() {
         if (canvas) {
             canvas->setAudioEngine(audioEngine.get());
             canvas->setModoPlay(start);
-            canvas->setUI(creador ? creador->getInterfazActiva() : nullptr);
+            UserInterfaceCustom* uiParaCanvas = nullptr;
+            if (start && creador) {
+                // En modo play: buscar objeto con InterfaceComponent y activar
+                // su interfaz a pantalla completa (HUD del juego).
+                auto* objs = getGameObjectsScene();
+                if (objs && !objs->isEmpty()) {
+                    Position<GameObject*>* pos = objs->first();
+                    while (pos && pos->getElement()) {
+                        if (auto* ic =
+                                pos->getElement()->getComponent<InterfaceComponent>()) {
+                            const std::string& nombre = ic->getInterfaz();
+                            if (!nombre.empty())
+                                uiParaCanvas = creador->activarInterfaz(nombre);
+                            break; // la primera gana
+                        }
+                        pos = (pos != objs->last()) ? objs->next(pos) : nullptr;
+                    }
+                }
+            } else if (creador) {
+                // En editor: usar la interfaz activa del creador (prueba manual).
+                uiParaCanvas = creador->getInterfazActiva();
+            }
+            canvas->setUI(uiParaCanvas);
             canvas->printGUI();
         }
     }

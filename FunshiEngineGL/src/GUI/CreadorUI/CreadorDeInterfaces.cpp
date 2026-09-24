@@ -91,8 +91,6 @@ void CreadorDeInterfaces::contentGUI() {
         return;
     }
 
-    ImGui::TextUnformatted("Interfaces de usuario del proyecto:");
-
     if (ImGui::BeginChild("ListaInterfaces", ImVec2(0.f, 90.f), true)) {
         for (const std::string& nombre : interfaces_) {
             const bool activa = nombreActiva_ == nombre;
@@ -247,6 +245,33 @@ void CreadorDeInterfaces::contentGUI() {
                 break;
         }
     }
+}
+
+// Activa por nombre la interfaz que usara el juego (modo play). Carga el
+// asset de disco si no es la activa actual; nullptr si no existe.
+UserInterfaceCustom* CreadorDeInterfaces::activarInterfaz(
+    const std::string& nombre) {
+    if (nombre.empty() || directorio_.empty()) {
+        tieneActiva_ = false;
+        interfazActiva_ = {};
+        nombreActiva_.clear();
+        return nullptr;
+    }
+    // Si ya es la activa, reutiliza la instancia (conserva estado editado en
+    // play: checkbox, slider, texto).
+    if (tieneActiva_ && nombreActiva_ == nombre) return &interfazActiva_;
+    UserInterfaceCustom ui;
+    ui.nombre = nombre;
+    if (!ui.cargar(directorio_)) {
+        tieneActiva_ = false;
+        interfazActiva_ = {};
+        nombreActiva_.clear();
+        return nullptr;
+    }
+    interfazActiva_ = ui;
+    nombreActiva_ = nombre;
+    tieneActiva_ = true;
+    return &interfazActiva_;
 }
 
 void CreadorDeInterfaces::printGUI() {

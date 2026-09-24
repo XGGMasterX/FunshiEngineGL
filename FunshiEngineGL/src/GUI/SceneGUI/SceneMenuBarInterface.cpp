@@ -48,6 +48,14 @@ static const char* etiquetaVentana(const std::string& nombre) {
 }
 void SceneMenuBarInterface::contentGUI() {
     ImGui::BeginMenuBar();
+    if (ImGui::BeginMenu("Archivo")) {
+        if (ImGui::MenuItem("Exportar juego") && busEditor) {
+            EditorEvent ev;
+            ev.type = EditorEventType::ExportarJuego;
+            busEditor->publish(ev);
+        }
+        ImGui::EndMenu();
+    }
     // Menu "Ventanas": permite reabrir los paneles cerrados (p. ej. el
     // explorador, que la config persistia cerrado y no se podia volver a
     // mostrar). Al tildar/destildar se publica VentanaEstadoCambio; main lo
