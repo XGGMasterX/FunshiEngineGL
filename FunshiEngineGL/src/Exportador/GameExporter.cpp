@@ -57,25 +57,31 @@ void GameExporter::runExportacion() {
         finalizar(false, "Error generando CMake");
         return;
     }
-    progreso(0.25f, "CMake generado");
+    progreso(0.2f, "CMake generado");
+
+    if (!compilarEngineRuntime(buildDir)) {
+        finalizar(false, "Error compilando engine runtime");
+        return;
+    }
+    progreso(0.5f, "Engine runtime compilado");
 
     if (!compilarScriptsUsuario(buildDir)) {
         finalizar(false, "Error compilando scripts de usuario");
         return;
     }
-    progreso(0.5f, "Scripts compilados");
+    progreso(0.7f, "Scripts compilados");
 
     if (!compilarJuego(buildDir)) {
         finalizar(false, "Error compilando el juego");
         return;
     }
-    progreso(0.75f, "Juego compilado");
+    progreso(0.85f, "Juego compilado");
 
     if (!copiarAssetsYDependencias(buildDir)) {
         finalizar(false, "Error copiando assets/dependencias");
         return;
     }
-    progreso(0.9f, "Assets copiados");
+    progreso(0.95f, "Assets copiados");
 
     if (!empaquetarDistribucion(buildDir)) {
         finalizar(false, "Error empaquetando distribución");
@@ -89,47 +95,39 @@ void GameExporter::runExportacion() {
 }
 
 bool GameExporter::generarProyectoCMake(const std::string& buildDir) {
+    // Obtener ruta al source del engine
+    std::string engineSrc = fs::absolute(fs::path(cfg_.proyectoOrigen).parent_path().parent_path()).string();
+
+    // CMakeLists.txt principal del proyecto de exportación
     std::string cmakeContent = R"(
 cmake_minimum_required(VERSION 3.15)
-project() LANGUAGES CXX
+project(ExportedGame LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-# Configuración de runtime (sin editor)
-set(FUNSHI_RUNTIME_ONLY 1)
+# Build engine as runtime-only (no editor/ImGui)
+set(BUILD_RUNTIME ON CACHE BOOL "" FORCE)
+set(FUNSHI_JAVA OFF CACHE BOOL "" FORCE)
+set(USE_ASSIMP OFF CACHE BOOL "" FORCE)
 
-# Rutas del motor (injected por el exportador)
-set(FUNSHI_SRC_DIR "")  # Se rellena abajo
-set(FUNSHI_CXX_COMPILER "")  # Se rellena abajo
+# Include engine as subdirectory
+add_subdirectory(")" + engineSrc + R"(" engine_build)
 
-# Proyectos del usuario (scripts)
+# User scripts
 add_subdirectory(${CMAKE_SOURCE_DIR}/scripts)
 
-# Ejecutable del juego
+# Game executable - entry point provided by user or generated
 add_executable(${PROJECT_NAME} "")
 target_link_libraries(${PROJECT_NAME} PRIVATE funshi_runtime)
 
-# Instalación: copiar a directorio de distribución
+# Install to distribution directory
 install(TARGETS ${PROJECT_NAME}
         RUNTIME DESTINATION .
         LIBRARY DESTINATION lib
         ARCHIVE DESTINATION lib)
 )";
-
-    // Obtener rutas reales
-    std::string engineSrc = fs::absolute(fs::path(cfg_.proyectoOrigen).parent_path().parent_path() / "src").string();
-    std::string cxxCompiler = "g++"; // TODO: detectar
-
-    // Reemplazar placeholders
-    size_t pos;
-    while ((pos = cmakeContent.find("FUNSHI_SRC_DIR")) != std::string::npos) {
-        cmakeContent.replace(pos, 14, "FUNSHI_SRC_DIR \"" + engineSrc + "\"");
-    }
-    while ((pos = cmakeContent.find("FUNSHI_CXX_COMPILER")) != std::string::npos) {
-        cmakeContent.replace(pos, 19, "FUNSHI_CXX_COMPILER \"" + cxxCompiler + "\"");
-    }
 
     // Toolchain para cross-compile Windows
     if (cfg_.plataforma == Plataforma::Windows) {
@@ -144,7 +142,7 @@ set(CMAKE_FIND_LIBRARY_CUSTOM_PATH_SUFFIXES "/x86_64-w64-mingw32")
 )";
     }
 
-    // Guardar CMakeLists.txt
+    // Guardar CMakeLists.txt principal
     std::ofstream cmakeFile(buildDir + "/CMakeLists.txt");
     if (!cmakeFile) return false;
     cmakeFile << cmakeContent;
@@ -160,7 +158,7 @@ set(CMAKE_FIND_LIBRARY_CUSTOM_PATH_SUFFIXES "/x86_64-w64-mingw32")
         scriptsCMake += "foreach(script ${SCRIPT_SOURCES})\n";
         scriptsCMake += "  get_filename_component(name ${script} NAME_WE)\n";
         scriptsCMake += "  add_library(${name} MODULE ${script})\n";
-        scriptsCMake += "  target_include_directories(${name} PRIVATE ${FUNSHI_SRC_DIR})\n";
+        scriptsCMake += "  target_include_directories(${name} PRIVATE " + engineSrc + "/src)\n";
         scriptsCMake += "  target_link_libraries(${name} PRIVATE funshi_runtime)\n";
         scriptsCMake += "endforeach()\n";
         std::error_code ec;
@@ -171,6 +169,13 @@ set(CMAKE_FIND_LIBRARY_CUSTOM_PATH_SUFFIXES "/x86_64-w64-mingw32")
     }
 
     return true;
+}
+
+bool GameExporter::compilarEngineRuntime(const std::string& buildDir) {
+    // Compilar solo el target funshi_runtime
+    std::string cmd = "cd " + buildDir + " && cmake .. && cmake --build . --target funshi_runtime -j4";
+    int result = std::system(cmd.c_str());
+    return result == 0;
 }
 
 bool GameExporter::compilarScriptsUsuario(const std::string& buildDir) {
@@ -184,7 +189,7 @@ bool GameExporter::compilarScriptsUsuario(const std::string& buildDir) {
 }
 
 bool GameExporter::compilarJuego(const std::string& buildDir) {
-    std::string cmd = "cd " + buildDir + " && cmake .. && make -j4";
+    std::string cmd = "cd " + buildDir + " && cmake --build . --target ExportedGame -j4";
     int result = std::system(cmd.c_str());
     return result == 0;
 }
@@ -206,21 +211,63 @@ bool GameExporter::copiarAssetsYDependencias(const std::string& buildDir) {
         }
     }
 
-    // Copiar dependencias (DLLs/.so) - Bullet, miniaudio, GLFW, etc.
-    // Por simplicidad, asumimos que están en rutas estándar del sistema
-    // En producción se haría bundle real con ldd/objdump
+    // Copiar dependencias runtime (.so/.dll) al directorio lib/
+    copiarDependenciasRuntime(buildDir);
+
+    return true;
+}
+
+bool GameExporter::copiarDependenciasRuntime(const std::string& buildDir) {
+    std::string libDir = cfg_.directorioSalida + "/lib";
+    std::error_code ec;
+    fs::create_directories(libDir, ec);
+
+    // Lista de librerías a buscar y copiar
+    std::vector<std::string> libs;
+    if (cfg_.plataforma == Plataforma::Windows) {
+        libs = {
+            "libBulletDynamics.dll", "libBulletCollision.dll", "libLinearMath.dll",
+            "glfw3.dll", "miniaudio.dll", "libstdc++-6.dll", "libgcc_s_seh-1.dll", "libwinpthread-1.dll"
+        };
+    } else {
+        libs = {
+            "libBulletDynamics.so", "libBulletCollision.so", "libLinearMath.so",
+            "libglfw.so", "libminiaudio.so"
+        };
+    }
+
+    // Buscar en rutas típicas del sistema y build
+    std::vector<std::string> searchPaths = {
+        "/usr/lib/x86_64-linux-gnu/",
+        "/usr/local/lib/",
+        buildDir + "/engine_build/",
+        buildDir + "/engine_build/src/",
+        buildDir + "/"
+    };
+
+    for (const auto& lib : libs) {
+        for (const auto& path : searchPaths) {
+            std::string src = path + lib;
+            if (fs::exists(src)) {
+                fs::copy_file(src, libDir + "/" + lib, fs::copy_options::overwrite_existing, ec);
+                break;
+            }
+        }
+    }
     return true;
 }
 
 bool GameExporter::empaquetarDistribucion(const std::string& buildDir) {
-    // El ejecutable compilado está en buildDir/
     std::string exeName = obtenerExtensionEjecutable();
     std::string exeSrc = buildDir + "/" + exeName;
     std::string exeDst = cfg_.directorioSalida + "/" + exeName;
 
     std::error_code ec;
     fs::create_directories(cfg_.directorioSalida, ec);
-    if (!fs::exists(exeSrc)) return false;
+    if (!fs::exists(exeSrc)) {
+        log("Ejecutable no encontrado en: " + exeSrc);
+        return false;
+    }
     fs::copy_file(exeSrc, exeDst, fs::copy_options::overwrite_existing, ec);
     return !ec;
 }

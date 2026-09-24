@@ -288,11 +288,19 @@ void CameraComponent::orbitAround(const float* origen, float dYawX, float dYawY)
     // yawY NO cambia: orbita puramente horizontal, sin pitch.
     calculardireccion();
 
+    // Direccion horizontal pura (yawY=0) para posicionar en el circulo XZ.
+    const float radX = yawX * kGradosARadianes;
+    float horizDir[3] = {
+        std::sin(radX),
+        0.f,
+        -std::cos(radX)
+    };
+
     // Nueva posicion en el circulo horizontal (misma Y, radio constante).
-    // Usamos origen - m_dir * radio para que la camara mire HACIA el origen.
-    m_pos[0] = origen[0] - m_dir[0] * radio;
+    // Usamos origen - horizDir * radio para que la camara mire HACIA el origen.
+    m_pos[0] = origen[0] - horizDir[0] * radio;
     // m_pos[1] se mantiene igual (altura fija)
-    m_pos[2] = origen[2] - m_dir[2] * radio;
+    m_pos[2] = origen[2] - horizDir[2] * radio;
 
     escribirATransform();
 }
