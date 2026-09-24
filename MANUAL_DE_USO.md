@@ -146,11 +146,11 @@ ImGui la combinacion la consume el editor de texto y no guarda.
 | `F7` | Detener la simulacion y volver al modo edicion |
 | `Ctrl+S` | Guardar el proyecto en caliente (escena + manifiesto + config) |
 | `Ctrl+Z` | Deshacer ultima accion del editor (undo) |
-| `Ctrl+Y` | Rehacer accion deshecha (redo) |
+| `Ctrl+Y` (o `Ctrl+Shift+Z`) | Rehacer accion deshecha (redo) |
 | `Escape` | Volver al menu de inicio |
 | `1` / `T` | Gizmo: traslacion |
 | `2` / `R` | Gizmo: rotacion |
-| `3` / `Y` | Gizmo: escala |
+| `3` / `Y` | Gizmo: escala (sin `Ctrl`: con `Ctrl` es el atajo de redo) |
 | `G` | Gizmo local / mundo |
 | Clic en objeto | Seleccionar en viewport |
 

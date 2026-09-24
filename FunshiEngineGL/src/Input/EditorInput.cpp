@@ -171,9 +171,14 @@ void EditorInput::onKey(GLFWwindow* window, int key, int scancode, int action,
         return;
     }
 
-    // Ctrl+Shift+Z: rehacer (redo)
-    if (key == GLFW_KEY_Z && (mods & GLFW_MOD_CONTROL) &&
-        (mods & GLFW_MOD_SHIFT) && action == GLFW_PRESS) {
+    // Ctrl+Y: rehacer (redo). Ctrl+Shift+Z es el atajo alternativo
+    // equivalente. Se intercepta antes que la maquina de movimiento y que los
+    // atajos de gizmo de mas abajo, asi que la "Y" con Ctrl no cambia la
+    // operacion del gizmo (la "Y" sola si lo hace: 3/Y = escala).
+    const bool esCtrlY = key == GLFW_KEY_Y && (mods & GLFW_MOD_CONTROL);
+    const bool esCtrlShiftZ = key == GLFW_KEY_Z && (mods & GLFW_MOD_CONTROL) &&
+                              (mods & GLFW_MOD_SHIFT);
+    if ((esCtrlY || esCtrlShiftZ) && action == GLFW_PRESS) {
         if (scene && !ImGui::GetIO().WantCaptureKeyboard) {
             if (auto* ec = scene->getEditorController()) {
                 if (ec->puedeRehacer()) ec->rehacer();
@@ -257,7 +262,9 @@ void EditorInput::onKey(GLFWwindow* window, int key, int scancode, int action,
         if (scene) scene->setGizmoGlobal(!scene->isGizmoGlobal());
     }
 
-    if (action == GLFW_PRESS) {
+    // Atajos de operacion del gizmo (1/T, 2/R, 3/Y): con Ctrl pulsada la tecla
+    // pertenece a otro atajo (p. ej. Ctrl+Y = rehacer), asi que no se aplican.
+    if (action == GLFW_PRESS && !(mods & GLFW_MOD_CONTROL)) {
         if (key == GLFW_KEY_1 || key == GLFW_KEY_T) {
             if (scene) scene->setGizmoOperation(ImGuizmo::TRANSLATE);
         } else if (key == GLFW_KEY_2 || key == GLFW_KEY_R) {
