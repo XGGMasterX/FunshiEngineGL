@@ -346,6 +346,32 @@ MotorGrafico\Exportaciones\MiJuego\MiJuego.exe
 > (salta el menu y abre el proyecto en modo editor). El exportado standalone
 > no requiere el editor ni dependencias de desarrollo.
 
+### 10.2 Terminal del proyecto
+
+Menu **Terminal > Abrir terminal del proyecto** (barra superior del editor).
+Abre la terminal **nativa** del sistema operativo con la carpeta del proyecto
+como directorio de trabajo, igual que la terminal integrada de VS Code: un clic
+y la consola ya esta en `MotorGrafico/Proyects/<nombreProyecto>/`, no en el
+directorio desde el que se lanzo el editor.
+
+| Sistema | Terminal que se abre |
+|---|---|
+| Linux | El primer emulador disponible de: `gnome-terminal`, `konsole`, `xfce4-terminal`, `alacritty`, `kitty`, `x-terminal-emulator`, `lxterminal`, `st`. Si la variable de entorno `TERMINAL` apunta a otro, se usa esa. |
+| Windows | Windows Terminal (`wt.exe`) si esta instalado; si no, `cmd.exe` con un `cd /d` al proyecto. |
+
+Detalles:
+
+- El editor **no se bloquea**: la terminal se lanza como proceso independiente
+  (`fork` + `exec` en Linux, `ShellExecute` en Windows).
+- La ruta **nunca pasa por un shell**: los proyectos con espacios o caracteres
+  especiales en el nombre se abren sin problemas.
+- El resultado aparece en la **barra de estado**: `Terminal abierta en <ruta>`,
+  o el motivo si no se pudo (no hay proyecto abierto, no existe la carpeta, o no
+  hay ninguna terminal instalada en el sistema).
+
+> No es una terminal incrustada en la ventana del editor (eso exigiria una PTY
+> embebida); es la terminal del sistema, ubicada en el proyecto.
+
 ---
 
 ## 12. Apariencia y configuración del editor

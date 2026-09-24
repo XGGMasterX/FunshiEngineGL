@@ -412,6 +412,23 @@ set_target_properties(tema-tests PROPERTIES
 )
 add_test(NAME tema-tests COMMAND tema-tests)
 
+# Terminal del proyecto: la eleccion de emulador por sistema operativo y el
+# armado de la linea de ejecucion son logica pura y se prueban headless (no
+# necesitan escritorio). El fork/exec de Linux y el ShellExecute de Windows no se
+# ejercitan a proposito: abririan ventanas de verdad.
+add_executable(terminal-tests
+    ${SRC_DIR}/Herramientas/Terminal.cpp
+    ${SRC_DIR}/Configuracion/ProjectPaths.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../tests/TerminalTests.cpp
+)
+target_include_directories(terminal-tests PRIVATE ${SRC_DIR})
+set_target_properties(terminal-tests PROPERTIES
+    CXX_STANDARD 17
+    CXX_STANDARD_REQUIRED ON
+    CXX_EXTENSIONS OFF
+)
+add_test(NAME terminal-tests COMMAND terminal-tests)
+
 # AssetManager (cache Flyweight de meshes CPU) tambien headless y portatil:
 # rutas (AssetPath), geometria (Mesh) y el registro compartido con un loader
 # artificial, sin Assimp ni pila grafica.

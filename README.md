@@ -40,6 +40,7 @@ Motor y editor 3D en tiempo real escrito en C++17, con interfaz ImGui y renderiz
 - **Iluminación** gestionada por `LightSystem` (slots `GL_LIGHT0..7`, marcadores de luz y cámara en escena) y **materiales** con presets (`MaterialPresets`).
 - Menú de inicio modular (paquete `MenusGUI`, patrón MVP): idioma, nombre del proyecto y sensibilidad de cámara.
 - **Configuración del editor persistida en JSON** (nlohmann/json): proyecto, idioma, sensibilidad, gizmo activo, ventana de cámaras, estado de las ventanas y perfil de apariencia. Una sola implementación: `ConfigPersistence` (JSON puro) sobre `ProjectPaths` (rutas), con `EditorConfig` como fachada estable. Dos archivos junto al binario: `<directorioEjecutable>/MotorGrafico/Configuraciones/Configuracion.json` (general) y `MotorGrafico/Proyects/<proyecto>/Memory/ConfiguracionProyecto.json` (por proyecto). **Escritura atómica** (temporal + rename: un corte no corrompe el archivo) y **guardado diferido** de la general (los cambios en vivo de Opciones se escriben como máximo una vez cada 250 ms, y siempre al salir o con Ctrl+S). Tolerante a archivos ausentes o corruptos.
+- **Terminal del proyecto desde el editor** (menu `Terminal`): abre la terminal **nativa** del sistema con la carpeta del proyecto como directorio de trabajo, como la terminal integrada de VS Code. En Linux elige el primer emulador disponible entre gnome-terminal, konsole, xfce4-terminal, alacritty, kitty, x-terminal-emulator, lxterminal o st (o el que marque la variable `TERMINAL`) y lo lanza con `fork` + `exec` directo, sin pasar la ruta por un shell; en Windows usa Windows Terminal (`wt.exe`) si está instalado y si no `cmd.exe` con un `cd /d` al proyecto. El editor no se bloquea (el proceso se desprende) y el resultado —o el motivo del fallo— se avisa en la barra de estado.
 - **Caché de assets compartida** (Flyweight): `AssetManager` (meshes CPU) y `TextureManager` (imágenes), con rutas normalizadas (`AssetPath`) y loader inyectable.
 - Estructuras de datos propias (listas, árboles, heaps, mergesort) y jerarquía de excepciones propia: las usadas por el motor (`ListaDE`, `ArbolEnlazado`, `PriorityListaDE`) están corregidas y verificadas, y las implementadas para el motor (`MinHeap`, `MaxHeap`, `ListMergeSort`, `ArbolBinarioEnlazado`) cuentan con pruebas headless.
 - **Pruebas headless** (`tests/`, CTest) y **CI multiplataforma** en GitHub Actions.
@@ -109,11 +110,11 @@ En Windows la misma receta funciona con el generador de Visual Studio. También 
 
 ## Pruebas y CI
 
-Las pruebas son headless (sin pila gráfica), corren con CTest y hay **17 targets**
-(dieciséis siempre + `scripts-java-tests` si el build encontró el JDK):
+Las pruebas son headless (sin pila gráfica), corren con CTest y hay **18 targets**
+(diecisiete siempre + `scripts-java-tests` si el build encontró el JDK):
 
 ```bash
-cmake --build build --target filemanager-tests configuracion-tests eventbus-tests menu-tests tema-tests assetmanager-tests texturemanager-tests estructuras-tests scripts-tests scripts-runtime-tests manifiesto-assets-tests orquestador-estado-tests
+cmake --build build --target filemanager-tests configuracion-tests eventbus-tests menu-tests tema-tests terminal-tests assetmanager-tests texturemanager-tests estructuras-tests scripts-tests scripts-runtime-tests manifiesto-assets-tests orquestador-estado-tests
 ctest --test-dir build --output-on-failure
 ```
 
@@ -122,6 +123,7 @@ ctest --test-dir build --output-on-failure
 - `eventbus-tests` (16): canal tipado de GUI interna (`EditorEventBus`).
 - `menu-tests` (30): `MenuModel` (traducción en vivo, observer de cambios y reset).
 - `tema-tests` (28): `TemaEditor` (aplicación del perfil `Apariencia` al estilo ImGui): el acento llega a **todos** los roles y ningún rol conserva el azul de fábrica de Dear ImGui (regresión "el color de acento no se aplica a toda la interfaz"), el acento por defecto no cambia el aspecto histórico, un acento translúcido no apaga los roles de primer plano, la aplicación es idempotente y el modo B/N deja la paleta monocroma.
+- `terminal-tests` (30): terminal del proyecto (`Herramientas/Terminal`): la lista de emuladores por sistema operativo, el armado del `argv` con la ruta del proyecto (los emuladores que no aceptan la ruta no la reciben en la línea de órdenes) y el respaldo de Windows (`wt.exe` o `cmd.exe` con comillas), más los dos rechazos sin efectos: sin proyecto abierto y con carpeta inexistente. No ejercita el `fork`/`exec` ni el `ShellExecute` (abrirían ventanas reales).
 - `assetmanager-tests` (47) y `texturemanager-tests` (15): caches Flyweight de meshes e imágenes.
 - `estructuras-tests` (87): listas, árboles, heaps y ordenamiento propios.
 - `scripts-tests` (42): reflexión `SerializeField` (campos, arrays, grupos y round-trip binario).

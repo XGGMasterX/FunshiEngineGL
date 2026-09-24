@@ -25,6 +25,8 @@
 #include "../ObjetosGUI/SettingsObjectInterface.h"
 #include "../../Events/EditorEventBus.h"
 #include "../../Exportador/GameExporter.h"
+#include "../../Herramientas/Terminal.h"
+#include "../Estado/StatusBarInterface.h"
 #include "../Export/ExportDialog.h"
 #include <imgui.h>
 
@@ -40,6 +42,9 @@ protected:
     std::unique_ptr<ExportDialog> exportDialog_;
     bool mostrarExportDialog_ = false;
     std::string proyectoActual_;
+    // Barra de estado para avisar el resultado de acciones del menu (guardar,
+    // exportar, abrir la terminal), como el aviso de Ctrl+S.
+    StatusBarInterface* barraEstado_ = nullptr;
 
 public:
     SceneMenuBarInterface(bool stateGUI);
@@ -51,6 +56,7 @@ public:
     void setEditorEventBus(EditorEventBus* bus);
     void setVentanas(const std::map<std::string, bool>& estados);
     void setProyectoActual(const std::string& proyecto);
+    void setBarraEstado(StatusBarInterface* barra);
     virtual void initGUI() override;
     virtual void contentGUI() override;
     virtual void endGUI() override;
