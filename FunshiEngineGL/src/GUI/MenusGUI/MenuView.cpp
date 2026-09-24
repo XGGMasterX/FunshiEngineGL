@@ -376,17 +376,23 @@ void MenuView::renderizarOpciones() {
 }
 
 void MenuView::renderizarConfigProyecto() {
-    // Formulario a la derecha de la lista: la lista ocupa [40, 340] en X, asi
-    // que el formulario arranca en X=380. No se usa cursorFila (centrado en la
-    // ventana) porque solaparia el child de la izquierda.
     const ImVec2 win = ImGui::GetWindowSize();
-    constexpr float kFormularioX = 380.0f;
-    ImGui::SetCursorPos(ImVec2(kFormularioX, 60.0f));
-    ImGui::Text("%s", model->traducir("config_proyecto").c_str());
+    constexpr float kListaAncho = 300.0f;
+    constexpr float kListaX = 40.0f;
+    constexpr float kFormularioX = kListaX + kListaAncho + 40.0f;
+    constexpr float kFormularioAncho = 360.0f;
 
-    ImGui::SetCursorPos(ImVec2(kFormularioX, 120.0f));
-    ImGui::Text("%s", model->traducir("nombre").c_str());
-    ImGui::SameLine();
+    const float formularioRight = kFormularioX + kFormularioAncho;
+    if (formularioRight > win.x - 40.0f) {
+        (void)win;
+        return;
+    }
+
+    ImGui::SetCursorPos(ImVec2(kFormularioX, 60.0f));
+    ImGui::BeginChild("##configProyectoForm", ImVec2(kFormularioAncho, win.y - 140.0f), false);
+
+    ImGui::SeparatorText(model->traducir("config_proyecto").c_str());
+    ImGui::Spacing();
 
     // El buffer se rellena desde el modelo la primera vez que se abre la
     // vista (o cuando no hay cambios pendientes). Mientras el usuario escribe,
@@ -398,46 +404,48 @@ void MenuView::renderizarConfigProyecto() {
         nombreProyectoBuffer[sizeof(nombreProyectoBuffer) - 1] = '\0';
     }
 
-    ImGui::SetNextItemWidth(kBotonAncho);
-    // El InputText modifica solo el buffer local y marca cambios pendientes.
+    // Campo: Nombre del proyecto
+    ImGui::AlignTextToFramePadding();
+    ImGui::Text("%s", model->traducir("nombre").c_str());
+    ImGui::SameLine(kFormularioAncho * 0.4f);
+    ImGui::SetNextItemWidth(kFormularioAncho * 0.55f);
     if (ImGui::InputText("##nombreProyecto", nombreProyectoBuffer,
                          sizeof(nombreProyectoBuffer))) {
         nombreProyectoPendiente = true;
     }
 
-    // Indicador visual: si hay un cambio sin confirmar se muestra el nombre
-    // actual del modelo como referencia.
     if (nombreProyectoPendiente) {
         ImGui::SameLine();
-        ImGui::TextDisabled(model->traducir("actual").c_str(),
+        ImGui::TextDisabled("(%s: %s)", model->traducir("actual").c_str(),
                             model->getNombreProyecto().c_str());
     }
 
-    ImGui::SetCursorPos(ImVec2(kFormularioX, 240.0f));
-    // Confirmar: solo aqui se notifica al modelo (lo que dispara la creacion
-    // de carpetas en main la proxima vez que se lea getNombreProyecto).
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+
+    // Botones centrados
+    const float btnWidth = 140.0f;
+    const float btnSpacing = 20.0f;
+    const float totalBtnWidth = btnWidth * 2 + btnSpacing;
+    const float btnStartX = (kFormularioAncho - totalBtnWidth) * 0.5f;
+
+    ImGui::SetCursorPosX(btnStartX);
+
+    // Confirmar
     const bool confirmarDeshabilitado =
         !nombreProyectoPendiente || nombreProyectoBuffer[0] == '\0';
-    if (confirmarDeshabilitado) {
-        ImGui::BeginDisabled();
-    }
-    if (ImGui::Button(model->traducir("confirmar").c_str(),
-                      ImVec2(kBotonAncho, kBotonAlto))) {
+    if (confirmarDeshabilitado) ImGui::BeginDisabled();
+    if (ImGui::Button(model->traducir("confirmar").c_str(), ImVec2(btnWidth, 0))) {
         model->setNombreProyecto(nombreProyectoBuffer);
-        // Confirmar conserva el registro de renombre: main lo consume este
-        // mismo frame (renombra en disco solo si vino de click derecho).
         nombreProyectoPendiente = false;
     }
-    if (confirmarDeshabilitado) {
-        ImGui::EndDisabled();
-    }
+    if (confirmarDeshabilitado) ImGui::EndDisabled();
 
-    ImGui::SetCursorPos(ImVec2(kFormularioX, 320.0f));
-    if (ImGui::Button(model->traducir("volver").c_str(),
-                      ImVec2(kBotonAncho, kBotonAlto))) {
-        // Descartar cambios pendientes: resetear el buffer para que la proxima
-        // apertura lo rellene desde el modelo (que no fue modificado). Tambien
-        // se cancela cualquier edicion por click derecho.
+    ImGui::SameLine(0, btnSpacing);
+
+    // Volver
+    if (ImGui::Button(model->traducir("volver").c_str(), ImVec2(btnWidth, 0))) {
         if (nombreProyectoPendiente) {
             nombreProyectoBuffer[0] = '\0';
             nombreProyectoPendiente = false;
@@ -445,5 +453,7 @@ void MenuView::renderizarConfigProyecto() {
         model->limpiarProyectoARenombrar();
         model->volver();
     }
+
+    ImGui::EndChild();
     (void)win;
 }

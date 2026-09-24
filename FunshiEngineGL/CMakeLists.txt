@@ -22,6 +22,10 @@ set(SRC_DIR ${CMAKE_SOURCE_DIR}/src)
 file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS ${SRC_DIR}/*.cpp ${SRC_DIR}/*.c)
 file(GLOB_RECURSE HEADERS CONFIGURE_DEPENDS ${SRC_DIR}/*.h ${SRC_DIR}/*.hpp)
 
+# Excluir Comandos/ (sistema WIP no integrado)
+list(FILTER SOURCES EXCLUDE REGEX ".*/Comandos/.*\\.cpp$")
+list(FILTER HEADERS EXCLUDE REGEX ".*/Comandos/.*\\.h$")
+
 # El motor se compila como libreria estatica (funshi_engine) y el ejecutable
 # solo aporta el punto de entrada (main.cpp). Asi el engine es reutilizable
 # (tests, herramientas, otros front-ends) sin recompilar todo. CI puede compilar
@@ -262,10 +266,13 @@ add_test(NAME filemanager-tests COMMAND filemanager-tests)
 # EditorConfig (JSON tolerante) tambien se prueba headless y en las tres
 # plataformas: verifica round-trip y la carga ante ausencia/corrupcion.
 add_executable(configuracion-tests
+    ${SRC_DIR}/Configuracion/ProjectPaths.cpp
+    ${SRC_DIR}/Configuracion/ProjectManager.cpp
+    ${SRC_DIR}/Configuracion/ConfigPersistence.cpp
     ${SRC_DIR}/Configuracion/EditorConfig.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../tests/EditorConfigTests.cpp
 )
-target_include_directories(configuracion-tests PRIVATE ${CMAKE_SOURCE_DIR}/External)
+target_include_directories(configuracion-tests PRIVATE ${CMAKE_SOURCE_DIR}/External ${SRC_DIR})
 set_target_properties(configuracion-tests PROPERTIES
     CXX_STANDARD 17
     CXX_STANDARD_REQUIRED ON
@@ -293,6 +300,9 @@ add_test(NAME eventbus-tests COMMAND eventbus-tests)
 # buffer de lectura NO desalinee el stream: regresion del core al cargar
 # escenas con paths de mas de 99 bytes (std::length_error -> abort).
 add_executable(model-serialization-tests
+    ${SRC_DIR}/Configuracion/ProjectPaths.cpp
+    ${SRC_DIR}/Configuracion/ProjectManager.cpp
+    ${SRC_DIR}/Configuracion/ConfigPersistence.cpp
     ${SRC_DIR}/Objetos/Componentes/Model.cpp
     ${SRC_DIR}/Configuracion/EditorConfig.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../tests/ModelSerializationTests.cpp
@@ -313,6 +323,9 @@ add_test(NAME model-serialization-tests COMMAND model-serialization-tests)
 # archivos corruptos/inexistentes, relativizacion/absolutizacion contra la
 # raiz de assets y la regla de precedencia del manifiesto sobre el .db.
 add_executable(manifiesto-assets-tests
+    ${SRC_DIR}/Configuracion/ProjectPaths.cpp
+    ${SRC_DIR}/Configuracion/ProjectManager.cpp
+    ${SRC_DIR}/Configuracion/ConfigPersistence.cpp
     ${SRC_DIR}/Scenes/ManifiestoAssetsCore.cpp
     ${SRC_DIR}/Configuracion/EditorConfig.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../tests/ManifiestoAssetsTests.cpp
@@ -539,4 +552,46 @@ if(WIN32)
     target_link_libraries(assetmanager-tests PRIVATE dbghelp)
     target_link_libraries(texturemanager-tests PRIVATE dbghelp)
     target_link_libraries(estructuras-tests PRIVATE dbghelp)
+endif()
+
+# Comandos (sistema undo/redo): headless y portable - WIP
+# Incluye GUI headers que requieren imgui; se enlaza con funshi_engine que ya tiene imgui
+add_executable(comandos-tests
+    ${SRC_DIR}/Comandos/CrearObjetoComando.cpp
+    ${SRC_DIR}/Comandos/BorrarObjetoComando.cpp
+    ${SRC_DIR}/Comandos/ReparentarComando.cpp
+    ${SRC_DIR}/Comandos/AgregarComponenteComando.cpp
+    ${SRC_DIR}/Comandos/QuitarComponenteComando.cpp
+    ${SRC_DIR}/Comandos/TransformComando.cpp
+    ${SRC_DIR}/Comandos/LimpiarEscenaComando.cpp
+    ${SRC_DIR}/Scenes/EditorController.cpp
+    ${SRC_DIR}/Scenes/SceneRegistry.cpp
+    ${SRC_DIR}/Scenes/GameScene.cpp
+    ${SRC_DIR}/Objetos/GameObject.cpp
+    ${SRC_DIR}/Objetos/Modelos3D.cpp
+    ${SRC_DIR}/Objetos/Componentes/Transform.cpp
+    ${SRC_DIR}/Objetos/Componentes/ComponentFactory.cpp
+    ${SRC_DIR}/Objetos/Componentes/Color.cpp
+    ${SRC_DIR}/Objetos/Componentes/CameraComponent.cpp
+    ${SRC_DIR}/Objetos/Componentes/AudioSource.cpp
+    ${SRC_DIR}/Objetos/Componentes/InterfaceComponent.cpp
+    ${SRC_DIR}/Objetos/Componentes/Model.cpp
+    ${SRC_DIR}/Events/EventBus.cpp
+    ${SRC_DIR}/Events/EditorEventBus.cpp
+    ${SRC_DIR}/GestorDeArchivos/Binario.cpp
+    ${SRC_DIR}/Entity/Entity.cpp
+    ${SRC_DIR}/ExcepcionesCPP/RuntimeException.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../tests/ComandosTests.cpp
+)
+target_include_directories(comandos-tests PRIVATE ${SRC_DIR} ${CMAKE_SOURCE_DIR}/External ${CMAKE_SOURCE_DIR}/External/imgui)
+target_link_libraries(comandos-tests PRIVATE funshi_engine)
+set_target_properties(comandos-tests PROPERTIES
+    CXX_STANDARD 17
+    CXX_STANDARD_REQUIRED ON
+    CXX_EXTENSIONS OFF
+)
+add_test(NAME comandos-tests COMMAND comandos-tests)
+
+if(WIN32)
+    target_link_libraries(comandos-tests PRIVATE dbghelp)
 endif()
