@@ -153,6 +153,34 @@ void EditorInput::onKey(GLFWwindow* window, int key, int scancode, int action,
         return;
     }
 
+    // F5/F6/F7: teclas de funcion de la simulacion (Play/Pausa/Stop). La regla
+    // por estado vive en el orquestador (funcion de marco de la arquitectura,
+    // igual que Escape); aca solo se reenvia el evento y se refleja la decision
+    // sobre GameScene::start (el mismo flag que maneja el boton Activar/Detener
+    // del menu de escena, asi ambas puertas comparten estado). F5 y F7 salen
+    // entran de nav libre, por eso se recalcula tambien el modo del cursor.
+    if ((key == GLFW_KEY_F5 || key == GLFW_KEY_F6 || key == GLFW_KEY_F7) &&
+        action == GLFW_PRESS) {
+        if (orquestador) {
+            const auto tecla = key == GLFW_KEY_F5
+                                   ? OrquestadorEstadoGUI::TeclaSimulacion::Play
+                                   : key == GLFW_KEY_F6
+                                         ? OrquestadorEstadoGUI::TeclaSimulacion::Pausa
+                                         : OrquestadorEstadoGUI::TeclaSimulacion::Stop;
+            orquestador->manejarTeclaSimulacion(tecla);
+            // Refleja Playing/Editing sobre la simulacion de la escena (F5
+            // arranca, F7 corta; F5 con la maquina ya en Playing re-asegura el
+            // arranque despues de un "Detener" con el boton del menu de escena).
+            if (scene) scene->setStart(orquestador->enSimulacion());
+            // La pausa (F6) tambien se refleja: congela fisica/scripts sin
+            // tocar `start` (asi no se dispara la limpieza de play->editor).
+            if (scene)
+                scene->setSimulacionPausada(orquestador->simulacionPausada());
+            aplicarModoCursor(window);
+        }
+        return;
+    }
+
     // Maquina de estado de movimiento: las teclas NO mueven la camara aca;
     // solo registran si estan apretadas/sueltas y aplicarMovimiento() las
     // combina por frame. GLFW_REPEAT no cambia el estado.

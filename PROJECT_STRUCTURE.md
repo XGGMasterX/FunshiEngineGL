@@ -236,8 +236,12 @@ FunshiEngineGL/                          ← raíz del repo
             │                                absolutizar + precedencia); tests propios
         └── States/
             ├── ApplicationStateMachine.h/.cpp ← MainMenu/Editing/Playing/Exiting
-            └── OrquestadorEstadoGUI.h/.cpp    ← reglas de transición menú↔editor (Fase 1;
-                                                   headless, decide la fachada GUI por frame)
+            └── OrquestadorEstadoGUI.h/.cpp    ← reglas de transición menú↔editor y de
+                                                   simulación: la "función de marco" que fija
+                                                   el comportamiento ante F5(Play)/F6(Pausa)/
+                                                   F7(Stop) y demás teclas (Escape, Iniciar
+                                                   Estudio); headless, con tests propios
+                                                   (orquestador-estado-tests)
 ```
 
 ---
@@ -262,7 +266,8 @@ main.cpp
       ├── EngineTime::update (deltaTime)
       ├── ImGui::NewFrame
       ├── refleja el estado del menú en la fachada MenuGUI (guardia de cambio)
-      ├── si Playing → phisics.stepSimulation(dt) (solo con start==true)
+      ├── si Playing → GameScene::update(dt) = física (start==true, F5) + scripts, con
+      │   F6 pausando fisica/scripts sin salir de play y F7 cortando (Playing → Editing)
       ├── pasada de la grilla (display lists del objeto con Grid; color según apariencia)
       ├── dibujarGameObjects (MeshRenderer VBO/VAO+shader → fallback glBegin/glEnd)
       ├── gizmo ImGuizmo sobre el objetivo activo (objeto o collider)
@@ -305,8 +310,11 @@ internamente `GUIManager`, `SceneRegistry`, `EditorController`, `SceneSerializer
   toma los componentes `Light` y parametriza los slots `GL_LIGHT0..7`. No queda
   lógica de luz en el bucle ni en los componentes.
 - `ApplicationStateMachine` modela los estados `MainMenu`, `Editing`, `Playing` y
-  `Exiting`. Las transiciones se realizan desde `main.cpp`; conviven con flags de
-  UI legados (`menuActivo`, `start`) con roles documentados.
+  `Exiting`. Las transiciones se deciden en `OrquestadorEstadoGUI` (función de
+  marco: Escape → menú, Iniciar Estudio → editor, F5 → Play, F7 → Stop) y solo
+  se aplican sobre la máquina desde ahí; conviven con flags de UI legados
+  (`menuActivo`, `start`) con roles documentados — `start` lo manejan a la vez el
+  botón Activar/Detener del menú de escena y el reflejo de F5/F7.
 
 ### Entidades, objetos y componentes
 

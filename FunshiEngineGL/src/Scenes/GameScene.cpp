@@ -230,6 +230,19 @@ void GameScene::saveScene(const std::string& filename) {
 
 bool GameScene::isStart() { return start; }
 
+// La maquina de estados (orquestador) es la fuente de verdad de la simulacion:
+// EditorInput la refleja aca en el path de F5/F7 (F5 -> true, F7 -> false),
+// comparte flag con el boton Activar/Detener del menu de escena.
+void GameScene::setStart(bool activo) noexcept { start = activo; }
+
+bool GameScene::isSimulacionPausada() const noexcept { return simulacionPausada; }
+
+// Pausa (F6): congela la simulacion SIN salir de play; al reanudar se retoma
+// desde donde quedo (fisica y scripts solo avanzan con !pausada).
+void GameScene::setSimulacionPausada(bool pausada) noexcept {
+    simulacionPausada = pausada;
+}
+
 void GameScene::loadScene(const std::string& pathTxt, const std::string& semiPath) {
     if (sceneSerializer) {
         sceneSerializer->load(pathTxt, semiPath);
@@ -654,12 +667,16 @@ void GameScene::update(float value) {
     }
     previousStart = start;
 
-    if (phisics && start && !gizmoInUse()) phisics->stepSimulation(value);
+    // La fisica y los scripts SOLO avanzan en modo play (start==true) y sin
+    // pausa (F6): con simulacionPausada congelada se congela el motor pero la
+    // GUI/editor sigue, para reanudar desde el mismo frame.
+    if (phisics && start && !gizmoInUse() && !simulacionPausada)
+        phisics->stepSimulation(value);
 
     // Sincronizar la fisica de vuelta a los GameObjects del mundo
     // (GameObject::update escribe en los Transforms via RigidBody).
     procesarColaCompilacion();
-    if (start && !gizmoInUse()) {
+    if (start && !gizmoInUse() && !simulacionPausada) {
         auto* gameObjects = getGameObjectsScene();
         if (!gameObjects->isEmpty()) {
             Position<GameObject*>* pos = gameObjects->first();

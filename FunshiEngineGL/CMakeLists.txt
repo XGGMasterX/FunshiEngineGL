@@ -328,6 +328,21 @@ set_target_properties(manifiesto-assets-tests PROPERTIES
 )
 add_test(NAME manifiesto-assets-tests COMMAND manifiesto-assets-tests)
 
+# Orquestador de estados de GUI (la "funcion de marco" de F5/F6/F7 y las teclas)
+# tambien es pura logica de estados y se prueba headless: cubre las reglas por
+# estado de Play/Pausa/Stop, Escape -> menu e "Iniciar Estudio" -> editor.
+add_executable(orquestador-estado-tests
+    ${SRC_DIR}/States/ApplicationStateMachine.cpp
+    ${SRC_DIR}/States/OrquestadorEstadoGUI.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../tests/OrquestadorEstadoTests.cpp
+)
+set_target_properties(orquestador-estado-tests PROPERTIES
+    CXX_STANDARD 17
+    CXX_STANDARD_REQUIRED ON
+    CXX_EXTENSIONS OFF
+)
+add_test(NAME orquestador-estado-tests COMMAND orquestador-estado-tests)
+
 # MenuModel (logica pura del menu: traduccion, observer de cambios y reset) se
 # prueba headless como los demas: no depende de ImGui/GLFW.
 add_executable(menu-tests

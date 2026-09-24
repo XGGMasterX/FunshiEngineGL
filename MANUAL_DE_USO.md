@@ -125,6 +125,9 @@ ImGui la combinacion la consume el editor de texto y no guarda.
 | `Espacio` / `Shift izq.` | Subir / bajar la camara (misma condicion que `WASD`) |
 | Mouse / clic der. | Nav FPS; el clic derecho sostenido sobre el viewport navega **sin** esconder las interfaces (sensibilidad en Opciones) |
 | `E` | Mostrar/ocultar interfaces del editor (solo funciona dentro del editor, no en el menu de inicio) |
+| `F5` | Simular (Play): arranca la simulacion de la escena (fisica, scripts y audio) desde el editor |
+| `F6` | Pausar/reanudar la simulacion (solo durante el play; congela fisica y scripts sin salir) |
+| `F7` | Detener la simulacion y volver al modo edicion |
 | `Ctrl+S` | Guardar el proyecto en caliente (escena + manifiesto + config) |
 | `Escape` | Volver al menu de inicio |
 | `1` / `T` | Gizmo: traslacion |
