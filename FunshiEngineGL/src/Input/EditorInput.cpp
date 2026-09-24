@@ -160,28 +160,31 @@ void EditorInput::onKey(GLFWwindow* window, int key, int scancode, int action,
         return;
     }
 
-    // Ctrl+Z: deshacer (undo)
+    // Ctrl+Z: deshacer (undo). Se avisa en la barra de estado que cambio tomo
+    // el estado (mismo aviso momentaneo que Ctrl+S), o que no hay nada que
+    // deshacer, para que el atajo nunca sea silencioso.
     if (key == GLFW_KEY_Z && (mods & GLFW_MOD_CONTROL) &&
         !(mods & GLFW_MOD_SHIFT) && action == GLFW_PRESS) {
         if (scene && !ImGui::GetIO().WantCaptureKeyboard) {
             if (auto* ec = scene->getEditorController()) {
-                if (ec->puedeDeshacer()) ec->deshacer();
+                const std::string descripcion = ec->deshacer();
+                scene->mostrarMensaje(descripcion.empty()
+                                          ? "Nada que deshacer"
+                                          : "Deshacer: " + descripcion);
             }
         }
         return;
     }
 
-    // Ctrl+Y: rehacer (redo). Ctrl+Shift+Z es el atajo alternativo
-    // equivalente. Se intercepta antes que la maquina de movimiento y que los
-    // atajos de gizmo de mas abajo, asi que la "Y" con Ctrl no cambia la
-    // operacion del gizmo (la "Y" sola si lo hace: 3/Y = escala).
-    const bool esCtrlY = key == GLFW_KEY_Y && (mods & GLFW_MOD_CONTROL);
-    const bool esCtrlShiftZ = key == GLFW_KEY_Z && (mods & GLFW_MOD_CONTROL) &&
-                              (mods & GLFW_MOD_SHIFT);
-    if ((esCtrlY || esCtrlShiftZ) && action == GLFW_PRESS) {
+    // Ctrl+Y: rehacer (redo). Es el UNICO atajo de redo: la "Y" con Ctrl deja de
+    // ser el atajo de escala del gizmo (3/Y) y no se solapa con ningun otro.
+    if (key == GLFW_KEY_Y && (mods & GLFW_MOD_CONTROL) && action == GLFW_PRESS) {
         if (scene && !ImGui::GetIO().WantCaptureKeyboard) {
             if (auto* ec = scene->getEditorController()) {
-                if (ec->puedeRehacer()) ec->rehacer();
+                const std::string descripcion = ec->rehacer();
+                scene->mostrarMensaje(descripcion.empty()
+                                          ? "Nada que rehacer"
+                                          : "Rehacer: " + descripcion);
             }
         }
         return;

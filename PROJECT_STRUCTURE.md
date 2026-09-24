@@ -683,6 +683,11 @@ GameScene → coordina todos los subsistemas del frame
   los roles de primer plano (el alpha del perfil no participa del tema), que
   aplicar el mismo perfil dos veces sea idempotente y que el modo blanco y negro
   deje la paleta monocroma.
+- `tests/ComandosTests.cpp`: los 7 comandos del editor (`CrearObjetoComando`,
+  `BorrarObjetoComando`, `ReparentarComando`, `TransformComando`,
+  `AgregarComponenteComando`, `QuitarComponenteComando`, `LimpiarEscenaComando`)
+  con deshacer/rehacer, la cadena de redo múltiple, el límite del historial y la
+  descripción que el historial devuelve para avisar en la barra de estado.
 - Los diecisiete targets compilan en cualquier plataforma y se ejecutan con `ctest`.
 - `.github/workflows/ci.yml` compila el engine completo en Ubuntu (Release, sin
   ASan) y ejecuta las pruebas; además ejecuta las headless en

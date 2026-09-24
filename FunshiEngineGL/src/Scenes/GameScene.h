@@ -34,6 +34,8 @@
 
 class CameraComponent;
 class EditorController;
+class Transform;
+class TransformComando;
 class GUIManager;
 class GameObject;
 class PhysicsEngine;
@@ -128,6 +130,25 @@ private:
     bool gizmoGlobal = false;
     bool gizmoReady = false;
 
+    // Arrastre del gizmo en curso: se toma una foto del transform al iniciar el
+    // arrastre y otra al terminar, para registrar UN TransformComando por
+    // movimiento del usuario (y no uno por frame). El comando queda pendiente
+    // hasta que el gizmo se suelta; si el transform no cambio, se descarta.
+    struct EstadoTransform {
+        float pos[3] = {0, 0, 0};
+        float rot[4] = {0, 0, 0, 0};
+        float esc[3] = {1, 1, 1};
+    };
+    bool gizmoArrastrando = false;
+    EstadoTransform arrastreInicial;
+    EstadoTransform arrastreFinal;
+    std::unique_ptr<TransformComando> arrastreComando;
+    // El puntero no es const porque los getters del Transform (getTranslatef,
+    // getRotatef, getScalef) no son const en el componente.
+    void tomarFotoTransform(Transform* t, EstadoTransform& destino) const;
+    static bool transformDistinguible(const EstadoTransform& a,
+                                      const EstadoTransform& b);
+
     void asegurarGrilla();
     // Reproduce/detiene los AudioSource de la escena en las transiciones de
     // modo play (entrar = autoplay de los marcados; salir = detener todo).
@@ -196,6 +217,11 @@ public:
     void setGizmoGlobal(bool global) noexcept;
     bool isGizmoCapturingInput() const;
     bool gizmoInUse() const;
+
+    // Aviso momentaneo en la barra de estado del editor (mismo mecanismo que el
+    // "Proyecto guardado" de Ctrl+S). Lo usa el atajo de undo/redo para dejar
+    // claro que cambio tomo el estado.
+    void mostrarMensaje(const std::string& mensaje);
     GameObject* pickObject(float mouseX, float mouseY);
 
     // Camara de la escena como Component: devuelve el primer objeto que tenga

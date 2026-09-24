@@ -35,6 +35,7 @@
 #include "../Objetos/Componentes/Colliders/Collider.h"
 #include "../Objetos/Componentes/RigidBody/RigidBody.h"
 #include "EditorController.h"
+#include "../Comandos/TransformComando.h"
 #include "ManifiestoAssets.h"
 #include "SceneRegistry.h"
 #include "SceneSerializer.h"
@@ -1150,7 +1151,30 @@ void GameScene::gameScene() {
                              modoGizmo, matrix, nullptr,
                              nullptr, nullptr, nullptr);
         gizmoReady = true;
-        if (ImGuizmo::IsUsing()) {
+
+        // Arrastre del gizmo: UNA foto del transform al iniciar el drag (antes
+        // de escribir la matriz de este frame) y, al soltarlo, un solo
+        // TransformComando con el estado inicial y el final. Asi el historial
+        // del editor tiene una entrada por movimiento y no una por frame.
+        // Solo aplica al transform del OBJETO: el offset local de un collider
+        // se edita sobre el componente y no tiene comando propio.
+        const bool usandoGizmo = ImGuizmo::IsUsing();
+        if (usandoGizmo && !gizmoArrastrando) {
+            gizmoArrastrando = true;
+            arrastreComando.reset();
+            const bool editaObjeto =
+                target.owner &&
+                target.owner->getComponent<Transform>() == target.local;
+            if (editaObjeto && target.owner->getId() > 0 && target.local) {
+                tomarFotoTransform(target.local, arrastreInicial);
+                arrastreFinal = arrastreInicial;
+                // El constructor captura el estado actual como "anterior": el
+                // gizmo todavia no escribio este frame.
+                arrastreComando = std::make_unique<TransformComando>(
+                    editorController.get(), target.owner, sceneRegistry.get());
+            }
+        }
+        if (usandoGizmo) {
             // Reinsertar la escala que quitamos: M = M' * diag(scale).
             glm::mat4 mManip = glm::make_mat4(matrix);
             if (sinEscala) {
@@ -1224,8 +1248,75 @@ void GameScene::gameScene() {
                         child->getComponent<RigidBody>()->syncGameObjectToPhysics();
                 }
             }
+
+            // Estado final del arrastre: lo consumira el comando de undo.
+            if (arrastreComando && target.local)
+                tomarFotoTransform(target.local, arrastreFinal);
+        } else if (gizmoArrastrando) {
+            // Se solto el gizmo: se registra UN comando con el estado inicial
+            // y el final. ejecutar() reaplica los valores finales (el gizmo ya
+            // los escribio en disco/memoria) y deja el comando en la pila de
+            // undo, que es lo que consume Ctrl+Z.
+            gizmoArrastrando = false;
+            if (arrastreComando &&
+                transformDistinguible(arrastreInicial, arrastreFinal)) {
+                arrastreComando->setNuevoEstado(
+                    arrastreFinal.pos[0], arrastreFinal.pos[1],
+                    arrastreFinal.pos[2], arrastreFinal.rot[0],
+                    arrastreFinal.rot[1], arrastreFinal.rot[2],
+                    arrastreFinal.rot[3], arrastreFinal.esc[0],
+                    arrastreFinal.esc[1], arrastreFinal.esc[2]);
+                if (editorController)
+                    editorController->getGestorComandos()->ejecutar(
+                        std::move(arrastreComando));
+            }
+            // Sin cambios (clic sin mover) o sin comando: no hay nada que
+            // registrar y el historial queda como estaba.
+            arrastreComando.reset();
         }
     }
+}
+
+void GameScene::tomarFotoTransform(Transform* t,
+                                  EstadoTransform& destino) const {
+    if (!t) return;
+    if (const float* p = t->getTranslatef()) {
+        destino.pos[0] = p[0];
+        destino.pos[1] = p[1];
+        destino.pos[2] = p[2];
+    }
+    if (const float* r = t->getRotatef()) {
+        destino.rot[0] = r[0];
+        destino.rot[1] = r[1];
+        destino.rot[2] = r[2];
+        destino.rot[3] = r[3];
+    }
+    if (const float* s = t->getScalef()) {
+        destino.esc[0] = s[0];
+        destino.esc[1] = s[1];
+        destino.esc[2] = s[2];
+    }
+}
+
+bool GameScene::transformDistinguible(const EstadoTransform& a,
+                                     const EstadoTransform& b) {
+    // Tolerancia pequena: descarta el comando cuando el arrastre no movio nada
+    // de verdad (un clic sobre el gizmo sin arrastrar no debe llenar el
+    // historial).
+    constexpr float kEpsilon = 1e-4f;
+    for (int i = 0; i < 3; ++i)
+        if (std::fabs(a.pos[i] - b.pos[i]) > kEpsilon) return true;
+    for (int i = 0; i < 4; ++i)
+        if (std::fabs(a.rot[i] - b.rot[i]) > kEpsilon) return true;
+    for (int i = 0; i < 3; ++i)
+        if (std::fabs(a.esc[i] - b.esc[i]) > kEpsilon) return true;
+    return false;
+}
+
+void GameScene::mostrarMensaje(const std::string& mensaje) {
+    if (!managerGUI) return;
+    if (StatusBarInterface* barra = managerGUI->getStatusBarGUI())
+        barra->mostrarMensaje(mensaje);
 }
 
 void GameScene::setGizmoOperation(int operation) {

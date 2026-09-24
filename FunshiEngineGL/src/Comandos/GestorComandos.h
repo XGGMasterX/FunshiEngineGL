@@ -44,20 +44,27 @@ public:
         historialRehacer.clear();
     }
 
-    void deshacer() {
-        if (historialDeshacer.empty()) return;
+    // Devuelven la descripcion del comando sobre el que se aplico, o cadena
+    // vacia si la pila estaba vacia: permite que la UI avise (barra de estado)
+    // que cambio tomo el estado, igual que hace Ctrl+S al guardar.
+    std::string deshacer() {
+        if (historialDeshacer.empty()) return std::string();
         auto cmd = std::move(historialDeshacer.back());
         historialDeshacer.pop_back();
+        const std::string descripcion = cmd->descripcion();
         cmd->deshacer();
         historialRehacer.push_back(std::move(cmd));
+        return descripcion;
     }
 
-    void rehacer() {
-        if (historialRehacer.empty()) return;
+    std::string rehacer() {
+        if (historialRehacer.empty()) return std::string();
         auto cmd = std::move(historialRehacer.back());
         historialRehacer.pop_back();
+        const std::string descripcion = cmd->descripcion();
         cmd->ejecutar();
         historialDeshacer.push_back(std::move(cmd));
+        return descripcion;
     }
 
     bool puedeDeshacer() const noexcept { return !historialDeshacer.empty(); }

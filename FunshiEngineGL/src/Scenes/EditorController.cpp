@@ -234,12 +234,12 @@ bool EditorController::removeComponent(GameObject* object, Component* component)
     return true;
 }
 
-void EditorController::deshacer() {
-    gestorComandos.deshacer();
+std::string EditorController::deshacer() {
+    return gestorComandos.deshacer();
 }
 
-void EditorController::rehacer() {
-    gestorComandos.rehacer();
+std::string EditorController::rehacer() {
+    return gestorComandos.rehacer();
 }
 
 bool EditorController::puedeDeshacer() const noexcept {

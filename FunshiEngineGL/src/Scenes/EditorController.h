@@ -121,10 +121,12 @@ public:
     bool hasGizmoTarget() const noexcept { return gizmoTarget.local != nullptr; }
     const GizmoTarget& getGizmoTarget() const noexcept { return gizmoTarget; }
 
-    // Sistema de comandos (undo/redo)
+    // Sistema de comandos (undo/redo). deshacer/rehacer devuelven la descripcion
+    // del comando aplicado (vacia si no habia nada que deshacer/rehacer) para que
+    // la vista pueda avisarlo en la barra de estado.
     GestorComandos* getGestorComandos() noexcept { return &gestorComandos; }
-    void deshacer();
-    void rehacer();
+    std::string deshacer();
+    std::string rehacer();
     bool puedeDeshacer() const noexcept;
     bool puedeRehacer() const noexcept;
 };
