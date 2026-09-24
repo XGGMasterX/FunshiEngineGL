@@ -185,7 +185,6 @@ FunshiEngineGL/                          ← raíz del repo
         ├── Herramientas/
         │   ├── TypeUtils.h/.cpp          ← nombres legibles de tipos
         │   ├── PathUtils.h               ← PATH_SEP multiplataforma compartido
-        │   ├── Terminal.h/.cpp           ← terminal del sistema abierta en el proyecto (fork/exec sin shell en Linux, ShellExecute en Windows)
         │   ├── MaterialPresets.h         ← presets de Material como datos (reemplaza a materiales.h)
         │   ├── TreeGUI/TreeGUI.h         ← widget de árbol genérico para ImGui
         │   └── IconosGUI/                ← carga de íconos con stb_image
@@ -684,18 +683,12 @@ GameScene → coordina todos los subsistemas del frame
   los roles de primer plano (el alpha del perfil no participa del tema), que
   aplicar el mismo perfil dos veces sea idempotente y que el modo blanco y negro
   deje la paleta monocroma.
-- `tests/TerminalTests.cpp`: la terminal del proyecto (`Herramientas/Terminal`)
-  sin escritorio ni shell. Cubre la lista de emuladores de Linux (incluida la
-  variable `TERMINAL`), el `argv` con la ruta del proyecto (y que los emuladores
-  que no aceptan ruta no la reciban), el respaldo de Windows (`wt.exe` con `-d`
-  o `cmd.exe` con `/K cd /d`, siempre entrecomillado) y los dos rechazos sin
-  efectos secundarios: sin proyecto abierto y con carpeta de proyecto inexistente.
 - `tests/ComandosTests.cpp`: los 7 comandos del editor (`CrearObjetoComando`,
   `BorrarObjetoComando`, `ReparentarComando`, `TransformComando`,
   `AgregarComponenteComando`, `QuitarComponenteComando`, `LimpiarEscenaComando`)
   con deshacer/rehacer, la cadena de redo múltiple, el límite del historial y la
   descripción que el historial devuelve para avisar en la barra de estado.
-- Los dieciocho targets compilan en cualquier plataforma y se ejecutan con `ctest`.
+- Los diecisiete targets compilan en cualquier plataforma y se ejecutan con `ctest`.
 - `.github/workflows/ci.yml` compila el engine completo en Ubuntu (Release, sin
   ASan) y ejecuta las pruebas; además ejecuta las headless en
   Linux/Windows con `BUILD_ENGINE=OFF` y el backend Java en Ubuntu con JDK.

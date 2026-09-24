@@ -47,9 +47,6 @@ GUIManager::GUIManager(GLFWwindow* window)
     iconosGUI = std::make_unique<IconosGUI>();
     iconosGUI->init();
     statusBarGUI = std::make_unique<StatusBarInterface>(true);
-    // El menu de escena avisa en la barra de estado el resultado de sus
-    // acciones (exportar, abrir la terminal), igual que el aviso de Ctrl+S.
-    menuBarGUI->setBarraEstado(statusBarGUI.get());
     // Ventanas del creador de interfaces: arrancan ocultas; se alternan desde
     // el menu "Ventanas" o al crear una interfaz (se persisten por proyecto).
     creadorInterfacesGUI = std::make_unique<CreadorDeInterfaces>(false);

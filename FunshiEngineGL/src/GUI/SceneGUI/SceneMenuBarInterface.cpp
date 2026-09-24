@@ -40,9 +40,6 @@ void SceneMenuBarInterface::setProyectoActual(const std::string& proyecto) {
         exportDialog_->setProyectoActual(proyecto);
     }
 }
-void SceneMenuBarInterface::setBarraEstado(StatusBarInterface* barra) {
-    barraEstado_ = barra;
-}
 void SceneMenuBarInterface::initGUI() {
     ImGui::Begin(getNameGui().c_str(), &stateGUI, getFlagGui());
     ImGui::PushID(this);
@@ -72,18 +69,6 @@ void SceneMenuBarInterface::contentGUI() {
                 }, proyectoActual_);
             }
             mostrarExportDialog_ = true;
-        }
-        ImGui::EndMenu();
-    }
-    // Menu "Terminal": abre la terminal NATIVA del sistema con el directorio
-    // del proyecto como working directory (igual que la terminal integrada de
-    // VS Code). El resultado se avisa en la barra de estado para que se vea si
-    // abrio, y por que no si no pudo.
-    if (ImGui::BeginMenu("Terminal")) {
-        if (ImGui::MenuItem("Abrir terminal del proyecto")) {
-            const Terminal::Resultado resultado =
-                Terminal::abrirProyecto(proyectoActual_);
-            if (barraEstado_) barraEstado_->mostrarMensaje(resultado.mensaje);
         }
         ImGui::EndMenu();
     }
