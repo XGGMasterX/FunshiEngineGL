@@ -109,6 +109,18 @@ void MenuGUI::limpiarProyectoARenombrar() noexcept {
     model.limpiarProyectoARenombrar();
 }
 
+const std::string& MenuGUI::getProyectoAEliminar() const noexcept {
+    return model.getProyectoAEliminar();
+}
+
+void MenuGUI::setProyectoAEliminar(const std::string& nombre) noexcept {
+    model.setProyectoAEliminar(nombre);
+}
+
+void MenuGUI::limpiarProyectoAEliminar() noexcept {
+    model.limpiarProyectoAEliminar();
+}
+
 void MenuGUI::actualizarProyectos() {
     // Los proyectos son carpetas del directorio base de MotorGrafico (una por
     // proyecto: Memory + src<Nombre>). Vista unica, sin duplicar la logica;

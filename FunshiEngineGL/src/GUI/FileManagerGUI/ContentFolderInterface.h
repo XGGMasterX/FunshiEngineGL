@@ -27,6 +27,7 @@
 
 class FileManager;
 class IconosGUI;
+class EditorEventBus;
 
 // Panel "ShowFolder": muestra el contenido de la carpeta seleccionada en el
 // arbol. Ya no se enlaza al arbol por puntero ni le pide el contenido: lee
@@ -47,6 +48,7 @@ private:
     };
 
     FileManager* fileManager = nullptr;
+    EditorEventBus* eventoArchivos_ = nullptr;
     bool abrirPopupNombre = false;
     bool creandoCarpeta = false;
     bool creandoScript = false;
@@ -76,6 +78,9 @@ public:
     ContentFolderInterface(bool stateGUI, FileManager* fileManager);
 
     void setIconosGUI(IconosGUI* iconosG);
+    // Bus de eventos del editor: notifica ArchivosReubicados tras un rename
+    // exitoso del grid (lo inyecta GUIManager; opcional, default nullptr).
+    void setEditorEventBus(EditorEventBus* bus) noexcept;
 
     virtual void initGUI() override;
     virtual void contentGUI() override;

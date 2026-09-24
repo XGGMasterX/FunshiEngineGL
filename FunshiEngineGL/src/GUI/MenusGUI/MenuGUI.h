@@ -122,6 +122,13 @@ public:
     void setProyectoARenombrar(const std::string& nombre) noexcept;
     void limpiarProyectoARenombrar() noexcept;
 
+    // Eliminacion por click derecho (passthrough al modelo, sin disco). La
+    // vista registra la carpeta confirmada; main la borra de disco y resetea
+    // el estado si era el proyecto activo.
+    const std::string& getProyectoAEliminar() const noexcept;
+    void setProyectoAEliminar(const std::string& nombre) noexcept;
+    void limpiarProyectoAEliminar() noexcept;
+
     // Refresca el listado de proyectos disponibles mostrado en el menu: los
     // proyectos SON las carpetas del directorio base de MotorGrafico. La
     // fachada lo lee del disco y lo vuelca al modelo (nunca la vista); main lo

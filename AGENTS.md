@@ -9,9 +9,16 @@ Guía rápida para agentes (y humanos) que trabajen en este repositorio.
 cmake -S FunshiEngineGL -B FunshiEngineGL/build
 cmake --build FunshiEngineGL/build -j$(nproc)
 
-# Ejecutar la suite de tests (12 targets headless)
+# Ejecutar la suite de tests (13 targets headless + scripts-java si hay JDK)
 cd FunshiEngineGL/build && ctest --output-on-failure
 ```
+
+- **Build y tests como parte del cambio**: al tocar código fuente (o `CMakeLists.txt`
+  y tests), revisar SIEMPRE si hay que actualizar el build y la suite: el engine
+  usa `file(GLOB_RECURSE ... CONFIGURE_DEPENDS)`, pero los targets de test listan
+  sus fuentes explícitamente; un `.cpp`/`.h` nuevo, un include, una dependencia,
+  un `add_test` o el conteo de comprobaciones de un test existente pueden quedar
+  fuera de sincronía. Ajustarlos en el mismo commit que el código que los motiva.
 
 ## Convenciones del código
 
@@ -62,6 +69,16 @@ cd FunshiEngineGL/build && ctest --output-on-failure
   cuál rama debe partir — `develop`, `release`, `staging` o `test` — para
   mantener el orden de desarrollo; solo usar `master` (o la rama que
   corresponda según ese documento) como base cuando el flujo lo indique.
+- **Documentación sincronizada**: la documentación no es un extra, es parte de
+  la tarea. Antes de empezar, revisar los `.md` que describen el área afectada
+  (`README.md`, `MANUAL_DE_USO.md`, `PROJECT_STRUCTURE.md`,
+  `FLUJO_DE_RAMAS.md` y los de diseño); durante el trabajo, ir comparando en
+  paralelo lo que la documentación afirma contra lo que el código realmente
+  hace y corregir todo lo que quedó desactualizado — APIs, arquitectura,
+  comandos y conteo de tests, atajos, limitaciones, ejemplos —, además de
+  reflejar lo nuevo que se introduce. Los ajustes de documentación entran en
+  el mismo commit que el código que los motiva: nunca "la documentación al
+  final", ni entregar avances sin sus documentos al día.
 - **Commits atómicos por tarea**: cada tarea terminada cierra con su commit
   (o los que sean necesarios si la tarea es grande), con mensaje descriptivo
   y convencionales (`feat:`, `fix:`, `docs:`, `refactor:`, `chore:`).

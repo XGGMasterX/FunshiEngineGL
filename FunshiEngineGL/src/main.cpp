@@ -31,6 +31,7 @@
 #include <imgui_impl_opengl3.h>
 #include "../src/Objetos/Modelos3D.h"
 #include "../src/Objetos/Componentes/CameraComponent.h"
+#include "../src/Scenes/RutasReescritura.h"
 #include "../src/States/ApplicationStateMachine.h"
 #include "../src/States/OrquestadorEstadoGUI.h"
 #include "../src/Behaviour/ScriptRuntime.h"
@@ -217,6 +218,15 @@ static int EjecutarMotor(int argc, char* argv[])
         proyectoActual = "Nuevo Proyecto";
     }
 
+    // Contexto de rutas de la serializacion portable: con proyecto, la raiz de
+    // assets (src<nombre>) es el ancla con la que se guardan (relativas) y se
+    // cargan (absolutas) las rutas de mallas/texturas/scripts de la escena.
+    // Sin proyecto (primer arranque) se limpia y las rutas pasan sin cambios.
+    EditorConfig::fijarRaizAssets(
+        proyectoActual.empty()
+            ? std::string()
+            : EditorConfig::directorioSrc(proyectoActual));
+
     if (!proyectoActual.empty()) {
         EditorConfig::asegurarEstructuraProyecto(proyectoActual);
         managerOfGUI->configurarProyecto(proyectoActual);
@@ -370,6 +380,27 @@ static int EjecutarMotor(int argc, char* argv[])
                 managerOfGUI->restaurarEstadosVentanas(cfg.estadoVentanas);
                 editorConfig.guardarProyecto(cfg.nombreProyecto);
             });
+        // Archivos/carpetas movidos o renombrados en el explorador (arbol o
+        // grid): se reescriben en memoria las referencias de la escena cuyo
+        // path cayo bajo la ruta anterior (mallas, texturas, fuentes de
+        // script) y se persiste al instante para dejar los binarios en el
+        // mismo estado. Los paneles e interfaces no se tocan: se referencian
+        // por nombre, no por ruta.
+        eventosGUI->subscribe([scene, &editorConfig, &proyectoActual](
+                                  const EditorEvent& ev) {
+            if (ev.type != EditorEventType::ArchivosReubicados) return;
+            if (proyectoActual.empty() || ev.rutaAnterior.empty() ||
+                ev.rutaNueva.empty())
+                return;
+            const int cambios = RutasReescritura::reescribirEnEscena(
+                scene->getGameObjectsScene(), ev.rutaAnterior, ev.rutaNueva);
+            if (cambios > 0) {
+                std::cout << "Referencias reescritas (" << cambios
+                          << ") por '" << ev.rutaAnterior << "' -> '"
+                          << ev.rutaNueva << "'\n";
+                scene->saveScene(EditorConfig::rutaScenePrefijo(proyectoActual));
+            }
+        });
     }
 
     const std::string sceneBBDD = EditorConfig::rutaSceneBBDD(proyectoActual);
@@ -380,6 +411,32 @@ static int EjecutarMotor(int argc, char* argv[])
      // id ya no existe, GameScene se queda en modo automatico.
      scene->setActiveCameraById(editorConfig.datos().camaraActivaId);
 
+    // Guardado en caliente (Ctrl+S) = misma rutina que el guardado al salir
+    // (escena + manifiesto + config del proyecto). Se inyecta en EditorInput;
+    // el lambda captura el estado por referencia, asi vale para la sesion.
+    auto guardarProyectoCompleto = [&]() {
+        if (proyectoActual.empty())
+            return;
+        // Escena completa: binarios (.db) + manifiesto de assets (JSON).
+        scene->saveScene(EditorConfig::rutaScenePrefijo(proyectoActual));
+        // Se recogen los valores actuales (menu, ventanas, gizmo) tal como se
+        // hace al salir: pudieron cambiar en la sesion.
+        EditorConfig::Datos& cfg = editorConfig.datos();
+        cfg.nombreProyecto = mainMenu->getNombreProyecto();
+        cfg.idioma = mainMenu->getIdioma();
+        cfg.sensibilidadCamara = mainMenu->getSensibilidadCamara();
+        cfg.ventanaCamarasAbierta = scene->getVentanaCamarasAbierta();
+        cfg.sensibilidadMovimientoCamara = scene->getSensibilidadMovimientoCamara();
+        cfg.gizmoOperacion = scene->getGizmoOperation();
+        cfg.gizmoGlobal = scene->isGizmoGlobal();
+        cfg.camaraActivaId = scene->getActiveCameraId();
+        cfg.estadoVentanas = managerOfGUI->obtenerEstadosVentanas();
+        cfg.apariencia = mainMenu->getApariencia();
+        editorConfig.guardarGeneral();
+        if (!cfg.nombreProyecto.empty())
+            editorConfig.guardarProyecto(cfg.nombreProyecto);
+    };
+    input->setAccionGuardar(guardarProyectoCompleto);
 
     while (!glfwWindowShouldClose(window)) //BUCLE PRINCIPAL
     {
@@ -498,6 +555,10 @@ static int EjecutarMotor(int argc, char* argv[])
             auto entrarAProyecto = [&](const std::string& destino) {
                 // Cambiar al nuevo proyecto
                 proyectoActual = destino;
+                // Contexto de rutas de la serializacion: la raiz de assets del
+                // proyecto entrante (src<nombre>). Debe fijarse ANTES de
+                // loadScene: las escenas nuevas guardan rutas relativas a ella.
+                EditorConfig::fijarRaizAssets(EditorConfig::directorioSrc(proyectoActual));
                 EditorConfig::asegurarEstructuraProyecto(proyectoActual);
                 managerOfGUI->configurarProyecto(proyectoActual);
                 // Re-explorar Sonidos/ e interfaces del proyecto entrante.
@@ -560,6 +621,35 @@ static int EjecutarMotor(int argc, char* argv[])
                 mainMenu->limpiarProyectoARenombrar();
             }
 
+            // Eliminacion de proyecto (click derecho -> Eliminar proyecto),
+            // confirmada desde el modal. Consumo unico por confirmacion: se
+            // borra la carpeta de disco y, si era el proyecto activo, se vuelve
+            // al estado "sin proyecto" del primer arranque. La escena en
+            // memoria se descarta con la proxima carga de escena y al salir no
+            // se guarda (guardia `if (!proyectoActual.empty())` del final); el
+            // explorador queda apuntando a un src inexistente hasta que se
+            // elija otro proyecto (mismo estado que sin proyecto elegido).
+            if (const std::string& aEliminar = mainMenu->getProyectoAEliminar();
+                !aEliminar.empty()) {
+                const bool eraActivo = (aEliminar == proyectoActual);
+                if (EditorConfig::eliminarProyecto(aEliminar)) {
+                    if (eraActivo) {
+                        proyectoActual.clear();
+                        editorConfig.datos().nombreProyecto.clear();
+                        editorConfig.guardarGeneral();
+                        mainMenu->setNombreProyecto("");
+                        // Sin proyecto: las rutas se guardan/cargan sin
+                        // relativizar (passthrough) hasta elegir uno nuevo.
+                        EditorConfig::limpiarRaizAssets();
+                        // Olvidar el imgui.ini del proyecto borrado: ImGui no
+                        // debe reescribirlo (ni recrear su folder) al salir.
+                        g_imguiIniRuta.clear();
+                        io.IniFilename = nullptr;
+                    }
+                }
+                mainMenu->limpiarProyectoAEliminar();
+            }
+
             if (mainMenu->ConsultarMenu()) {
                 // Refresca el listado de proyectos (carpetas de MotorGrafico):
                 // recoge proyectos creados/borrados mientras el menu esta abierto.
@@ -599,10 +689,10 @@ static int EjecutarMotor(int argc, char* argv[])
     }
 
     // Sin proyecto elegido (primer arranque cerrado desde el menu sin entrar
-    // al estudio) ninguna ruta debe escribir bajo un "Nuevo Proyecto" fantasma.
-    if (!proyectoActual.empty()) {
-        scene->saveScene(EditorConfig::rutaScenePrefijo(proyectoActual));
-    }
+    // al estudio) ninguna ruta debe escribir bajo un "Nuevo Proyecto" fantasma:
+    // el lambda no toca nada con proyectoActual vacio. Con proyecto, guarda
+    // escena + manifiesto + config del proyecto (misma rutina que Ctrl+S).
+    guardarProyectoCompleto();
 
     // Apagado ordenado de los scripts antes de salir: primero se liberan las
     // referencias globales JNI de las instancias y luego se apaga el JVM
@@ -614,29 +704,6 @@ static int EjecutarMotor(int argc, char* argv[])
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();
-
-    // Guardado de la configuracion al salir (mismo punto donde se salva la
-    // escena). Se recogen los valores actuales ya que pudieron cambiar en la
-    // sesion (menu, ventanas, gizmo).
-    EditorConfig::Datos& cfg = editorConfig.datos();
-    cfg.nombreProyecto = mainMenu->getNombreProyecto();
-    cfg.idioma = mainMenu->getIdioma();
-    cfg.sensibilidadCamara = mainMenu->getSensibilidadCamara();
-    cfg.ventanaCamarasAbierta = scene->getVentanaCamarasAbierta();
-    cfg.sensibilidadMovimientoCamara = scene->getSensibilidadMovimientoCamara();
-    cfg.gizmoOperacion = scene->getGizmoOperation();
-    cfg.gizmoGlobal = scene->isGizmoGlobal();
-    cfg.camaraActivaId = scene->getActiveCameraId();
-    cfg.estadoVentanas = managerOfGUI->obtenerEstadosVentanas();
-    cfg.apariencia = mainMenu->getApariencia();
-    // Configuracion general: apariencia, idioma, sensibilidad y ultimo proyecto.
-    editorConfig.guardarGeneral();
-    // Configuracion del proyecto: estado de ventanas, gizmo, camara activa.
-    // Sin proyecto creado/abierto no hay config de proyecto que persistir (y
-    // guardarla crearia las carpetas de "Nuevo Proyecto" en un primer arranque).
-    if (!cfg.nombreProyecto.empty()) {
-        editorConfig.guardarProyecto(cfg.nombreProyecto);
-    }
 
     glfwTerminate();
 #if FUNSHI_ASAN_ACTIVO

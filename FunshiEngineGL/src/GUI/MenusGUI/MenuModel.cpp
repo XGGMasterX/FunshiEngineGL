@@ -71,6 +71,16 @@ void MenuModel::setProyectoARenombrar(const std::string& nombre) {
 
 void MenuModel::limpiarProyectoARenombrar() noexcept { proyectoARenombrar.clear(); }
 
+const std::string& MenuModel::getProyectoAEliminar() const noexcept {
+    return proyectoAEliminar;
+}
+
+void MenuModel::setProyectoAEliminar(const std::string& nombre) {
+    proyectoAEliminar = nombre;
+}
+
+void MenuModel::limpiarProyectoAEliminar() noexcept { proyectoAEliminar.clear(); }
+
 const std::string& MenuModel::getIdioma() const noexcept { return idioma; }
 
 void MenuModel::setIdioma(const std::string& valor) {
@@ -173,6 +183,13 @@ std::string MenuModel::traducir(const std::string& clave) const {
            "state to factory defaults."}},
         {"nombre", {"Nombre", "Name"}},
         {"editar_nombre", {"Editar nombre", "Edit name"}},
+        {"eliminar_proyecto", {"Eliminar proyecto", "Delete project"}},
+        {"aviso_eliminar",
+         {"Se eliminaran de disco la escena, los assets y la configuracion\n"
+          "de este proyecto. Esta accion no se puede deshacer.",
+          "The scene, assets and settings of this project will be removed\n"
+          "from disk. This action cannot be undone."}},
+        {"eliminar", {"Eliminar", "Delete"}},
         {"confirmar", {"Confirmar", "Confirm"}},
         {"actual", {"(actual: %s)", "(current: %s)"}},
     };

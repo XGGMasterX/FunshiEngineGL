@@ -55,7 +55,11 @@ cmake --build FunshiEngineGL/build -j$(nproc)
    carpeta de proyectos (cada carpeta de `MotorGrafico/` es un proyecto);
    elegi uno con click o crea uno escribiendo su nombre en el campo de la
    derecha y pulsando **Confirmar**. Con boton derecho sobre un proyecto se
-   abre **Editar nombre** para cargarlo en el campo y confirmarlo.
+   abre **Editar nombre**: escribi el nuevo nombre y el modal lo confirma,
+   renombrando la carpeta en el acto. El mismo menu contextual ofrece
+   **Eliminar proyecto**: el modal pide confirmacion y borra de disco la
+   escena, los assets y la configuracion de ese proyecto (irreversible). Si
+   eliminabas el proyecto abierto, el motor vuelve al estado "sin proyecto".
    "Iniciar Estudio" crea el proyecto y sus carpetas automaticamente.
 2. Navega la escena con `W`/`A`/`S`/`D`, `Espacio`/`Shift` y el mouse (nav FPS).
    `E` oculta la UI; `Escape` vuelve al menu.
@@ -86,6 +90,31 @@ proyecto** (`src<nombre>`).
 > la de scripts. Si un dropdown o drag & drop aparece vacio, verifica que raiz
 > lista tu arbol.
 
+**Rutas de la escena.** Las mallas, texturas y fuentes de script que usa la
+escena se persisten **relativas** a la carpeta `src<proyecto>/`. Por eso, al
+renombrar un proyecto (menu de inicio) o mover su carpeta completa, las
+escenas siguen cargando sin tocar nada: la raiz `src<nombre>` se desplaza
+entera con el proyecto. Dentro del explorador, al **renombrar** un archivo o
+carpeta el motor reescribe al instante las referencias de la escena que
+apuntaban a esa ruta y guarda la escena modificada. Limitaciones: mover un
+asset *por copia* (arrastre con copia) no se rastrea, y los sonidos de
+`Sonidos/` e interfaces de `Interfaces/` se referencian por **nombre**: un
+move con el mismo nombre conserva la referencia y un rename la rompe (volve a
+seleccionar el clip/interfaz en su dropdown).
+
+**Manifiesto de assets (`SceneAssets.json`).** Junto a los binarios de la
+escena se mantiene `Memory/Binarios/SceneAssets.json`, un add-on legible que
+centraliza las rutas de asset de cada objeto (malla, las 4 texturas del
+material y la dll de script). No reemplaza al `.db`: se regenera en **cada**
+guardado y, al cargar, sus rutas tienen **precedencia** sobre las del `.db`
+(las escenas viejas, sin manifiesto, se cargan igual contra el `.db`). Al
+renombrar/mover assets el guardado automatico lo mantiene al dia.
+
+**Guardado sin salir (Ctrl+S).** El editor guarda el proyecto completo
+(escena + manifiesto + configuracion de ventanas/gizmo/camara) con
+`Ctrl+S`, ademas del guardado automatico al salir. En un campo de texto de
+ImGui la combinacion la consume el editor de texto y no guarda.
+
 ---
 
 ## 3. Recorrido del editor
@@ -96,6 +125,7 @@ proyecto** (`src<nombre>`).
 | `Espacio` / `Shift izq.` | Subir / bajar la camara |
 | Mouse | Nav FPS (sensibilidad de Opciones) |
 | `E` | Mostrar/ocultar interfaces del editor |
+| `Ctrl+S` | Guardar el proyecto en caliente (escena + manifiesto + config) |
 | `Escape` | Volver al menu de inicio |
 | `1` / `T` | Gizmo: traslacion |
 | `2` / `R` | Gizmo: rotacion |

@@ -35,6 +35,7 @@
 #include "../Objetos/Componentes/Colliders/Collider.h"
 #include "../Objetos/Componentes/RigidBody/RigidBody.h"
 #include "EditorController.h"
+#include "ManifiestoAssets.h"
 #include "SceneRegistry.h"
 #include "SceneSerializer.h"
 #include "../Assets/AssetManager.h"
@@ -220,6 +221,11 @@ void GameScene::asegurarGrilla() {
 
 void GameScene::saveScene(const std::string& filename) {
     if (sceneSerializer) sceneSerializer->save(filename);
+    // Manifiesto de assets (add-on): se regenera en CADA guardado, asi el
+    // JSON centraliza siempre el estado vigente de las rutas (mover/renombrar
+    // assets lo renueva de paso). Es independiente del .db binario.
+    ManifiestoAssets::guardar(filename + "SceneAssets.json",
+                              getGameObjectsScene());
 }
 
 bool GameScene::isStart() { return start; }
@@ -239,6 +245,20 @@ void GameScene::loadScene(const std::string& pathTxt, const std::string& semiPat
         // Las escenas viejas no guardan el objeto "Grilla": se crea sobre la
         // marcha si falta, conservando la visibilidad por defecto.
         asegurarGrilla();
+
+        // Manifiesto de assets (add-on de la serializacion binaria): si
+        // existe, sus rutas tienen precedencia sobre las que dejo el .db.
+        // El pathTxt es <prefijo>BBDDObjetos.txt; el manifiesto comparte el
+        // prefijo con nombre SceneAssets.json.
+        const std::string sufijoBBDD = "BBDDObjetos.txt";
+        if (pathTxt.size() >= sufijoBBDD.size() &&
+            pathTxt.compare(pathTxt.size() - sufijoBBDD.size(),
+                            sufijoBBDD.size(), sufijoBBDD) == 0) {
+            const std::string prefijo =
+                pathTxt.substr(0, pathTxt.size() - sufijoBBDD.size());
+            ManifiestoAssets::cargar(prefijo + "SceneAssets.json",
+                                     getGameObjectsScene());
+        }
     }
 }
 

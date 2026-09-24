@@ -269,6 +269,90 @@ int main() {
         fs::remove_all(dirNuevo, ec);
     }
 
+    // 5d. Eliminacion de proyecto: borra la carpeta completa (escena, src,
+    //     config). No toca nada si el proyecto no existe o el nombre es vacio.
+    {
+        const std::string nombre = "JuegoAEliminar";
+        const std::string dirProyecto = EditorConfig::directorioProyecto(nombre);
+        std::error_code ec;
+        EditorConfig::asegurarEstructuraProyecto(nombre);
+        CHECK(EditorConfig::eliminarProyecto("") == false,
+              "eliminar con nombre vacio falla");
+        CHECK(EditorConfig::eliminarProyecto("Inexistente") == false,
+              "eliminar un proyecto inexistente falla");
+        CHECK(fs::is_directory(dirProyecto), "el proyecto existe antes de eliminar");
+        CHECK(EditorConfig::eliminarProyecto(nombre),
+              "eliminar retira la carpeta del proyecto");
+        CHECK(!fs::exists(dirProyecto), "la carpeta del proyecto desaparece");
+        CHECK(EditorConfig::eliminarProyecto(nombre) == false,
+              "una vez eliminado ya no se puede eliminar de nuevo");
+    }
+
+    // 6a. Contexto de rutas de la serializacion portable: sin raiz fijada las
+    //     rutas pasan tal cual (passthrough, igual que antes del cambio).
+    {
+        EditorConfig::limpiarRaizAssets();
+        CHECK(EditorConfig::hayRaizAssets() == false,
+              "sin proyecto no hay raiz de assets");
+        CHECK(EditorConfig::relativizarRuta("/a/b/MiModelo.fbx") == "/a/b/MiModelo.fbx",
+              "sin raiz no se relativiza");
+        CHECK(EditorConfig::absolutizarRuta("Carpetas/MiModelo.fbx") ==
+                  "Carpetas/MiModelo.fbx",
+              "sin raiz no se absolutiza");
+        CHECK(EditorConfig::reemplazarPrefijoRuta("x/UnArchivo.fbx", "x", "y") ==
+                  "y/UnArchivo.fbx",
+              "reemplazo de prefijo puro funciona sin contexto");
+        CHECK(EditorConfig::reemplazarPrefijoRuta("zzz/UnArchivo.fbx", "x", "y")
+                  .empty(),
+              "prefijo que no cierra en separador no reemplaza (x vs zzz)");
+        CHECK(EditorConfig::reemplazarPrefijoRuta("/otro/a.fbx", "/ruta", "/ln")
+                  .empty(),
+              "sin match devuelve vacio");
+        CHECK(EditorConfig::reemplazarPrefijoRuta("/ruta/a.fbx", "/ruta", "/ruta")
+                  .empty(),
+              "reemplazo identico no hace nada");
+    }
+
+    // 6b. Con raiz de assets fijada (src<nombre> del proyecto abierto): las
+    //     rutas de la escena se guardan relativas y se resuelven al cargar.
+    //     Las escenas legacy (absolutas) se dejan intactas.
+    {
+        const std::string raiz = "/dato/MotorGrafico/JuegoX/srcJuegoX";
+        EditorConfig::fijarRaizAssets(raiz);
+        CHECK(EditorConfig::hayRaizAssets(), "con proyecto hay raiz de assets");
+
+        const std::string abs = raiz + "/Modelos/Auto/model.fbx";
+        const std::string rel = EditorConfig::relativizarRuta(abs);
+        CHECK(rel == "Modelos/Auto/model.fbx",
+              "ruta bajo la raiz se guarda relativa");
+        CHECK(EditorConfig::absolutizarRuta(rel) == abs,
+              "la relativa vuelve a absoluta al cargar");
+
+        CHECK(EditorConfig::relativizarRuta("/dato/Otro/fuera.fbx") ==
+                  "/dato/Otro/fuera.fbx",
+              "ruta fuera de la raiz se conserva absoluta");
+        CHECK(EditorConfig::absolutizarRuta("C:\\escena\\legacy\\x.dds") ==
+                  "C:\\escena\\legacy\\x.dds",
+              "absoluta legacy (windows) no se toca");
+        CHECK(EditorConfig::absolutizarRuta("/abs/legacy/x.dds") ==
+                  "/abs/legacy/x.dds",
+              "absoluta legacy (unix) no se toca");
+
+        // reemplazarPrefijoRuta NO depende del contexto: reescribe el prefijo
+        // de una ruta absoluta (base de la actualizacion tras mover/renombrar).
+        CHECK(EditorConfig::reemplazarPrefijoRuta(abs, raiz + "/Modelos",
+                                                  raiz + "/Assets/Modelos") ==
+                  raiz + "/Assets/Modelos/Auto/model.fbx",
+              "reescribe prefijo de carpeta movida");
+
+        EditorConfig::limpiarRaizAssets();
+        CHECK(EditorConfig::hayRaizAssets() == false,
+              "limpiar deja de relativizar");
+        CHECK(EditorConfig::absolutizarRuta("Modelos/Auto/model.fbx") ==
+                  "Modelos/Auto/model.fbx",
+              "sin raiz la relativa almacenada queda como estaba");
+    }
+
     // Reset (Fase 3): restablecer vuelve a los defaults de fabrica.
     {
         EditorConfig cfg;

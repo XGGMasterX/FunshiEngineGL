@@ -20,6 +20,7 @@
 
 #include <nlohmann/json.hpp>
 
+#include <cctype>
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
@@ -239,8 +240,92 @@ bool EditorConfig::renombrarProyecto(const std::string& viejo,
     return true;
 }
 
+bool EditorConfig::eliminarProyecto(const std::string& nombre) {
+    if (nombre.empty()) return false;
+
+    const std::string ruta = directorioProyecto(nombre);
+    std::error_code ec;
+    if (!std::filesystem::is_directory(ruta, ec) || ec) return false;
+
+    ec.clear();
+    std::filesystem::remove_all(ruta, ec);
+    return !ec;
+}
+
 std::string EditorConfig::directorioProyectoPorDefecto() {
     return directorioMemory("Nuevo Proyecto");
+}
+
+// ============================================================================
+// Raiz de assets activa (src<nombre> del proyecto abierto) y conversion de
+// rutas para la serializacion portable (ver EditorConfig.h).
+// ============================================================================
+
+namespace {
+
+// Raiz de assets del proyecto abierto en main; vacia cuando no hay proyecto
+// (tests, menú). Con raiz vacia las rutas se guardan/cargan tal cual.
+std::string& raizAssets() {
+    static std::string raiz;
+    return raiz;
+}
+
+// Dada una ruta y un prefijo candidato, dice si ruta cae exactamente bajo
+// prefijo (igual o seguida de un separador), respetando NUNCA igualar un
+// prefijo que no cierre en un separador (p.ej. "srcA" no debe cubrir "srcAb").
+bool rutaBajo(const std::string& ruta, const std::string& prefijo) {
+    if (ruta.size() < prefijo.size() ||
+        ruta.compare(0, prefijo.size(), prefijo) != 0)
+        return false;
+    if (ruta.size() == prefijo.size()) return true;
+    const char sep = ruta[prefijo.size()];
+    return sep == '/' || sep == '\\';
+}
+
+// Heuristica de ruta absoluta (legacy): empieza con separador (unix/windows)
+// o con letra de unidad ("C:"). Los almacenados relativos (nuevo formato)
+// nunca empiezan asi.
+bool esRutaAbsoluta(const std::string& ruta) {
+    if (ruta.empty()) return false;
+    if (ruta[0] == '/' || ruta[0] == '\\') return true;
+    return ruta.size() >= 2 &&
+           std::isalpha(static_cast<unsigned char>(ruta[0])) && ruta[1] == ':';
+}
+
+} // namespace
+
+void EditorConfig::fijarRaizAssets(const std::string& srcRoot) noexcept {
+    raizAssets() = srcRoot;
+}
+
+void EditorConfig::limpiarRaizAssets() noexcept {
+    raizAssets().clear();
+}
+
+bool EditorConfig::hayRaizAssets() noexcept {
+    return !raizAssets().empty();
+}
+
+std::string EditorConfig::relativizarRuta(const std::string& rutaAbsoluta) {
+    const std::string& raiz = raizAssets();
+    if (raiz.empty() || !rutaBajo(rutaAbsoluta, raiz)) return rutaAbsoluta;
+    if (rutaAbsoluta.size() == raiz.size()) return std::string();
+    return rutaAbsoluta.substr(raiz.size() + 1);
+}
+
+std::string EditorConfig::absolutizarRuta(const std::string& rutaGuardada) {
+    const std::string& raiz = raizAssets();
+    if (raiz.empty() || rutaGuardada.empty() || esRutaAbsoluta(rutaGuardada))
+        return rutaGuardada;
+    return raiz + "/" + rutaGuardada;
+}
+
+std::string EditorConfig::reemplazarPrefijoRuta(const std::string& ruta,
+                                                const std::string& anterior,
+                                                const std::string& reemplazo) {
+    if (anterior.empty() || anterior == reemplazo || !rutaBajo(ruta, anterior))
+        return std::string();
+    return reemplazo + ruta.substr(anterior.size());
 }
 
 // ============================================================================

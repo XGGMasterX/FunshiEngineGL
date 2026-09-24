@@ -47,6 +47,7 @@ enum class EditorEventType {
     SensibilidadMovimientoCambio, // multiplicador de la velocidad WASD -> escena
     ReiniciarConfiguracion, // "Restablecer configuracion" -> main reaplica defaults
     VentanaActivaCambio,  // reservado: ventana con foco ImGui (Settings futuro)
+    ArchivosReubicados,   // archivo/carpeta movido o renombrado en el explorador -> Reescribir referencias
 };
 
 // Datos declarativos segun el tipo (punteros NO propietarios; cadenas por
@@ -79,6 +80,12 @@ struct EditorEvent {
     // Para AparienciaCambio: el perfil COMPLETO (tema, B/N, acento y fondo).
     // Se transporta por valor como un DTO puro, sin punteros a la escena.
     Apariencia apariencia;
+
+    // Para ArchivosReubicados: rutas ABSOLUTAS anterior y nueva del elemento
+    // que se movio o renombro dentro del explorador. main (unico suscriptor)
+    // reescribe las referencias de la escena que cayan bajo rutaAnterior.
+    std::string rutaAnterior;
+    std::string rutaNueva;
 };
 
 // Bus pub/sub 1:1 con el patron de EventBus (SceneEvent) pero con EditorEvent.

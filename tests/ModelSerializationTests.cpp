@@ -33,6 +33,7 @@
 #include <string>
 
 #include "TempPruebas.h"
+#include "../FunshiEngineGL/src/Configuracion/EditorConfig.h"
 #include "../FunshiEngineGL/src/Objetos/Componentes/Model.h"
 
 namespace fs = std::filesystem;
@@ -197,6 +198,58 @@ int main() {
         std::ifstream in(archivo, std::ios::binary);
         modelo.loadComponent(&in);
         CHECK(true, "archivo truncado no lanza excepciones");
+    }
+
+    // 7. Serializacion portable con raiz de assets fijada (src<nombre>): el
+    //    path bajo esa raiz se PERSISTE relativo (la escena sigue valida al
+    //    mover/renombrar el proyecto) y al cargar se resuelve a absoluto.
+    {
+        const std::string raiz = "/motor/MotorGrafico/MiJuego/srcMiJuego";
+        EditorConfig::fijarRaizAssets(raiz);
+
+        const fs::path archivo = base / "relativa.bin";
+        const std::string abs = raiz + "/Modelos/Nave/nave.fbx";
+        {
+            Model modelo;
+            modelo.setPath(abs);
+            std::ofstream out(archivo, std::ios::binary);
+            modelo.saveComponent(&out);
+            escribirMarcador(out, marcador);
+        }
+        // Lo que quedo en disco es la ruta RELATIVA (no la absoluta original).
+        {
+            std::ifstream formatoOut(archivo, std::ios::binary);
+            CHECK(leerPayloadCrudo(formatoOut) == "Modelos/Nave/nave.fbx",
+                  "se persiste la ruta relativa a la raiz de assets");
+        }
+        Model modelo;
+        std::ifstream in(archivo, std::ios::binary);
+        modelo.loadComponent(&in);
+        CHECK(modelo.getPath() == abs,
+              "la relativa se resuelve a absoluta al cargar");
+        CHECK(leerPayloadCrudo(in) == marcador,
+              "stream alineado tras path relativo");
+
+        EditorConfig::limpiarRaizAssets();
+    }
+
+    // 8. Escena legacy: un path ABSOLUTO persistido (formato viejo) se carga
+    //    intacto aunque haya raiz de assets fijada.
+    {
+        const std::string raiz = "/motor/MotorGrafico/Otro/srcOtro";
+        EditorConfig::fijarRaizAssets(raiz);
+        const fs::path archivo = base / "legacy_abs.bin";
+        const std::string absoluto = "/legacy/Absoluto/cubo.obj";
+        {
+            std::ofstream out(archivo, std::ios::binary);
+            escribirPayloadCrudo(out, absoluto);
+        }
+        Model modelo;
+        std::ifstream in(archivo, std::ios::binary);
+        modelo.loadComponent(&in);
+        CHECK(modelo.getPath() == absoluto,
+              "path absoluto legacy se conserva tal cual");
+        EditorConfig::limpiarRaizAssets();
     }
 
     std::cout << (fallos == 0 ? "OK" : "FALLOS") << ": " << (total - fallos)

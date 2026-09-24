@@ -196,6 +196,12 @@ void MenuView::renderizarListaProyectos() {
                     abrirModalRenombrar = true;
                     ImGui::CloseCurrentPopup();
                 }
+                if (ImGui::MenuItem(
+                        model->traducir("eliminar_proyecto").c_str())) {
+                    proyectoEliminando = nombre;
+                    abrirModalEliminar = true;
+                    ImGui::CloseCurrentPopup();
+                }
                 ImGui::EndPopup();
             }
         }
@@ -232,16 +238,49 @@ void MenuView::renderizarListaProyectos() {
             ImGui::CloseCurrentPopup();
         }
         if (confirmado && esValido) {
-            // Registra la carpeta original para que main renombre en disco;
-            // tambien precarga el formulario lateral con el nuevo nombre.
+            // Confirmar renombra YA: se fija el nuevo nombre en el modelo y se
+            // registra la carpeta original; main aplica el rename en disco el
+            // proximo frame al detectar el cambio (mismo mecanismo que elegir
+            // un proyecto de la lista). El formulario lateral se sincroniza
+            // con el nombre confirmado (sin marcarlo como pendiente).
             model->setProyectoARenombrar(proyectoRenombrando);
+            model->setNombreProyecto(nombreRenombrarBuffer);
             std::strncpy(nombreProyectoBuffer, nombreRenombrarBuffer,
                           sizeof(nombreProyectoBuffer) - 1);
             nombreProyectoBuffer[sizeof(nombreProyectoBuffer) - 1] = '\0';
-            nombreProyectoPendiente = true;
+            nombreProyectoPendiente = false;
             proyectoRenombrando.clear();
             std::memset(nombreRenombrarBuffer, 0,
                         sizeof(nombreRenombrarBuffer));
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndPopup();
+    }
+
+    if (abrirModalEliminar) {
+        ImGui::OpenPopup("EliminarProyecto");
+        abrirModalEliminar = false;
+    }
+    if (!proyectoEliminando.empty() &&
+        ImGui::BeginPopupModal("EliminarProyecto", NULL,
+                               ImGuiWindowFlags_AlwaysAutoResize)) {
+        ImGui::Text("%s", model->traducir("aviso_eliminar").c_str());
+        ImGui::TextUnformatted(proyectoEliminando.c_str());
+        ImGui::Separator();
+        // Confirmar registra en el modelo la carpeta a eliminar; main la borra
+        // de disco el proximo frame al detectar el cambio (mismo mecanismo que
+        // el renombre por click derecho).
+        const bool borrarConfirmado =
+            ImGui::Button(model->traducir("eliminar").c_str(), ImVec2(140, 0)) ||
+            (ImGui::IsItemFocused() && ImGui::IsKeyPressed(ImGuiKey_Enter));
+        ImGui::SameLine();
+        if (ImGui::Button(model->traducir("volver").c_str(), ImVec2(140, 0))) {
+            proyectoEliminando.clear();
+            ImGui::CloseCurrentPopup();
+        }
+        if (borrarConfirmado) {
+            model->setProyectoAEliminar(proyectoEliminando);
+            proyectoEliminando.clear();
             ImGui::CloseCurrentPopup();
         }
         ImGui::EndPopup();

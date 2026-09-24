@@ -56,6 +56,10 @@ private:
     std::string proyectoRenombrando;
     bool abrirModalRenombrar = false;
     char nombreRenombrarBuffer[256] = "";
+    // Modal de eliminacion: proyecto a eliminar y bandera que pide abrir el
+    // modal ("EliminarProyecto": aviso irreversible + Eliminar/Cancelar).
+    std::string proyectoEliminando;
+    bool abrirModalEliminar = false;
 
     void renderizarPrincipal();
     void renderizarListaProyectos();

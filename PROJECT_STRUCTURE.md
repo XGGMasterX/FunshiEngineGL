@@ -227,6 +227,13 @@ FunshiEngineGL/                          ← raíz del repo
             ├── SceneRegistry.h/.cpp      ← ownership único (unique_ptr) + árbol + vista lineal
             ├── EditorController.h/.cpp   ← mutaciones + GizmoTarget + registro de física
             ├── SceneSerializer.h/.cpp    ← save/load binario preorden con marcadores =>/<=
+            ├── RutasReescritura.h/.cpp   ← reescribe referencias (model/textura/script) al
+            │                                mover/renombrar assets en el explorador
+            ├── ManifiestoAssets.h/.cpp   ← manifiesto SceneAssets.json (add-on del .db):
+            │                                guarda/carga rutas de asset por objeto con
+            │                                precedencia sobre el binario (Ctrl+S)
+            ├── ManifiestoAssetsCore.h/.cpp ← núcleo puro headless (JSON + relativizar/
+            │                                absolutizar + precedencia); tests propios
         └── States/
             ├── ApplicationStateMachine.h/.cpp ← MainMenu/Editing/Playing/Exiting
             └── OrquestadorEstadoGUI.h/.cpp    ← reglas de transición menú↔editor (Fase 1;

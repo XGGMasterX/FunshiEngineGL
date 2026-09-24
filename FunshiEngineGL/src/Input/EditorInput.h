@@ -18,6 +18,8 @@
 */
 #ifndef EDITOR_INPUT_H
 #define EDITOR_INPUT_H
+#include <functional>
+
 struct GLFWwindow;
 
 class GameScene;
@@ -63,6 +65,11 @@ public:
     // esto el primer movimiento del mouse "teletransporta" la mirada.
     void descartarDeltaLook();
 
+    // Accion que se dispara con Ctrl+S (guardado en caliente del proyecto).
+    // Se inyecta desde main (patron del EditorEventBus): EditorInput no
+    // conoce proyectos ni configuracion.
+    void setAccionGuardar(std::function<void()> accion);
+
     static void teclado_callback(GLFWwindow* window, int key, int scancode,
                                  int action, int mods);
     static void mouse_callback(GLFWwindow* window, double xpos, double ypos);
@@ -77,6 +84,9 @@ private:
     GameScene* scene;
     ApplicationStateMachine* appState;
     OrquestadorEstadoGUI* orquestador;
+    // Guardado en caliente (Ctrl+S): inyectado por main con la misma rutina
+    // que el guardado al salir.
+    std::function<void()> accionGuardar;
 
     // Maquina de estado del movimiento: que teclas estan APRETADAS ahora
     // (onKey solo las setea con PRESS/RELEASE; aplicarMovimiento las combina).

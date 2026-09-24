@@ -81,6 +81,10 @@ void EditorInput::descartarDeltaLook() {
     firstTimeMouseY = true;
 }
 
+void EditorInput::setAccionGuardar(std::function<void()> accion) {
+    accionGuardar = std::move(accion);
+}
+
 void EditorInput::aplicarMovimiento(float deltaTime) {
     // La camara del editor solo se mueve con WASD/Espacio/Shift dentro del
     // editor (ni en el menu ni cuando ImGui esta capturando el teclado, p. ej.
@@ -131,6 +135,16 @@ void EditorInput::onKey(GLFWwindow* window, int key, int scancode, int action,
             orquestador->manejarTeclaEscape();
         }
         aplicarModoCursor(window);
+        return;
+    }
+
+    // Ctrl+S: guardado en caliente del proyecto (misma rutina que el guardado
+    // al salir, inyectada por main). Se intercepta ANTES de la maquina de
+    // movimiento para que el "S" con Ctrl no mueva la camara hacia atras, y
+    // con el mismo guard que Escape: si un campo de texto de ImGui esta
+    // capturando el teclado, la combinacion es del editor de texto.
+    if (key == GLFW_KEY_S && (mods & GLFW_MOD_CONTROL) && action == GLFW_PRESS) {
+        if (accionGuardar && !ImGui::GetIO().WantCaptureKeyboard) accionGuardar();
         return;
     }
 
