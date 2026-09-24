@@ -22,18 +22,19 @@ por arrastre y escribir scripts con la API exacta que expone el motor.
 2. [Proyectos y estructura de carpetas](#2-proyectos-y-estructura-de-carpetas)
 3. [Recorrido del editor](#3-recorrido-del-editor)
 4. [Objetos y componentes](#4-objetos-y-componentes)
-5. [Assets por drag & drop](#5-assets-por-drag--drop)
-6. [Fisica](#6-fisica)
-7. [Audio](#7-audio)
-8. [Interfaces de juego (HUD)](#8-interfaces-de-juego-hud)
-9. [Camaras](#9-camaras)
-10. [Guardar y abrir escenas](#10-guardar-y-abrir-escenas)
-11. [Apariencia y configuracion del editor](#11-apariencia-y-configuracion-del-editor)
-12. [Scripts: conceptos y ciclo de vida](#12-scripts-conceptos-y-ciclo-de-vida)
-13. [Scripting C++: referencia completa](#13-scripting-c-referencia-completa)
-14. [Scripting Java (JNI)](#14-scripting-java-jni)
-15. [Hot reload y depuracion](#15-hot-reload-y-depuracion)
-16. [Problemas frecuentes](#16-problemas-frecuentes)
+5. [Undo / redo de operaciones del editor](#5-undo--redo-de-operaciones-del-editor)
+6. [Assets por drag & drop](#6-assets-por-drag--drop)
+7. [Física](#7-física)
+8. [Audio](#8-audio)
+9. [Interfaces de juego (HUD)](#9-interfaces-de-juego-hud)
+10. [Cámaras](#10-cámaras)
+11. [Guardar y abrir escenas](#11-guardar-y-abrir-escenas)
+12. [Apariencia y configuración del editor](#12-apariencia-y-configuración-del-editor)
+13. [Scripts: conceptos y ciclo de vida](#13-scripts-conceptos-y-ciclo-de-vida)
+14. [Scripting C++: referencia completa](#14-scripting-c-referencia-completa)
+15. [Scripting Java (JNI)](#15-scripting-java-jni)
+16. [Hot reload y depuración](#16-hot-reload-y-depuración)
+17. [Problemas frecuentes](#17-problemas-frecuentes)
 
 ---
 
@@ -144,6 +145,8 @@ ImGui la combinacion la consume el editor de texto y no guarda.
 | `F6` | Pausar/reanudar la simulacion (solo durante el play; congela fisica y scripts sin salir) |
 | `F7` | Detener la simulacion y volver al modo edicion |
 | `Ctrl+S` | Guardar el proyecto en caliente (escena + manifiesto + config) |
+| `Ctrl+Z` | Deshacer ultima accion del editor (undo) |
+| `Ctrl+Y` | Rehacer accion deshecha (redo) |
 | `Escape` | Volver al menu de inicio |
 | `1` / `T` | Gizmo: traslacion |
 | `2` / `R` | Gizmo: rotacion |
@@ -175,7 +178,31 @@ viewport lo selecciona; el Inspector muestra sus componentes a la derecha.
 
 ---
 
-## 5. Assets por drag & drop
+## 5. Undo / redo de operaciones del editor
+
+Todas las operaciones del editor estan encapsuladas en comandos (patron
+Command) que admiten undo y redo. `EditorController` posee un
+`GestorComandos` que mantiene dos pilas (undo/redo) con un maximo de 50
+entradas; cada nueva accion invalida la pila de redo.
+
+| Accion | Comando que la envuelve |
+|---|---|
+| Crear objeto | `CrearObjetoComando` |
+| Borrar objeto | `BorrarObjetoComando` |
+| Reparentar (arrastrar en jerarquia) | `ReparentarComando` |
+| Modificar transform (posicion/rotacion/escala) | `TransformComando` |
+| Agregar componente | `AgregarComponenteComando` |
+| Quitar componente | `QuitarComponenteComando` |
+| Limpiar escena (borrar todos los objetos no-raiz) | `LimpiarEscenaComando` |
+
+**Atributos de los comandos:** cada comando captura el estado antes de mutar
+(posicion del padre, id del objeto, transform anterior, componentes) y lo
+almacena por valor para poder restaurarlo exactamente. La raiz de la escena
+(id=0) esta excluida de delete/clear por diseno.
+
+---
+
+## 6. Assets por drag & drop
 
 El explorador de archivos (arbol + grid) emite el payload ImGui
 `ARCHIVO_PATH` (path completo del asset) al arrastrar. Receptores del editor:
@@ -202,7 +229,7 @@ menos 4096 bytes, de modo que paths largos no se truncan (el componente
 
 ---
 
-## 6. Fisica
+## 7. Física
 
 - Colliders de esfera, cubo o malla; con `RigidBody` participan de la
   simulacion Bullet. Solo simula en modo **Play**: en edicion el gizmo mueve
@@ -214,7 +241,7 @@ menos 4096 bytes, de modo que paths largos no se truncan (el componente
 
 ---
 
-## 7. Audio
+## 8. Audio
 
 - Coloca los clips en `Sonidos/` (wav/mp3/etc.). `AudioClipsManager` los
   descubre y los registra **por nombre** en el `AudioEngine` al escanear.
@@ -225,7 +252,7 @@ menos 4096 bytes, de modo que paths largos no se truncan (el componente
 
 ---
 
-## 8. Interfaces de juego (HUD)
+## 9. Interfaces de juego (HUD)
 
 - Crea el asset de interfaz con el **CreadorDeInterfaces** (genera un JSON en
   `Interfaces/<nombre>.json`).
@@ -236,7 +263,7 @@ menos 4096 bytes, de modo que paths largos no se truncan (el componente
 
 ---
 
-## 9. Camaras
+## 10. Cámaras
 
 - `CameraComponent` con **vistas previas en vivo** (render a FBO); detalle
   completo en [CAMARAS_VISTAS_PREVIAS.md](CAMARAS_VISTAS_PREVIAS.md).
@@ -245,7 +272,7 @@ menos 4096 bytes, de modo que paths largos no se truncan (el componente
 
 ---
 
-## 10. Guardar y abrir escenas
+## 11. Guardar y abrir escenas
 
 El guardado se hace desde la barra de menu de la escena. Las escenas son
 binarias (`Memory/Binarios/Scene`), con serializacion en preorden y marcadores
@@ -307,7 +334,7 @@ MotorGrafico\Exportaciones\MiJuego\MiJuego.exe
 
 ---
 
-## 11. Apariencia y configuracion del editor
+## 12. Apariencia y configuración del editor
 
 - Tema claro/oscuro, modo blanco y negro (desatura la interfaz completa y
   acompaña fondo y grilla del viewport), color de acento (solo RGB: la
@@ -331,7 +358,7 @@ MotorGrafico\Exportaciones\MiJuego\MiJuego.exe
 
 ---
 
-## 12. Scripts: conceptos y ciclo de vida
+## 13. Scripts: conceptos y ciclo de vida
 
 Los comportamientos del juego se escriben como **scripts dinamicos**: archivos
 `.cpp` o `.java` dentro del proyecto que el editor compila en caliente y
@@ -355,7 +382,7 @@ ejecuta en modo Play.
 
 ---
 
-## 13. Scripting C++: referencia completa
+## 14. Scripting C++: referencia completa
 
 ### 13.1 Plantilla (identica a la que genera el editor)
 
@@ -585,7 +612,7 @@ void onUpdate(GameObject* owner, float deltaTime) override {
 
 ---
 
-## 14. Scripting Java (JNI)
+## 15. Scripting Java (JNI)
 
 Requiere que el motor se haya compilado con el JDK disponible
 (`FUNSHI_JAVA=ON`); la ventana Estado muestra `javac`, `libjvm` y si el
@@ -623,7 +650,7 @@ public class MiScript implements Comportamiento {
 
 ---
 
-## 15. Hot reload y depuracion
+## 16. Hot reload y depuración
 
 - **C++:** guardar el `.cpp` en Play recompila; el editor compara el mtime del
   fuente con el del artefacto cargado. Los valores SerializeField se extraen
@@ -639,7 +666,7 @@ public class MiScript implements Comportamiento {
 
 ---
 
-## 16. Problemas frecuentes
+## 17. Problemas frecuentes
 
 **El modelo arrastrado no aparece al recargar la escena.**
 Versiones anteriores guardaban el path del componente `Model` en un buffer de

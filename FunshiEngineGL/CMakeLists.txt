@@ -22,10 +22,6 @@ set(SRC_DIR ${CMAKE_SOURCE_DIR}/src)
 file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS ${SRC_DIR}/*.cpp ${SRC_DIR}/*.c)
 file(GLOB_RECURSE HEADERS CONFIGURE_DEPENDS ${SRC_DIR}/*.h ${SRC_DIR}/*.hpp)
 
-# Excluir Comandos/ (sistema WIP no integrado)
-list(FILTER SOURCES EXCLUDE REGEX ".*/Comandos/.*\\.cpp$")
-list(FILTER HEADERS EXCLUDE REGEX ".*/Comandos/.*\\.h$")
-
 # El motor se compila como libreria estatica (funshi_engine) y el ejecutable
 # solo aporta el punto de entrada (main.cpp). Asi el engine es reutilizable
 # (tests, herramientas, otros front-ends) sin recompilar todo. CI puede compilar
@@ -239,7 +235,30 @@ else()
     target_link_libraries(funshi_engine PRIVATE glm::glm)
 endif()
 
-endif() # BUILD_ENGINE
+endif()
+
+# Comandos (sistema undo/redo): se enlaza con funshi_engine que provee todas las
+# dependencias del motor (ImGui, componentes, EditorController, SceneRegistry).
+# Solo se compila el archivo de test; las fuentes del motor vienen del engine.
+add_executable(comandos-tests
+    ${CMAKE_CURRENT_SOURCE_DIR}/../tests/ComandosTests.cpp
+)
+target_include_directories(comandos-tests PRIVATE
+    ${SRC_DIR}
+    ${CMAKE_SOURCE_DIR}/External
+    ${CMAKE_SOURCE_DIR}/External/imgui
+)
+target_link_libraries(comandos-tests PRIVATE funshi_engine)
+set_target_properties(comandos-tests PROPERTIES
+    CXX_STANDARD 17
+    CXX_STANDARD_REQUIRED ON
+    CXX_EXTENSIONS OFF
+)
+add_test(NAME comandos-tests COMMAND comandos-tests)
+
+if(WIN32)
+    target_link_libraries(comandos-tests PRIVATE dbghelp)
+endif()
 
 # --- Pruebas headless del subsistema FileManager (sin pila gráfica) ---------
 # Compilan en cualquier plataforma (solo std C++17 + los headers de ImGui para
@@ -575,46 +594,4 @@ if(WIN32)
     target_link_libraries(assetmanager-tests PRIVATE dbghelp)
     target_link_libraries(texturemanager-tests PRIVATE dbghelp)
     target_link_libraries(estructuras-tests PRIVATE dbghelp)
-endif()
-
-# Comandos (sistema undo/redo): headless y portable - WIP
-# Incluye GUI headers que requieren imgui; se enlaza con funshi_engine que ya tiene imgui
-add_executable(comandos-tests
-    ${SRC_DIR}/Comandos/CrearObjetoComando.cpp
-    ${SRC_DIR}/Comandos/BorrarObjetoComando.cpp
-    ${SRC_DIR}/Comandos/ReparentarComando.cpp
-    ${SRC_DIR}/Comandos/AgregarComponenteComando.cpp
-    ${SRC_DIR}/Comandos/QuitarComponenteComando.cpp
-    ${SRC_DIR}/Comandos/TransformComando.cpp
-    ${SRC_DIR}/Comandos/LimpiarEscenaComando.cpp
-    ${SRC_DIR}/Scenes/EditorController.cpp
-    ${SRC_DIR}/Scenes/SceneRegistry.cpp
-    ${SRC_DIR}/Scenes/GameScene.cpp
-    ${SRC_DIR}/Objetos/GameObject.cpp
-    ${SRC_DIR}/Objetos/Modelos3D.cpp
-    ${SRC_DIR}/Objetos/Componentes/Transform.cpp
-    ${SRC_DIR}/Objetos/Componentes/ComponentFactory.cpp
-    ${SRC_DIR}/Objetos/Componentes/Color.cpp
-    ${SRC_DIR}/Objetos/Componentes/CameraComponent.cpp
-    ${SRC_DIR}/Objetos/Componentes/AudioSource.cpp
-    ${SRC_DIR}/Objetos/Componentes/InterfaceComponent.cpp
-    ${SRC_DIR}/Objetos/Componentes/Model.cpp
-    ${SRC_DIR}/Events/EventBus.cpp
-    ${SRC_DIR}/Events/EditorEventBus.cpp
-    ${SRC_DIR}/GestorDeArchivos/Binario.cpp
-    ${SRC_DIR}/Entity/Entity.cpp
-    ${SRC_DIR}/ExcepcionesCPP/RuntimeException.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../tests/ComandosTests.cpp
-)
-target_include_directories(comandos-tests PRIVATE ${SRC_DIR} ${CMAKE_SOURCE_DIR}/External ${CMAKE_SOURCE_DIR}/External/imgui)
-target_link_libraries(comandos-tests PRIVATE funshi_engine)
-set_target_properties(comandos-tests PROPERTIES
-    CXX_STANDARD 17
-    CXX_STANDARD_REQUIRED ON
-    CXX_EXTENSIONS OFF
-)
-add_test(NAME comandos-tests COMMAND comandos-tests)
-
-if(WIN32)
-    target_link_libraries(comandos-tests PRIVATE dbghelp)
 endif()

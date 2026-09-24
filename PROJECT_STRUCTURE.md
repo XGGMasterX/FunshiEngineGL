@@ -226,6 +226,16 @@ FunshiEngineGL/                          ← raíz del repo
         │           ├── EsfereCollider.*  ← btSphereShape
         │           ├── CubeCollider.*    ← btBoxShape (half extents = radio)
         │           └── MallaCollider.*   ← btConvexHullShape a partir de la malla
+        ├── Comandos/
+        │   ├── IComando.h              ← interfaz Command: ejecutar(), deshacer(), descripcion()
+        │   ├── GestorComandos.h/.cpp   ← pilas undo/redo (máx 50), ejecuta/deshace/rehace
+        │   ├── CrearObjetoComando.h/.cpp
+        │   ├── BorrarObjetoComando.h/.cpp
+        │   ├── ReparentarComando.h/.cpp
+        │   ├── TransformComando.h/.cpp
+        │   ├── AgregarComponenteComando.h/.cpp
+        │   ├── QuitarComponenteComando.h/.cpp
+        │   └── LimpiarEscenaComando.h/.cpp
         └── Scenes/
             ├── GameScene.h/.cpp          ← coordinador del frame: render, GUI, física, gizmo,
             │                                previews y pasada de la grilla
@@ -320,6 +330,13 @@ internamente `GUIManager`, `SceneRegistry`, `EditorController`, `SceneSerializer
   se aplican sobre la máquina desde ahí; conviven con flags de UI legados
   (`menuActivo`, `start`) con roles documentados — `start` lo manejan a la vez el
   botón Activar/Detener del menú de escena y el reflejo de F5/F7.
+- `EditorController` posee un `GestorComandos` que envuelve cada mutación
+  (crear/borrar/reparentar, cambios de transform, agregar/quitar componentes,
+  limpiar escena) en un `IComando`. Las operaciones de la GUI van por el
+  gestor, nunca directamente al `SceneRegistry`, de modo que Ctrl+Z/Ctrl+Y
+  funcionan de forma transversal. La pila mantiene un máximo de 50 comandos;
+  cada nueva acción invalida la pila de redo. La raíz de la escena (id=0)
+  está excluida de delete/clear por diseño.
 
 ### Entidades, objetos y componentes
 

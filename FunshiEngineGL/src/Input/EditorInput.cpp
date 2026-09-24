@@ -29,6 +29,7 @@
 #include "../States/ApplicationStateMachine.h"
 #include "../States/OrquestadorEstadoGUI.h"
 #include "ImGuizmo.h"
+#include "../Scenes/EditorController.h"
 
 EditorInput* EditorInput::instancia = nullptr;
 
@@ -156,6 +157,28 @@ void EditorInput::onKey(GLFWwindow* window, int key, int scancode, int action,
     // capturando el teclado, la combinacion es del editor de texto.
     if (key == GLFW_KEY_S && (mods & GLFW_MOD_CONTROL) && action == GLFW_PRESS) {
         if (accionGuardar && !ImGui::GetIO().WantCaptureKeyboard) accionGuardar();
+        return;
+    }
+
+    // Ctrl+Z: deshacer (undo)
+    if (key == GLFW_KEY_Z && (mods & GLFW_MOD_CONTROL) &&
+        !(mods & GLFW_MOD_SHIFT) && action == GLFW_PRESS) {
+        if (scene && !ImGui::GetIO().WantCaptureKeyboard) {
+            if (auto* ec = scene->getEditorController()) {
+                if (ec->puedeDeshacer()) ec->deshacer();
+            }
+        }
+        return;
+    }
+
+    // Ctrl+Shift+Z: rehacer (redo)
+    if (key == GLFW_KEY_Z && (mods & GLFW_MOD_CONTROL) &&
+        (mods & GLFW_MOD_SHIFT) && action == GLFW_PRESS) {
+        if (scene && !ImGui::GetIO().WantCaptureKeyboard) {
+            if (auto* ec = scene->getEditorController()) {
+                if (ec->puedeRehacer()) ec->rehacer();
+            }
+        }
         return;
     }
 

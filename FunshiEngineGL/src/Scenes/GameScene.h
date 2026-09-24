@@ -227,6 +227,10 @@ public:
     bool isEditorActivo() const;
     void clearSelection();
 
+    // Acceso al controlador del editor para comandos (undo/redo)
+    EditorController* getEditorController() noexcept { return editorController.get(); }
+    const EditorController* getEditorController() const noexcept { return editorController.get(); }
+
     // Sensibilidad del mouse look (la setea main desde MenuGUI/Opciones).
     float getSensibilidadCamara() const noexcept;
     void setSensibilidadCamara(float sensibilidad) noexcept;
