@@ -122,11 +122,11 @@ void MenuGUI::limpiarProyectoAEliminar() noexcept {
 }
 
 void MenuGUI::actualizarProyectos() {
-    // Los proyectos son carpetas del directorio base de MotorGrafico (una por
+    // Los proyectos son carpetas de MotorGrafico/Proyects/ (una por
     // proyecto: Memory + src<Nombre>). Vista unica, sin duplicar la logica;
     // los accesos fallidos se toleran silenciosamente (no hay proyectos).
     std::vector<std::string> proyectos;
-    const std::string base = EditorConfig::directorioBaseMotorGrafico();
+    const std::string base = EditorConfig::directorioProyects();
     std::error_code ec;
     std::filesystem::directory_iterator it(base, ec);
     const std::filesystem::directory_iterator fin;

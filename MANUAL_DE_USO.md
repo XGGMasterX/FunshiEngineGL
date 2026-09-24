@@ -69,16 +69,31 @@ cmake --build FunshiEngineGL/build -j$(nproc)
 ## 2. Proyectos y estructura de carpetas
 
 Al crear un proyecto, el motor genera la estructura bajo
-`{app}/MotorGrafico/<proyecto>/`:
+`{app}/MotorGrafico/Proyects/<proyecto>/`:
 
 ```
-<proyecto>/
-├── Memory/Binarios/Scene        ← escenas binarias
-└── src<proyecto>/               ← assets del proyecto
-    ├── modelos/                 ← .obj/.fbx que arrastra el editor
-    ├── Sonidos/                 ← clips de audio (.wav/.mp3/...)
-    ├── Interfaces/              ← assets JSON del CreadorDeInterfaces
-    └── Scripts/                 ← scripts del usuario (.cpp/.java)
+MotorGrafico/
+├── Proyects/
+│   └── <proyecto>/
+│       ├── Memory/
+│       │   ├── Binarios/Scene        ← escenas binarias
+│       │   ├── Interfaces/           ← assets JSON del CreadorDeInterfaces
+│       │   ├── ConfiguracionProyecto.json
+│       │   └── imgui.ini
+│       └── src<proyecto>/            ← assets del proyecto (raiz del explorador)
+│           ├── modelos/              ← .obj/.fbx que arrastra el editor
+│           ├── Sonidos/              ← clips de audio (.wav/.mp3/...)
+│           └── Scripts/              ← scripts del usuario (.cpp/.java)
+├── Configuraciones/
+│   └── Configuracion.json            ← configuracion global (tema, idioma, sensibilidad)
+└── Exportaciones/
+    └── <nombreExportacion>/          ← juegos exportados (ver seccion 10.1)
+        ├── <Juego>.exe / <Juego>     ← ejecutable standalone
+        ├── Data/
+        │   ├── Memory/
+        │   ├── Sonidos/
+        │   └── ConfiguracionProyecto.json
+        └── lib/                      ← dependencias runtime (Bullet, miniaudio, GLFW, etc.)
 ```
 
 La convencion de assets por nombre usa carpetas `Sonidos/` e `Interfaces/` con
@@ -248,24 +263,47 @@ estructura la jerarquia y se serializa (id 0).
 > truncados con seguridad (los lectores acotan con `std::min`), pero el valor
 > largo se pierde.
 
-### 10.1 Exportar juego (distribucion)
+### 10.1 Exportar juego (distribucion standalone)
 
-Menu **Archivo > Exportar juego** (barra superior del editor). Copia la
-carpeta completa del proyecto actual (`MotorGrafico/<proyecto>`) a
-`MotorGrafico/Exportaciones/<proyecto>`. El resultado incluye:
+Menu **Archivo > Exportar juego** (barra superior del editor). Abre un dialogo
+modal para configurar la exportacion:
 
-- `Memory/` (escenas, interfaces, imgui.ini, ConfiguracionProyecto.json)
-- `Sonidos/` (clips de audio)
-- `src<proyecto>/` (mallas, texturas, scripts fuente)
-- `ConfiguracionProyecto.json`
+| Campo | Descripcion |
+|---|---|
+| **Nombre del ejecutable** | Nombre del binario final (sin extension). |
+| **Nombre del proyecto exportado** | Nombre de la carpeta bajo `MotorGrafico/Exportaciones/`. |
+| **Plataforma objetivo** | Linux (nativo) o Windows (cross-compile MinGW). |
 
-Para lanzar el juego exportado:
+Al pulsar **Exportar**, el motor:
+
+1. Genera un proyecto CMake temporal que compila el **engine runtime-only**
+   (`funshi_runtime`: sin ImGui, editor, Assimp; solo GLFW, OpenGL, Bullet,
+   miniaudio, nlohmann/json, GLM).
+2. Recompila los scripts de usuario (BackendCpp) en el build de exportacion.
+3. Compila el ejecutable del juego linkando contra `funshi_runtime`.
+4. Empaqueta en `MotorGrafico/Exportaciones/<nombre>/`:
+   - Ejecutable (`<nombre>.exe` en Windows, `<nombre>` en Linux).
+   - Carpeta `Data/` con `Memory/`, `Sonidos/`, `ConfiguracionProyecto.json`.
+   - Carpeta `lib/` con dependencias bundleadas (`.dll` / `.so`).
+
+El dialogo muestra un **spinner indeterminado** (barra de progreso falsa) mientras
+se ejecuta la compilacion; el proceso no bloquea el editor.
+
+**Requisitos para cross-compile Windows:** toolchain MinGW instalado
+(`x86_64-w64-mingw32-g++`, `x86_64-w64-mingw32-gcc`, `windres`).
+
+**Lanzar el juego exportado:**
+```bash
+# Linux
+./MotorGrafico/Exportaciones/MiJuego/MiJuego
+
+# Windows
+MotorGrafico\Exportaciones\MiJuego\MiJuego.exe
 ```
-FunshiEngineGL --proyecto <nombre>
-```
-El flag `--proyecto` salta el menu de inicio y abre el proyecto directamente
-(en modo editor con paneles). Para un launcher final, se anadiria el modo
-play automatico.
+
+> El flag `--proyecto` del binario del editor sigue disponible para desarrollo
+> (salta el menu y abre el proyecto en modo editor). El exportado standalone
+> no requiere el editor ni dependencias de desarrollo.
 
 ---
 

@@ -1,8 +1,35 @@
-# FunshiEngineGL - Documentacion
+## 11. Estructura de carpetas MotorGrafico/
 
-Motor de juegos 3D con OpenGL e ImGui. Este archivo resume los controles,
-la navegacion del editor y la configuracion relacionados con las funciones
-agregadas mas recientes (camara, gizmo, callbacks, logs).
+El motor organiza sus datos junto al ejecutable (`{app}/MotorGrafico/`):
+
+```
+MotorGrafico/
+├── Proyects/
+│   └── <proyecto>/
+│       ├── Memory/
+│       │   ├── Binarios/Scene
+│       │   ├── Interfaces/
+│       │   ├── ConfiguracionProyecto.json
+│       │   └── imgui.ini
+│       └── src<proyecto>/
+│           ├── modelos/
+│           ├── Sonidos/
+│           └── Scripts/
+├── Configuraciones/
+│   └── Configuracion.json        ← global (tema, idioma, sensibilidad, ultimo proyecto)
+└── Exportaciones/
+    └── <nombreExportacion>/
+        ├── <Juego>.exe / <Juego>
+        ├── Data/
+        │   ├── Memory/
+        │   ├── Sonidos/
+        │   └── ConfiguracionProyecto.json
+        └── lib/                   ← deps runtime (Bullet, miniaudio, GLFW, etc.)
+```
+
+Al arrancar, `EditorConfig::asegurarEstructuraProyecto()` crea la estructura
+y migra automaticamente proyectos antiguos (directamente bajo `MotorGrafico/`)
+a `MotorGrafico/Proyects/`, y la config global a `Configuraciones/`.
 
 ## 1. Como lanzar (sin terminal atras de la ventana)
 
@@ -150,26 +177,43 @@ del creador persiste).
 Para agregar: click derecho en inspector > **Agregar Interfaz** > edita
 el nombre del asset.
 
-## 10. Exportar juego
+## 10. Exportar juego (distribucion standalone)
 
 Desde el editor: menu **Archivo > Exportar juego** (barra superior).
-Copia recursivamente la carpeta completa del proyecto actual
-(`MotorGrafico/<proyecto>`) a
-`MotorGrafico/Exportaciones/<proyecto>`. El resultado es una carpeta
-autocontenida con:
-- `Memory/` (escenas, interfaces, imgui.ini, ConfiguracionProyecto.json)
-- `Sonidos/` (clips de audio)
-- `src<proyecto>/` (mallas, texturas, scripts fuente)
-- `ConfiguracionProyecto.json`
+Abre un dialogo modal con configuracion:
 
-Para distribuir: entrega el ejecutable del motor junto a la carpeta
-`Exportaciones/<proyecto>`. El usuario (o un launcher) arranca:
-```
-FunshiEngineGL --proyecto <nombre>
-```
-El flag `--proyecto` salta el menu de inicio y abre directo el
-proyecto en modo editor (con paneles visibles). En un launcher final
-se cambiaria a modo play automatico.
+| Campo | Descripcion |
+|---|---|
+| **Nombre del ejecutable** | Nombre del binario final (sin extension). |
+| **Nombre del proyecto exportado** | Nombre de la carpeta bajo `MotorGrafico/Exportaciones/`. |
+| **Plataforma objetivo** | Linux (nativo) o Windows (cross-compile MinGW). |
 
-Feedback: el resultado (exito/ruta o error) aparece 4 segundos en la
-**Barra de Estado** (ventana "Estado") y en la consola/log.
+Al pulsar **Exportar**, el motor ejecuta en hilo separado (no bloquea el
+editor, spinner indeterminado en el dialogo):
+
+1. Genera un proyecto CMake temporal que compila el **engine runtime-only**
+   (`funshi_runtime`: sin ImGui, editor, Assimp; solo GLFW, OpenGL, Bullet,
+   miniaudio, nlohmann/json, GLM). Definicion `BUILD_RUNTIME=ON` en CMake.
+2. Recompila los scripts de usuario (BackendCpp) en el build de exportacion.
+3. Compila el ejecutable del juego linkando contra `funshi_runtime`.
+4. Empaqueta en `MotorGrafico/Exportaciones/<nombre>/`:
+   - Ejecutable (`<nombre>.exe` en Windows, `<nombre>` en Linux).
+   - Carpeta `Data/` con `Memory/`, `Sonidos/`, `ConfiguracionProyecto.json`.
+   - Carpeta `lib/` con dependencias bundleadas (`.dll` / `.so`: Bullet,
+     miniaudio, GLFW, runtime C++).
+
+**Requisitos para cross-compile Windows:** toolchain MinGW instalado
+(`x86_64-w64-mingw32-g++`, `x86_64-w64-mingw32-gcc`, `windres`).
+
+**Lanzar el juego exportado:**
+```bash
+# Linux
+./MotorGrafico/Exportaciones/MiJuego/MiJuego
+
+# Windows
+MotorGrafico\Exportaciones\MiJuego\MiJuego.exe
+```
+
+El binario exportado es standalone: **no requiere el editor ni dependencias
+de desarrollo**. El flag `--proyecto` del binario del editor sigue disponible
+para desarrollo (salta el menu y abre el proyecto en modo editor).
