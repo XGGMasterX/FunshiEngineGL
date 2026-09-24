@@ -496,6 +496,9 @@ static int EjecutarMotor(int argc, char* argv[])
         editorConfig.guardarGeneral();
         if (!cfg.nombreProyecto.empty())
             editorConfig.guardarProyecto(cfg.nombreProyecto);
+        // Mostrar mensaje en la barra de estado
+        if (auto* status = managerOfGUI->getStatusBarGUI())
+            status->mostrarMensaje("Proyecto guardado (Ctrl+S)");
     };
     input->setAccionGuardar(guardarProyectoCompleto);
 

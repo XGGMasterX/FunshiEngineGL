@@ -545,6 +545,7 @@ void GameObject::deserializeEntityComponents() {
             if (typeName == "CameraComponent" || typeName == "Camera") {
                 CameraComponent* cam = static_cast<CameraComponent*>(rawComponent);
                 cam->setUp(this);
+                cam->sincronizarConTransform();
             }
 
             if (typeName == "Color") {

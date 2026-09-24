@@ -52,6 +52,7 @@ private:
 
 public:
     void escribirATransform();
+    void sincronizarConTransform() { leerDesdeTransform(); }
 
 protected:
     void serializeComponent(std::ofstream* file) override;
