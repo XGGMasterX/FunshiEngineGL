@@ -92,6 +92,15 @@ cd FunshiEngineGL/build && ctest --output-on-failure
   NO usar `git add -A` ni `git add .` que incluyen cambios ajenos sin
   commitear de otros colaboradores. Cada commit debe reflejar solo el trabajo
   concreto realizado.
+- **Comandos destructivos requieren permiso y justificación**: antes de
+  ejecutar `git checkout`, `git reset`, `git restore`, `git clean` o cualquier
+  comando que descarte cambios (staged o unstaged), el agente debe:
+  1. Pedir permiso explícito al usuario.
+  2. Argumentar detalladamente en español por qué es necesario ese comando
+     destructivo y qué cambios se perderán.
+  3. Esperar confirmación antes de ejecutarlo.
+  Esto evita pérdida accidental de trabajo del usuario o cambios ajenos sin
+  commitear.
 - Validar antes de commitear: build completo + `ctest` en verde.
 - **Build con cambios ajenos**: si el build falla y hay archivos modificados
   por otros colaboradores (no tocados por el agente), reportar el fallo,
