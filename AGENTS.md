@@ -87,6 +87,15 @@ cd FunshiEngineGL/build && ctest --output-on-failure
   cambios realizados. No se permite adjudicar coautoría, autoría, firmas ni
   menciones a herramientas, asistentes o terceros que no correspondan al
   trabajo concreto sobre el código.
+- **Commits solo con archivos propios**: al commitear, agregar únicamente los
+  archivos que modificó el agente en la tarea actual (`git add <archivos>`),
+  NO usar `git add -A` ni `git add .` que incluyen cambios ajenos sin
+  commitear de otros colaboradores. Cada commit debe reflejar solo el trabajo
+  concreto realizado.
 - Validar antes de commitear: build completo + `ctest` en verde.
+- **Build con cambios ajenos**: si el build falla y hay archivos modificados
+  por otros colaboradores (no tocados por el agente), reportar el fallo,
+  indicar que hay cambios ajenos pendientes, y esperar instrucciones;
+  NO modificar archivos ajenos para "arreglar" el build.
 - El CI (`.github/workflows/ci.yml`) compila el engine en Ubuntu y corre la
   suite en Linux/Windows/macOS; no pushear sin pasar los tests localmente.
