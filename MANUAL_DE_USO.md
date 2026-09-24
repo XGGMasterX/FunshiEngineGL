@@ -237,10 +237,35 @@ binarias (`Memory/Binarios/Scene`), con serializacion en preorden y marcadores
 `=>`/`<=` que recupera la jerarquia completa (padres e hijos) de forma
 recursiva. Al iniciar, el editor recupera la escena del proyecto.
 
+Cada escena tiene un objeto raiz automatico llamado **"Scene"** (tipo
+`ObjetoEscena`, sin geometria) que agrupa como hijos a todas las entidades
+(objetos, luces, camaras). Al crear objetos sin padre explicitamente, cuelgan
+de esta raiz. La raiz no aparece en la lista plana del inspector pero
+estructura la jerarquia y se serializa (id 0).
+
 > Las escenas no tienen versionado aun (pendiente en el roadmap); al cambiar
 > el formato binario de un componente, las escenas viejas pueden leer campos
 > truncados con seguridad (los lectores acotan con `std::min`), pero el valor
 > largo se pierde.
+
+### 10.1 Exportar juego (distribucion)
+
+Menu **Archivo > Exportar juego** (barra superior del editor). Copia la
+carpeta completa del proyecto actual (`MotorGrafico/<proyecto>`) a
+`MotorGrafico/Exportaciones/<proyecto>`. El resultado incluye:
+
+- `Memory/` (escenas, interfaces, imgui.ini, ConfiguracionProyecto.json)
+- `Sonidos/` (clips de audio)
+- `src<proyecto>/` (mallas, texturas, scripts fuente)
+- `ConfiguracionProyecto.json`
+
+Para lanzar el juego exportado:
+```
+FunshiEngineGL --proyecto <nombre>
+```
+El flag `--proyecto` salta el menu de inicio y abre el proyecto directamente
+(en modo editor con paneles). Para un launcher final, se anadiria el modo
+play automatico.
 
 ---
 

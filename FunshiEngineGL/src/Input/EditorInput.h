@@ -101,6 +101,12 @@ private:
     // apretar E (mira-se mueve) manteniendo visibles las interfaces.
     bool mouseDerechoParaNavegar = false;
 
+    // Orbita con clic derecho + editor oculto (E): la camara rota alrededor de
+    // un punto origen en la direccion de mirada, manteniendo radio y mirando
+    // hacia el origen.
+    bool orbitando = false;
+    float origenOrbita[3] = {0.f, 0.f, 0.f};
+
     double lastMousePosX = 0.0;
     double lastMousePosY = 0.0;
     // Primero evento de mouse tras atrapar/soltar el cursor: se descarta el

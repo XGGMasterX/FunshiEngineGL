@@ -178,6 +178,19 @@ int WINAPI WinMain(HINSTANCE /*hInstance*/, HINSTANCE /*hPrevInstance*/,
 
 static int EjecutarMotor(int argc, char* argv[])
 {
+    // Parseo simple de --proyecto <nombre> para arrancar directo en editor
+    // (skip menu). Usado para ejecutar un juego exportado: FunshiEngineGL
+    // --proyecto MiJuego.
+    std::string proyectoCLI;
+    for (int i = 1; i < argc; ++i) {
+        std::string arg = argv[i];
+        if (arg == "--proyecto" && i + 1 < argc) {
+            proyectoCLI = argv[++i];
+        } else if (arg.rfind("--proyecto=", 0) == 0) {
+            proyectoCLI = arg.substr(11);
+        }
+    }
+
     // La redireccion va PRIMERO: el diagnostico de GPU de initVentana() y los
     // [diag] de render ya escriben al log, no a la terminal.
     std::string rutaLog = redirigirSalidaALog(argc > 0 ? argv[0] : nullptr);
@@ -211,7 +224,11 @@ static int EjecutarMotor(int argc, char* argv[])
     // ultimo proyecto vuelve preseleccionado en el menu.
     const bool primerArranque =
         !std::filesystem::exists(EditorConfig::rutaPorDefecto());
-    if (primerArranque) {
+    if (!proyectoCLI.empty()) {
+        // --proyecto tiene prioridad: fuerza ese proyecto y entra directo al
+        // editor (skip menu).
+        proyectoActual = proyectoCLI;
+    } else if (primerArranque) {
         proyectoActual.clear();
         mainMenu->setNombreProyecto("");
     } else if (proyectoActual.empty()) {
@@ -253,6 +270,12 @@ static int EjecutarMotor(int argc, char* argv[])
     // Ultimo estado de la maquina reflejado en la fachada del paquete MenuGUI
     // (guardia de cambio; ver el bucle principal).
     bool menuReflejadoEnFachada = appStateMachine.is(ApplicationState::MainMenu);
+
+    // --proyecto: forzar modo editor y mostrar paneles sin pasar por el menu.
+    if (!proyectoCLI.empty()) {
+        appStateMachine.transitionTo(ApplicationState::Editing);
+        scene->setMenuActivo(true);
+    }
 
     
     // Se registra ANTES de ImGui_ImplGlfw_InitForOpenGL (mas abajo): el backend
@@ -400,6 +423,40 @@ static int EjecutarMotor(int argc, char* argv[])
                           << ev.rutaNueva << "'\n";
                 scene->saveScene(EditorConfig::rutaScenePrefijo(proyectoActual));
             }
+        });
+        // Exportar juego: copia la carpeta del proyecto a
+        // <directorioBase>/Exportaciones/<proyecto> para distribucion junto
+        // al ejecutable. El usuario lanza el juego con: FunshiEngineGL
+        // --proyecto <nombre>.
+        eventosGUI->subscribe([managerOfGUI, &proyectoActual](
+                                  const EditorEvent& ev) {
+            if (ev.type != EditorEventType::ExportarJuego) return;
+            if (proyectoActual.empty()) {
+                if (auto* status = managerOfGUI->getStatusBarGUI()) {
+                    status->mostrarMensaje("Error: no hay proyecto abierto");
+                }
+                return;
+            }
+            const std::string base = EditorConfig::directorioBaseMotorGrafico();
+            const std::string origen = EditorConfig::directorioProyecto(proyectoActual);
+            const std::string destino = base + "/Exportaciones/" + proyectoActual;
+            std::error_code ec;
+            std::filesystem::create_directories(
+                std::filesystem::path(destino).parent_path(), ec);
+            std::filesystem::copy(origen, destino,
+                                  std::filesystem::copy_options::recursive |
+                                      std::filesystem::copy_options::overwrite_existing,
+                                  ec);
+            std::string msg;
+            if (ec) {
+                msg = "Error exportando: " + ec.message();
+                std::cerr << msg << '\n';
+            } else {
+                msg = "Juego exportado a: " + destino;
+                std::cout << msg << '\n';
+            }
+            if (auto* status = managerOfGUI->getStatusBarGUI())
+                status->mostrarMensaje(msg);
         });
     }
 

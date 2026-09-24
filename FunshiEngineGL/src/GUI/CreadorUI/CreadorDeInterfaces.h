@@ -67,6 +67,10 @@ public:
     const UserInterfaceCustom* getInterfazActiva() const;
     std::string getNombreActiva() const noexcept { return nombreActiva_; }
 
+    // Activa por nombre la interfaz que usara el juego (modo play). Carga el
+    // asset de disco si no es la activa actual; nullptr si no existe.
+    UserInterfaceCustom* activarInterfaz(const std::string& nombre);
+
     virtual void contentGUI() override;
     virtual void printGUI() override;
 };

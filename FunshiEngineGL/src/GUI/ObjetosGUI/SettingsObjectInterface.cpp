@@ -132,6 +132,10 @@ void SettingsObjectInterface::loadComponents() {
 		settingsAudioSource->setAudioEngine(audioMotor);
 		listaDESettingsComponent->addLast(settingsAudioSource);
 	}
+	InterfaceComponent* interfaceComp = object->getComponent<InterfaceComponent>();
+	if (interfaceComp != nullptr) {
+		listaDESettingsComponent->addLast(new SettingsInterface(object));
+	}
 }
 
 GameObject* SettingsObjectInterface::getObjectInInspector() { return object; }
@@ -282,6 +286,11 @@ void SettingsObjectInterface::contentGUI() {
 		    object->getComponent<Transform>() != nullptr) {
 			object->addComponent(new Grid());
 			listaDESettingsComponent->addLast(new SettingsGrid(object));
+		}
+		if (ImGui::MenuItem("Agregar Interfaz") &&
+		    object->getComponent<InterfaceComponent>() == nullptr) {
+			object->addComponent(new InterfaceComponent());
+			listaDESettingsComponent->addLast(new SettingsInterface(object));
 		}
 		ImGui::EndPopup();
 	}
