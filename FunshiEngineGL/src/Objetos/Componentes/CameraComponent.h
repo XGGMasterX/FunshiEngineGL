@@ -99,8 +99,8 @@ public:
     float orbitAround(const float* origen, float radio, float dYawX, float dYawY);
 
     // Limites de radio para orbita.
-    static constexpr float radioMin = 0.5f;
-    static constexpr float radioMax = 200.0f;
+    static constexpr float radioMin = 3.0f;
+    static constexpr float radioMax = 50.0f;
 
     const float* getPosition() const { return m_pos; }
     void setPosition(const float pos[3]) { m_pos[0] = pos[0]; m_pos[1] = pos[1]; m_pos[2] = pos[2]; }

@@ -70,16 +70,22 @@ public:
     // conoce proyectos ni configuracion.
     void setAccionGuardar(std::function<void()> accion);
 
+    // Dibuja barra lateral de radio de orbita (vertical) si orbitando.
+    void dibujarSidebarOrbita();
+
     static void teclado_callback(GLFWwindow* window, int key, int scancode,
                                  int action, int mods);
     static void mouse_callback(GLFWwindow* window, double xpos, double ypos);
     static void mouse_button_callback(GLFWwindow* window, int button,
                                       int action, int mods);
+    static void scroll_callback(GLFWwindow* window, double xoffset,
+                                double yoffset);
 
 private:
     void onKey(GLFWwindow* window, int key, int scancode, int action, int mods);
     void onMouseButton(GLFWwindow* window, int button, int action, int mods);
     void onMouse(GLFWwindow* window, double xpos, double ypos);
+    void onScroll(GLFWwindow* window, double xoffset, double yoffset);
 
     GameScene* scene;
     ApplicationStateMachine* appState;
@@ -103,9 +109,10 @@ private:
 
     // Orbita con clic derecho + editor oculto (E): la camara rota alrededor de
     // un punto origen en la direccion de mirada, manteniendo radio y mirando
-    // hacia el origen.
+    // hacia el origen. La rueda del mouse ajusta el radio durante la orbita.
     bool orbitando = false;
     float origenOrbita[3] = {0.f, 0.f, 0.f};
+    float radioOrbita = 10.0f;
 
     double lastMousePosX = 0.0;
     double lastMousePosY = 0.0;
