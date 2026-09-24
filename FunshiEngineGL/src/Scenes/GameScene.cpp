@@ -538,16 +538,6 @@ void GameScene::pintarVentanaCamaras() {
 
     ImGui::Separator();
 
-    // Sensibilidad de MOVIMIENTO (WASD) del editor: multiplica la velocidad
-    // base (speed) de la camara activa. Vive en la scene (junto al mouse look
-    // de Opciones) y se persiste con el proyecto.
-    float movimiento = sensibilidadMovimientoCamara;
-    if (ImGui::SliderFloat("Sensibilidad de movimiento", &movimiento, 0.1f,
-                           5.0f, "%.2f"))
-        setSensibilidadMovimientoCamara(movimiento);
-
-    ImGui::Separator();
-
     auto* gameObjects = getGameObjectsScene();
     if (gameObjects && !gameObjects->isEmpty()) {
         Position<GameObject*>* pos = gameObjects->first();

@@ -86,8 +86,8 @@ barra superior del editor, y se persiste por proyecto.
 
 - **Sensibilidad del mouse-look (camara)**: 0.15 por defecto. Se ajusta en
   **Opciones** del menu de inicio (configuracion general).
-- **Sensibilidad de movimiento (WASD)**: 1.0 por defecto. Se ajusta en
-  **Opciones** del menu y en la ventana **"Camaras"** de la escena.
+- **Sensibilidad de movimiento (WASD)**: 1.0 por defecto. Se ajusta solo en
+  **Opciones** del menu de inicio (configuracion general).
 - **Gizmo**: operacion (`gizmoOperacion`) y sistema de coordenadas
   (`gizmoGlobal`) se guardan por proyecto (seccion `editor` de
   ConfiguracionProyecto.json).
