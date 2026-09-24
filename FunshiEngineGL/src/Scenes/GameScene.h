@@ -113,9 +113,9 @@ private:
     // Opciones). La aplica main al offset del raton antes de updateYaw().
     float sensibilidadCamara = 0.15f;
     // Sensibilidad de MOVIMIENTO (WASD) del editor: multiplica la velocidad
-    // base (speed) de la camara activa. Se configura en la ventana "Camaras"
-    // (state de la scene, se persiste por proyecto); es INDEPENDIENTE del mouse
-    // look (Opciones). La aplica main a DeltaTime antes de trasladar.
+    // base (speed) de la camara activa. Se configura SOLO en la vista Opciones
+    // del menu (configuracion general); es INDEPENDIENTE del mouse look. La
+    // aplica main a DeltaTime antes de trasladar.
     float sensibilidadMovimientoCamara = 1.0f;
     // Perfil de apariencia sincronizado desde MenuGUI. La escena solo usa el
     // fondo del viewport y el color de la grilla (modo B/N); el estilo ImGui
@@ -227,13 +227,17 @@ public:
     bool isEditorActivo() const;
     void clearSelection();
 
+    // Acceso al controlador del editor para comandos (undo/redo)
+    EditorController* getEditorController() noexcept { return editorController.get(); }
+    const EditorController* getEditorController() const noexcept { return editorController.get(); }
+
     // Sensibilidad del mouse look (la setea main desde MenuGUI/Opciones).
     float getSensibilidadCamara() const noexcept;
     void setSensibilidadCamara(float sensibilidad) noexcept;
 
-    // Sensibilidad de movimiento (WASD) del editor, configurable en la ventana
-    // "Camaras". Multiplica la velocidad base de la camara activa (main lo
-    // aplica a DeltaTime en el callback de teclado).
+    // Sensibilidad de movimiento (WASD) del editor, configurable en la vista
+    // Opciones del menu. Multiplica la velocidad base de la camara activa (main
+    // lo aplica a DeltaTime en el callback de teclado).
     float getSensibilidadMovimientoCamara() const noexcept;
     void setSensibilidadMovimientoCamara(float sensibilidad) noexcept;
 

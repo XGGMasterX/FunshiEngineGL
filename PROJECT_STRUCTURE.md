@@ -106,7 +106,10 @@ FunshiEngineGL/                          ← raíz del repo
         │       └── BehaviourReflection.* ← reflexión, macros SerializeField y serialización
         ├── Configuracion/
         │   ├── Apariencia.h             ← perfil de apariencia (tema/acento/fondo/B-N) + utilidades
-        │   └── EditorConfig.h/.cpp      ← persistencia JSON de la configuración (menú + GUI)
+        │   ├── EditorConfig.h/.cpp      ← fachada de la configuración (datos() + cargar*/guardar*, guardado diferido)
+        │   ├── ConfigPersistence.h/.cpp ← JSON puro de la config: general + proyecto (escritura atómica)
+        │   ├── ProjectPaths.h/.cpp      ← rutas canónicas del motor (una sola fuente de verdad)
+        │   └── ProjectManager.h/.cpp    ← alta y listado de proyectos en Proyects/ (delega rutas en ProjectPaths)
         ├── Entity/
         │   ├── Entity.h                 ← base: lista de componentes, Transform, serialización
         │   └── Entity.cpp
@@ -150,6 +153,8 @@ FunshiEngineGL/                          ← raíz del repo
         │   │                                  libjvm) y estado de scripts (compilando/cargado/error)
         │   ├── Tema/
         │   │   └── TemaEditor.h/.cpp      ← aplica el perfil Apariencia al estilo ImGui en vivo
+        │   │                                  (tema claro/oscuro, acento RGB en TODOS los roles de ImGui
+        │   │                                  y grises azulados de fábrica a gris neutro; ver tests/TemaEditorTests.cpp)
         │   ├── FileManagerGUI/             ← TreeFilesInterface + ContentFolderInterface
         │   │                                  (vistas del explorador; conversan con FileManager)
         │   ├── MenusGUI/                   ← paquete del menú de inicio (MVP); ver su README.md
@@ -221,6 +226,16 @@ FunshiEngineGL/                          ← raíz del repo
         │           ├── EsfereCollider.*  ← btSphereShape
         │           ├── CubeCollider.*    ← btBoxShape (half extents = radio)
         │           └── MallaCollider.*   ← btConvexHullShape a partir de la malla
+        ├── Comandos/
+        │   ├── IComando.h              ← interfaz Command: ejecutar(), deshacer(), descripcion()
+        │   ├── GestorComandos.h/.cpp   ← pilas undo/redo (máx 50), ejecuta/deshace/rehace
+        │   ├── CrearObjetoComando.h/.cpp
+        │   ├── BorrarObjetoComando.h/.cpp
+        │   ├── ReparentarComando.h/.cpp
+        │   ├── TransformComando.h/.cpp
+        │   ├── AgregarComponenteComando.h/.cpp
+        │   ├── QuitarComponenteComando.h/.cpp
+        │   └── LimpiarEscenaComando.h/.cpp
         └── Scenes/
             ├── GameScene.h/.cpp          ← coordinador del frame: render, GUI, física, gizmo,
             │                                previews y pasada de la grilla
@@ -315,6 +330,13 @@ internamente `GUIManager`, `SceneRegistry`, `EditorController`, `SceneSerializer
   se aplican sobre la máquina desde ahí; conviven con flags de UI legados
   (`menuActivo`, `start`) con roles documentados — `start` lo manejan a la vez el
   botón Activar/Detener del menú de escena y el reflejo de F5/F7.
+- `EditorController` posee un `GestorComandos` que envuelve cada mutación
+  (crear/borrar/reparentar, cambios de transform, agregar/quitar componentes,
+  limpiar escena) en un `IComando`. Las operaciones de la GUI van por el
+  gestor, nunca directamente al `SceneRegistry`, de modo que Ctrl+Z/Ctrl+Y
+  funcionan de forma transversal. La pila mantiene un máximo de 50 comandos;
+  cada nueva acción invalida la pila de redo. La raíz de la escena (id=0)
+  está excluida de delete/clear por diseño.
 
 ### Entidades, objetos y componentes
 
@@ -396,13 +418,27 @@ internamente `GUIManager`, `SceneRegistry`, `EditorController`, `SceneSerializer
 - `Binario` encapsula los streams binarios usados por las entidades.
 - `GameObject::saveEntity/loadEntity` coordina la serialización binaria propia
   (atributos globales, locales, componentes).
-- `EditorConfig` (JSON via nlohmann) persiste la configuración del editor:
-  menú (proyecto, idioma, sensibilidad de cámara), gizmo, ventana de cámaras,
-  ventanas (estado abierto/cerrado de GUIManager), la cámara activa por id y el
-  perfil de apariencia, en `<directorioEjecutable>/MotorGrafico/Configuracion.json`
-  (junto al binario, en Linux y Windows). Tolerante a
-  archivos ausentes o corruptos: los defaults quedan en `EditorConfig.h`.
-  El layout `imgui.ini` también se guarda junto al proyecto (no en el CWD).
+- La configuración del editor se persiste en JSON con **una sola fuente de
+  verdad**: `Configuracion/ConfigPersistence.{h,cpp}` (JSON puro, sin estado)
+  sobre `Configuracion/ProjectPaths.{h,cpp}` (rutas), con
+  `EditorConfig.{h,cpp}` como fachada estable que expone `datos()` y
+  `cargar*/guardar*` a main, escenas y tests. Guarda: menú (proyecto, idioma,
+  sensibilidad de cámara), gizmo, ventana de cámaras, ventanas (estado
+  abierto/cerrado de GUIManager), cámara activa por id y perfil de apariencia,
+  en dos archivos junto al binario (Linux y Windows):
+  `<directorioEjecutable>/MotorGrafico/Configuraciones/Configuracion.json`
+  (general) y `Proyects/<proyecto>/Memory/ConfiguracionProyecto.json`
+  (por proyecto). Tolerante a archivos ausentes o corruptos: los defaults
+  viven en `EditorConfig.h`/`ConfigPersistence.h`.
+  - **Escritura atómica**: `ConfigPersistence::escribirJson` escribe a
+    `<archivo>.tmp` y renombra encima; un corte a mitad de escritura no deja
+    el JSON cortado ni temporales colgados.
+  - **Guardado diferido de la general**: `EditorConfig::solicitarGuardadoGeneral`
+    encola los cambios en vivo de Opciones y `volcarGuardadoGeneral()` (llamado
+    por main una vez por frame) escribe como máximo una vez cada
+    `kIntervaloEscritura` (250 ms); `guardarGeneral()` (Ctrl+S, salida, reset)
+    vuelca el pendiente sin esperar.
+  - El layout `imgui.ini` también se guarda junto al proyecto (no en el CWD).
 - Limitación conocida: la serialización binaria no tiene versionado ni validación
   de tamaños; un cambio en la estructura de atributos invalida escenas guardadas.
 
@@ -469,8 +505,10 @@ registrados en CTest (compilan en cualquier plataforma con `BUILD_ENGINE=OFF`;
 
 - `filemanager-tests` (27): ejercita `GestorDeArchivos`/`FileManager`/`FileSystemWatcher`
   contra un proyecto temporal, sin ventanas ni pila gráfica.
-- `configuracion-tests` (53): round-trip del JSON de `EditorConfig`, carga tolerante
-  ante archivos ausentes/corruptos y `restablecer`.
+- `configuracion-tests` (99): round-trip del JSON de `EditorConfig` (general y
+  por proyecto, con `ConfigPersistence`/`ProjectPaths`), carga tolerante ante
+  archivos ausentes/corruptos/parciales, prioridad de las claves modernas sobre
+  el `menu/*` legacy, `restablecer`, escritura atómica y guardado diferido.
 - `eventbus-tests` (16): suscripción/publicación/unsubscribe del canal tipado de GUI.
 - `menu-tests` (30): lógica pura del menú (traducción, observer de cambios y reset).
 - `assetmanager-tests` (47): caché Flyweight de meshes (rutas `AssetPath`, geometría
@@ -619,8 +657,10 @@ GameScene → coordina todos los subsistemas del frame
 - `tests/FileManagerTests.cpp`: construcción y re-resolución del árbol de archivos,
   operaciones de dominio (crear, renombrar, copiar, eliminar, búsqueda) y
   `FileSystemWatcher` (detección de cambios externos, en Linux via inotify).
-- `tests/EditorConfigTests.cpp`: round-trip del JSON y tolerancia a archivos
-  ausentes o corruptos.
+- `tests/EditorConfigTests.cpp`: round-trip del JSON (general, por proyecto y
+  legacy `menu/*`), tolerancia a archivos ausentes/corruptos/parciales,
+  escritura atómica (sin temporales colgados) y guardado diferido
+  (`solicitarGuardadoGeneral`/`volcarGuardadoGeneral` con `kIntervaloEscritura`).
 - `tests/AssetManagerTests.cpp` y `tests/TextureManagerTests.cpp`: caches
   Flyweight con loader artificial; validan rutas normalizadas, compartición y ciclo
   de vida de los recursos.
@@ -633,7 +673,17 @@ GameScene → coordina todos los subsistemas del frame
   `Model` (path con prefijo de longitud). Cubre la regresión del core al cargar
   escenas: verifica que un path más largo que el buffer de lectura no desalinee
   el stream, además de round-trip corto/largo/vacío y archivos truncados.
-- Los trece targets compilan en cualquier plataforma y se ejecutan con `ctest`.
+- `tests/TemaEditorTests.cpp`: aplicación del perfil `Apariencia` al estilo de ImGui
+  (`TemaEditor::aplicarEstilo`, solo contexto de ImGui, sin pila gráfica). Cubre la
+  regresión "el color de acento no llega a toda la interfaz": con un acento no azul
+  verifica que **ningún** rol de la paleta conserve el azul de fábrica de Dear ImGui
+  (`FrameBg` —campos y pista del slider—, `Tab`/`TabDimmed`, `Border`/`Separator`,
+  `TableHeaderBg`, `TextLink`, `DragDropTarget`), que el acento por defecto mantenga
+  el aspecto y las transparencias históricas, que un acento translúcido no apague
+  los roles de primer plano (el alpha del perfil no participa del tema), que
+  aplicar el mismo perfil dos veces sea idempotente y que el modo blanco y negro
+  deje la paleta monocroma.
+- Los diecisiete targets compilan en cualquier plataforma y se ejecutan con `ctest`.
 - `.github/workflows/ci.yml` compila el engine completo en Ubuntu (Release, sin
   ASan) y ejecuta las pruebas; además ejecuta las headless en
   Linux/Windows con `BUILD_ENGINE=OFF` y el backend Java en Ubuntu con JDK.
@@ -675,9 +725,9 @@ suele necesitarlas están resueltos con otras herramientas:
   `std::path` con separadores y síndromes `.`/`..` del propio API), sin patrones.
 - **Extensión de archivos**: predicados directos (`entrada.path().extension()`,
   comparaciones de `std::string`) en `GestorDeArchivos` y `AssetManager`.
-- **Configuración del editor**: `EditorConfig` parsea JSON con **nlohmann/json**
-  (librería ya vendoriada en `External/`); las claves se validan por acceso
-  estructurado, no por patrones.
+- **Configuración del editor**: `ConfigPersistence` (invocada por la fachada
+  `EditorConfig`) parsea JSON con **nlohmann/json** (librería ya vendoriada en
+  `External/`); las claves se validan por acceso estructurado, no por patrones.
 - **Serialización de escenas**: `SceneSerializer` usa un formato binario en
   preorden con marcadores literales `=>`/`<=`, decididos con comparaciones de
   `std::string` exactas (búsqueda del look-ahead), no con matching.

@@ -26,11 +26,13 @@
 // Los metodos guardarGeneral/cargarGeneral y guardarProyecto/cargarProyecto
 // permiten escribir/leer cada archivo por separado.
 
+#include <chrono>
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <string>
+#include <thread>
 
 #include "TempPruebas.h"
 #include "../FunshiEngineGL/src/Configuracion/EditorConfig.h"
@@ -180,13 +182,13 @@ int main() {
         const std::string rootName = EditorConfig::nombreRaizSrc(proyNombre);
 
         CHECK(rootName == "srcJuegoPrueba",              "nombreRaizSrc correcto");
-        CHECK(proyDir == baseMotor + "/" + proyNombre,   "directorioProyecto correcto");
+        CHECK(proyDir == baseMotor + "/Proyects/" + proyNombre,   "directorioProyecto en Proyects/");
         CHECK(memDir  == proyDir + "/Memory",            "directorioMemory dentro del proyecto");
         CHECK(srcDir  == proyDir + "/srcJuegoPrueba",    "directorioSrc hermano de Memory");
 
-        // Config general: en la raiz de MotorGrafico, hermana de las carpetas de proyecto.
-        CHECK(EditorConfig::rutaConfiguracionGeneral() == baseMotor + "/Configuracion.json",
-              "rutaConfiguracionGeneral en raiz de MotorGrafico");
+        // Config general: en <base>/Configuraciones/Configuracion.json
+        CHECK(EditorConfig::rutaConfiguracionGeneral() == baseMotor + "/Configuraciones/Configuracion.json",
+              "rutaConfiguracionGeneral en Configuraciones/");
         // Config del proyecto: dentro de Memory del proyecto.
         CHECK(EditorConfig::rutaConfiguracionProyecto(proyNombre) ==
               memDir + "/ConfiguracionProyecto.json",
@@ -392,6 +394,51 @@ int main() {
               "restablecer vuelve el nombre por defecto (main lo conserva luego)");
         CHECK(cfg.datos().estadoVentanas.empty(),
               "restablecer limpia el estado de ventanas");
+    }
+
+    // Escritura atomica + guardado diferido de la config general:
+    //  - la escritura va a un ".tmp" y se renombra encima (un corte a mitad de
+    //    escritura deja el JSON original intacto y no deja temporales colgados);
+    //  - los cambios en vivo de Opciones se encolan y NO reescriben el archivo
+    //    en cada evento, solo cuando vence el intervalo o en un guardarGeneral()
+    //    explicito (Ctrl+S, salida, reset).
+    {
+        const std::string rutaDif = (base / "ConfiguracionDiferida.json").string();
+
+        EditorConfig cfg;
+        cfg.datos().idioma = "Espanol";
+        cfg.guardarGeneral(rutaDif);
+        CHECK(!fs::exists(rutaDif + ".tmp"),
+              "no queda el temporal tras una escritura correcta");
+
+        // Cambio en vivo dentro del intervalo: queda pendiente, no se escribe.
+        cfg.datos().idioma = "English";
+        cfg.solicitarGuardadoGeneral(rutaDif);
+        cfg.volcarGuardadoGeneral();
+        EditorConfig lector1;
+        lector1.cargarGeneral(rutaDif);
+        CHECK(lector1.datos().idioma == "Espanol",
+              "dentro del intervalo el guardado diferido no reescribe");
+
+        // Vencido el intervalo, el volcado si escribe (una sola vez basta).
+        std::this_thread::sleep_for(EditorConfig::kIntervaloEscritura +
+                                    std::chrono::milliseconds(30));
+        cfg.volcarGuardadoGeneral();
+        EditorConfig lector2;
+        lector2.cargarGeneral(rutaDif);
+        CHECK(lector2.datos().idioma == "English",
+              "vencido el intervalo el volcado persiste el cambio");
+
+        // guardarGeneral() no espera al intervalo: vuelca el pendiente.
+        cfg.datos().idioma = "Espanol";
+        cfg.solicitarGuardadoGeneral(rutaDif);
+        cfg.guardarGeneral(rutaDif);
+        EditorConfig lector3;
+        lector3.cargarGeneral(rutaDif);
+        CHECK(lector3.datos().idioma == "Espanol",
+              "guardarGeneral vuelca el pendiente sin esperar al intervalo");
+        CHECK(!fs::exists(rutaDif + ".tmp"),
+              "ninguna de las escrituras dejo temporales");
     }
 
     fs::remove_all(base);

@@ -19,6 +19,7 @@
 #ifndef EDITORCONFIG_H
 #define EDITORCONFIG_H
 
+#include <chrono>
 #include <map>
 #include <string>
 
@@ -117,14 +118,31 @@ public:
     // interfaces): <directorioMemory>/Interfaces
     static std::string directorioInterfaces(const std::string& nombreProyecto = "Nuevo Proyecto");
 
+    // Directorio de exportaciones: <directorioBase>/Exportaciones/<nombreExportacion>/
+    // Cada exportación es una carpeta independiente con el juego compilado + Data/
+    static std::string directorioExportaciones();
+    static std::string directorioExportacion(const std::string& nombreExportacion);
+
+    // Carpeta de proyectos: <directorioBase>/Proyects/
+    static std::string directorioProyects();
+    // Carpeta de configuraciones globales: <directorioBase>/Configuraciones/
+    static std::string directorioConfiguraciones();
+
     // Crea en disco la estructura de carpetas requerida para el proyecto:
-    //   <directorioBase>/<nombreProyecto>/Memory/Binarios/Scene
-    //   <directorioBase>/<nombreProyecto>/Memory/Interfaces
-    //   <directorioBase>/<nombreProyecto>/src<nombreProyecto>/Sonidos
-    //   <directorioBase>/<nombreProyecto>/src<nombreProyecto>
-    // Migra archivos previos: escena/config en la raiz de MotorGrafico y la
-    // carpeta Sonidos que antes vivia en la raiz del proyecto (ahora en src).
+    //   <directorioBase>/Proyects/<nombreProyecto>/Memory/Binarios/Scene
+    //   <directorioBase>/Proyects/<nombreProyecto>/Memory/Interfaces
+    //   <directorioBase>/Proyects/<nombreProyecto>/src<nombreProyecto>/Sonidos
+    //   <directorioBase>/Proyects/<nombreProyecto>/src<nombreProyecto>
+    //   <directorioBase>/Configuraciones/Configuracion.json
+    //   <directorioBase>/Exportaciones/
+    // Migra proyectos previos de la estructura antigua (directamente bajo MotorGrafico/)
+    // a la nueva estructura MotorGrafico/Proyects/
     static void asegurarEstructuraProyecto(const std::string& nombreProyecto = "Nuevo Proyecto");
+
+    // Crea el proyecto por defecto "NuevoProyecto" si no hay ningun proyecto
+    // en MotorGrafico/Proyects/. Devuelve true si se creo, false si ya habia
+    // proyectos o si fallo la creacion.
+    static bool crearProyectoPorDefecto();
 
     // Renombra un proyecto en disco: <base>/<viejo> -> <base>/<nuevo> y su raiz
     // src dentro (<nuevo>/src<viejo> -> <nuevo>/src<nuevo>). Devuelve false sin
@@ -180,6 +198,20 @@ public:
     void guardarProyecto(const std::string& nombreProyecto, const std::string& ruta = "");
     void cargarProyecto(const std::string& nombreProyecto, const std::string& ruta = "");
 
+    // Guardado diferido de la CONFIG GENERAL. Los cambios en vivo de Opciones
+    // (apariencia/idioma/sensibilidades) publican un evento mientras el usuario
+    // interactua y reescribir el JSON en cada uno era I/O innecesaria. Con
+    // solicitarGuardadoGeneral() el cambio queda pendiente y se escribe como
+    // maximo una vez por kIntervaloEscritura; main llama a volcarGuardadoGeneral
+    // una vez por frame y el pendiente tambien se vuelca en cualquier
+    // guardarGeneral() (Ctrl+S, salida, reset o borrado de proyecto), que no
+    // espera al intervalo. Los proyectos NO se diferiran: sus cambios son por
+    // toggle (ventana abierta/cerrada), no por frame.
+    static constexpr std::chrono::milliseconds kIntervaloEscritura{250};
+    // `ruta` vacia = la canonica de la config general (es la que usa main).
+    void solicitarGuardadoGeneral(const std::string& ruta = "");
+    void volcarGuardadoGeneral();
+
     const Datos& datos() const noexcept { return datos_; }
     Datos& datos() noexcept { return datos_; }
 
@@ -190,6 +222,14 @@ public:
 
 private:
     Datos datos_;
+    // Estado del guardado diferido de la config general (ver arriba).
+    bool generalPendiente = false;
+    // Ruta destino del guardado pendiente ("" = canonica) para que el volcado
+    // escriba donde pidio el que encolo (los tests usan una ruta temporal).
+    std::string rutaGeneralPendiente;
+    // Epoch por defecto = nunca escribio: el primer volcado no espera al
+    // intervalo y una unica edicion persiste en el frame siguiente.
+    std::chrono::steady_clock::time_point ultimaEscrituraGeneral{};
 };
 
 #endif

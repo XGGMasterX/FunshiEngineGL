@@ -275,25 +275,36 @@ void CameraComponent::updateYaw(float dYawX, float dYawY) {
     escribirATransform();
 }
 
-void CameraComponent::orbitAround(const float* origen, float dYawX, float dYawY) {
+float CameraComponent::orbitAround(const float* origen, float radio, float dYawX, float dYawY) {
     leerDesdeTransform();
 
-    float dx = m_pos[0] - origen[0];
-    float dy = m_pos[1] - origen[1];
-    float dz = m_pos[2] - origen[2];
-    float radio = std::sqrt(dx * dx + dy * dy + dz * dz);
+    // Clamp radio a limites.
+    if (radio < radioMin) radio = radioMin;
+    if (radio > radioMax) radio = radioMax;
 
+    // Orbita horizontal: solo yawX (rotacion en plano XZ).
+    // La altura (Y) se mantiene fija; el radio se pasa como parametro
+    // (ajustable con la rueda del mouse durante la orbita).
     yawX += dYawX;
-    yawY += dYawY;
-    if (yawY > kPitchMaxGrados) yawY = kPitchMaxGrados;
-    if (yawY < -kPitchMaxGrados) yawY = -kPitchMaxGrados;
+    // yawY NO cambia: orbita puramente horizontal, sin pitch.
     calculardireccion();
 
-    m_pos[0] = origen[0] + m_dir[0] * radio;
-    m_pos[1] = origen[1] + m_dir[1] * radio;
-    m_pos[2] = origen[2] + m_dir[2] * radio;
+    // Direccion horizontal pura (yawY=0) para posicionar en el circulo XZ.
+    const float radX = yawX * kGradosARadianes;
+    float horizDir[3] = {
+        std::sin(radX),
+        0.f,
+        -std::cos(radX)
+    };
+
+    // Nueva posicion en el circulo horizontal (misma Y, radio constante).
+    // Usamos origen - horizDir * radio para que la camara mire HACIA el origen.
+    m_pos[0] = origen[0] - horizDir[0] * radio;
+    // m_pos[1] se mantiene igual (altura fija)
+    m_pos[2] = origen[2] - horizDir[2] * radio;
 
     escribirATransform();
+    return radio;
 }
 
 void CameraComponent::getViewMatrix(float* outMatrix) const {

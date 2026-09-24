@@ -84,6 +84,47 @@ void GameObject::deleteComponent(Component* component) {
 }
 
 
+std::unique_ptr<Component> GameObject::extractComponent(Component* component) {
+    if (component == nullptr || !components ||
+        !components->isElement(component))
+        return nullptr;
+
+    components->deleteByElement(component);
+
+    for (auto it = componentOwners.begin(); it != componentOwners.end();
+         ++it) {
+        if (it->get() == component) {
+            auto result = std::move(*it);
+            componentOwners.erase(it);
+            return result;
+        }
+    }
+    return nullptr;
+}
+
+
+Component* GameObject::getComponentByName(const std::string& typeName) {
+    if (!components || components->isEmpty()) return nullptr;
+    Position<Component*>* position = components->first();
+    while (position != nullptr) {
+        Component* comp = position->getElement();
+        if (comp) {
+            std::string name = demangle(typeid(*comp).name());
+            if (name == typeName) return comp;
+        }
+        position = (position != components->last())
+                       ? components->next(position)
+                       : nullptr;
+    }
+    return nullptr;
+}
+
+
+bool GameObject::hasComponent(const std::string& typeName) {
+    return getComponentByName(typeName) != nullptr;
+}
+
+
 ListaDE<Component*>* GameObject::getComponents() {
     return components.get();
 }
@@ -545,6 +586,7 @@ void GameObject::deserializeEntityComponents() {
             if (typeName == "CameraComponent" || typeName == "Camera") {
                 CameraComponent* cam = static_cast<CameraComponent*>(rawComponent);
                 cam->setUp(this);
+                cam->sincronizarConTransform();
             }
 
             if (typeName == "Color") {

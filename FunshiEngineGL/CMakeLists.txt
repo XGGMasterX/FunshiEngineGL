@@ -235,7 +235,30 @@ else()
     target_link_libraries(funshi_engine PRIVATE glm::glm)
 endif()
 
-endif() # BUILD_ENGINE
+endif()
+
+# Comandos (sistema undo/redo): se enlaza con funshi_engine que provee todas las
+# dependencias del motor (ImGui, componentes, EditorController, SceneRegistry).
+# Solo se compila el archivo de test; las fuentes del motor vienen del engine.
+add_executable(comandos-tests
+    ${CMAKE_CURRENT_SOURCE_DIR}/../tests/ComandosTests.cpp
+)
+target_include_directories(comandos-tests PRIVATE
+    ${SRC_DIR}
+    ${CMAKE_SOURCE_DIR}/External
+    ${CMAKE_SOURCE_DIR}/External/imgui
+)
+target_link_libraries(comandos-tests PRIVATE funshi_engine)
+set_target_properties(comandos-tests PROPERTIES
+    CXX_STANDARD 17
+    CXX_STANDARD_REQUIRED ON
+    CXX_EXTENSIONS OFF
+)
+add_test(NAME comandos-tests COMMAND comandos-tests)
+
+if(WIN32)
+    target_link_libraries(comandos-tests PRIVATE dbghelp)
+endif()
 
 # --- Pruebas headless del subsistema FileManager (sin pila gráfica) ---------
 # Compilan en cualquier plataforma (solo std C++17 + los headers de ImGui para
@@ -262,10 +285,13 @@ add_test(NAME filemanager-tests COMMAND filemanager-tests)
 # EditorConfig (JSON tolerante) tambien se prueba headless y en las tres
 # plataformas: verifica round-trip y la carga ante ausencia/corrupcion.
 add_executable(configuracion-tests
+    ${SRC_DIR}/Configuracion/ProjectPaths.cpp
+    ${SRC_DIR}/Configuracion/ProjectManager.cpp
+    ${SRC_DIR}/Configuracion/ConfigPersistence.cpp
     ${SRC_DIR}/Configuracion/EditorConfig.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../tests/EditorConfigTests.cpp
 )
-target_include_directories(configuracion-tests PRIVATE ${CMAKE_SOURCE_DIR}/External)
+target_include_directories(configuracion-tests PRIVATE ${CMAKE_SOURCE_DIR}/External ${SRC_DIR})
 set_target_properties(configuracion-tests PROPERTIES
     CXX_STANDARD 17
     CXX_STANDARD_REQUIRED ON
@@ -293,6 +319,9 @@ add_test(NAME eventbus-tests COMMAND eventbus-tests)
 # buffer de lectura NO desalinee el stream: regresion del core al cargar
 # escenas con paths de mas de 99 bytes (std::length_error -> abort).
 add_executable(model-serialization-tests
+    ${SRC_DIR}/Configuracion/ProjectPaths.cpp
+    ${SRC_DIR}/Configuracion/ProjectManager.cpp
+    ${SRC_DIR}/Configuracion/ConfigPersistence.cpp
     ${SRC_DIR}/Objetos/Componentes/Model.cpp
     ${SRC_DIR}/Configuracion/EditorConfig.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../tests/ModelSerializationTests.cpp
@@ -313,6 +342,9 @@ add_test(NAME model-serialization-tests COMMAND model-serialization-tests)
 # archivos corruptos/inexistentes, relativizacion/absolutizacion contra la
 # raiz de assets y la regla de precedencia del manifiesto sobre el .db.
 add_executable(manifiesto-assets-tests
+    ${SRC_DIR}/Configuracion/ProjectPaths.cpp
+    ${SRC_DIR}/Configuracion/ProjectManager.cpp
+    ${SRC_DIR}/Configuracion/ConfigPersistence.cpp
     ${SRC_DIR}/Scenes/ManifiestoAssetsCore.cpp
     ${SRC_DIR}/Configuracion/EditorConfig.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../tests/ManifiestoAssetsTests.cpp
@@ -356,6 +388,29 @@ set_target_properties(menu-tests PROPERTIES
     CXX_EXTENSIONS OFF
 )
 add_test(NAME menu-tests COMMAND menu-tests)
+
+# TemaEditor (aplicacion del perfil de apariencia al estilo de ImGui) se prueba
+# headless como los anteriores: el estilo solo necesita el contexto de ImGui,
+# sin backends ni pila grafica. Cubre la regresion "el color de acento no llega
+# a toda la interfaz": verifica que con un acento no azul NINGUN rol de la
+# paleta conserve el azul de fabrica de Dear ImGui (FrameBg, Tab, Border,
+# TableHeaderBg, TextLink, DragDropTarget...), que con el acento por defecto no
+# cambie el aspecto historico, y que el modo B/N siga dejando todo monocromo.
+add_executable(tema-tests
+    ${SRC_DIR}/ImGui/imgui.cpp
+    ${SRC_DIR}/ImGui/imgui_draw.cpp
+    ${SRC_DIR}/ImGui/imgui_tables.cpp
+    ${SRC_DIR}/ImGui/imgui_widgets.cpp
+    ${SRC_DIR}/GUI/Tema/TemaEditor.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../tests/TemaEditorTests.cpp
+)
+target_include_directories(tema-tests PRIVATE ${SRC_DIR} ${SRC_DIR}/ImGui)
+set_target_properties(tema-tests PROPERTIES
+    CXX_STANDARD 17
+    CXX_STANDARD_REQUIRED ON
+    CXX_EXTENSIONS OFF
+)
+add_test(NAME tema-tests COMMAND tema-tests)
 
 # AssetManager (cache Flyweight de meshes CPU) tambien headless y portatil:
 # rutas (AssetPath), geometria (Mesh) y el registro compartido con un loader

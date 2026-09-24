@@ -18,90 +18,117 @@
 */
 #include "EditorConfig.h"
 
-#include <nlohmann/json.hpp>
+#include "ConfigPersistence.h"
+#include "ProjectPaths.h"
 
-#include <cctype>
-#include <cstdlib>
-#include <cstring>
 #include <filesystem>
-#include <fstream>
-
-#ifdef _WIN32
-#include <windows.h>
-#else
-#include <unistd.h>
-#endif
 
 // ============================================================================
-// Persistencia de la configuracion del editor en JSON (nlohmann, vendoriado en
-// External/nlohmann). Carga tolerante: si el archivo falta, esta corrupto o le
-// faltan campos, se quedan los valores por defecto y se conserva lo que si se
-// pudo leer. El binario solo persiste datos de escena, no configuracion.
+// Configuracion del editor: fachada sobre la UNICA implementacion del esquema
+// (ConfigPersistence, JSON con nlohmann vendoriado en External/nlohmann) y de
+// las rutas (ProjectPaths), mas el estado en memoria (Datos) y el guardado
+// diferido de la configuracion general. Carga tolerante: si el archivo falta,
+// esta corrupto o le faltan campos, se quedan los valores por defecto y se
+// conserva lo que si se pudo leer. El binario solo persiste datos de escena,
+// no configuracion.
+// ============================================================================
+
+// ============================================================================
+// Migración de estructura antigua a nueva (Proyects/, Configuraciones/)
 // ============================================================================
 
 namespace {
 
-// Directorio del ejecutable (sin el nombre del binario, con separador final).
-// Es el ancla de los datos del motor: la config y los proyectos viven junto al
-// binario, sin depender del directorio desde el que se lance ni del HOME.
-std::string directorioEjecutable() {
-#ifdef _WIN32
-    char exe[4096] = {};
-    const DWORD n = GetModuleFileNameA(nullptr, exe, sizeof(exe));
-    if (n == 0 || n >= sizeof(exe)) return "";
-    const std::string path(exe, static_cast<std::size_t>(n));
-    const std::size_t sep = path.find_last_of("\\/");
-    return (sep == std::string::npos) ? "" : path.substr(0, sep + 1);
-#else
-    char link[4096] = {};
-    const ssize_t n = readlink("/proc/self/exe", link, sizeof(link) - 1);
-    if (n <= 0) return "";
-    link[n] = '\0';
-    const std::string path(link);
-    const std::size_t sep = path.find_last_of('/');
-    return (sep == std::string::npos) ? "" : path.substr(0, sep + 1);
-#endif
+static void migrarProyectosAntiguos() {
+    const std::string base = EditorConfig::directorioBaseMotorGrafico();
+    const std::string proyectsDir = EditorConfig::directorioProyects();
+    std::error_code ec;
+
+    // Listar directorios directamente bajo MotorGrafico/ (excluyendo carpetas conocidas)
+    const std::vector<std::string> carpetasReservadas = {
+        "Proyects", "Configuraciones", "Exportaciones",
+        "Binarios", "Memory", "Interfaces", "Sonidos",
+        "srcNuevo Proyecto", "src", "Configuracion.json", "imgui.ini"
+    };
+
+    for (const auto& entry : std::filesystem::directory_iterator(base, ec)) {
+        if (!entry.is_directory(ec)) continue;
+        const std::string nombre = entry.path().filename().string();
+
+        // Saltar carpetas reservadas/sistema
+        bool reservado = false;
+        for (const auto& r : carpetasReservadas) {
+            if (nombre == r || (nombre.rfind("src", 0) == 0 && nombre.size() > 3)) {
+                reservado = true;
+                break;
+            }
+        }
+        if (reservado) continue;
+
+        // Mover proyecto a Proyects/
+        std::string origen = entry.path().string();
+        std::string destino = proyectsDir + "/" + nombre;
+        if (!std::filesystem::exists(destino, ec)) {
+            std::filesystem::rename(origen, destino, ec);
+        }
+    }
+}
+
+static void migrarConfiguracionGlobal() {
+    const std::string base = EditorConfig::directorioBaseMotorGrafico();
+    const std::string oldConfig = base + "/Configuracion.json";
+    const std::string newConfig = EditorConfig::directorioConfiguraciones() + "/Configuracion.json";
+    std::error_code ec;
+
+    if (std::filesystem::exists(oldConfig, ec) && !std::filesystem::exists(newConfig, ec)) {
+        std::filesystem::create_directories(EditorConfig::directorioConfiguraciones(), ec);
+        std::filesystem::copy_file(oldConfig, newConfig, std::filesystem::copy_options::overwrite_existing, ec);
+    }
 }
 
 } // namespace
 
 // ============================================================================
+// Rutas del motor: una sola fuente de verdad es ProjectPaths (mismo ancla, el
+// directorio del ejecutable). Estas funciones quedan como fachada estable que
+// ya usan main, escenas, tests y el exportador; toda la composicion de rutas
+// vive en ProjectPaths.
+// ============================================================================
 
 std::string EditorConfig::directorioBaseMotorGrafico() {
-    // Relativo al ejecutable: los datos de config/proyectos se crean junto al
-    // binario (build portable), no en el HOME ni en el directorio de lanzamiento.
-    const std::string exeDir = directorioEjecutable();
-    return exeDir.empty() ? "MotorGrafico" : exeDir + "MotorGrafico";
+    return ProjectPaths::directorioBase();
+}
+
+std::string EditorConfig::directorioProyects() {
+    return ProjectPaths::directorioProyects();
+}
+
+std::string EditorConfig::directorioConfiguraciones() {
+    return ProjectPaths::directorioConfiguraciones();
 }
 
 std::string EditorConfig::directorioProyecto(const std::string& nombreProyecto) {
-    const std::string nombre = nombreProyecto.empty() ? "Nuevo Proyecto" : nombreProyecto;
-    return directorioBaseMotorGrafico() + "/" + nombre;
+    return ProjectPaths::directorioProyecto(nombreProyecto);
 }
 
 std::string EditorConfig::directorioMemory(const std::string& nombreProyecto) {
-    return directorioProyecto(nombreProyecto) + "/Memory";
+    return ProjectPaths::directorioMemory(nombreProyecto);
 }
 
 std::string EditorConfig::directorioSrc(const std::string& nombreProyecto) {
-    return directorioProyecto(nombreProyecto) + "/" + nombreRaizSrc(nombreProyecto);
+    return ProjectPaths::directorioSrc(nombreProyecto);
 }
 
 std::string EditorConfig::nombreRaizSrc(const std::string& nombreProyecto) {
-    const std::string nombre = nombreProyecto.empty() ? "Nuevo Proyecto" : nombreProyecto;
-    return "src" + nombre;
+    return ProjectPaths::nombreRaizSrc(nombreProyecto);
 }
 
 std::string EditorConfig::rutaConfiguracionGeneral() {
-    // Configuracion general: hermana de las carpetas de proyecto, no dentro de ninguna.
-    // Guarda solo lo independiente del proyecto: apariencia, idioma, sensibilidad,
-    // y el ultimo proyecto abierto para saber cual cargar al arrancar.
-    return directorioBaseMotorGrafico() + "/Configuracion.json";
+    return ProjectPaths::rutaConfiguracionGeneral();
 }
 
 std::string EditorConfig::rutaConfiguracionProyecto(const std::string& nombreProyecto) {
-    // Configuracion especifica del proyecto: estado de ventanas, gizmo, camara activa.
-    return directorioMemory(nombreProyecto) + "/ConfiguracionProyecto.json";
+    return ProjectPaths::rutaConfiguracionProyecto(nombreProyecto);
 }
 
 std::string EditorConfig::rutaConfiguracion(const std::string& nombreProyecto) {
@@ -110,37 +137,58 @@ std::string EditorConfig::rutaConfiguracion(const std::string& nombreProyecto) {
 }
 
 std::string EditorConfig::directorioBinarios(const std::string& nombreProyecto) {
-    return directorioMemory(nombreProyecto) + "/Binarios";
+    return ProjectPaths::directorioBinarios(nombreProyecto);
 }
 
 std::string EditorConfig::rutaScenePrefijo(const std::string& nombreProyecto) {
-    return directorioBinarios(nombreProyecto) + "/Scene";
+    return ProjectPaths::rutaScenePrefijo(nombreProyecto);
 }
 
 std::string EditorConfig::rutaSceneBBDD(const std::string& nombreProyecto) {
-    return directorioBinarios(nombreProyecto) + "/SceneBBDDObjetos.txt";
+    return ProjectPaths::rutaSceneBBDD(nombreProyecto);
 }
 
 std::string EditorConfig::rutaSceneDir(const std::string& nombreProyecto) {
-    return directorioBinarios(nombreProyecto) + "/Scene/";
+    return ProjectPaths::rutaSceneDir(nombreProyecto);
 }
 
 std::string EditorConfig::rutaImguiIni(const std::string& nombreProyecto) {
-    return directorioMemory(nombreProyecto) + "/imgui.ini";
+    return ProjectPaths::rutaImguiIni(nombreProyecto);
 }
 
 std::string EditorConfig::directorioSonidos(const std::string& nombreProyecto) {
-    // Dentro del src: es un asset y el explorador de archivos (raiz src<nombre>)
-    // debe listar la carpeta junto a los demas archivos del proyecto.
-    return directorioSrc(nombreProyecto) + "/Sonidos";
+    return ProjectPaths::directorioSonidos(nombreProyecto);
 }
 
 std::string EditorConfig::directorioInterfaces(const std::string& nombreProyecto) {
-    return directorioMemory(nombreProyecto) + "/Interfaces";
+    return ProjectPaths::directorioInterfaces(nombreProyecto);
+}
+
+std::string EditorConfig::directorioExportaciones() {
+    return ProjectPaths::directorioExportaciones();
+}
+
+std::string EditorConfig::directorioExportacion(const std::string& nombreExportacion) {
+    return ProjectPaths::directorioExportacion(nombreExportacion);
 }
 
 void EditorConfig::asegurarEstructuraProyecto(const std::string& nombreProyecto) {
     const std::string nombre = nombreProyecto.empty() ? "Nuevo Proyecto" : nombreProyecto;
+
+    // 1. Crear estructura base: MotorGrafico/Proyects/ y MotorGrafico/Configuraciones/
+    std::error_code ec;
+    std::filesystem::create_directories(directorioProyects(), ec);
+    std::filesystem::create_directories(directorioConfiguraciones(), ec);
+    std::filesystem::create_directories(directorioExportaciones(), ec);
+
+    // 2. Migrar proyectos existentes de la estructura antigua (directamente bajo MotorGrafico/)
+    // a la nueva estructura MotorGrafico/Proyects/
+    migrarProyectosAntiguos();
+
+    // 3. Migrar configuración global antigua (MotorGrafico/Configuracion.json)
+    // a MotorGrafico/Configuraciones/Configuracion.json
+    migrarConfiguracionGlobal();
+
     const std::string dirMemory = directorioMemory(nombre);
     const std::string dirScene = dirMemory + "/Binarios/Scene";
     const std::string dirSrc = directorioSrc(nombre);
@@ -149,7 +197,6 @@ void EditorConfig::asegurarEstructuraProyecto(const std::string& nombreProyecto)
     const std::string dirSonidos = directorioSonidos(nombre);
     const std::string dirInterfaces = directorioInterfaces(nombre);
 
-    std::error_code ec;
     std::filesystem::create_directories(dirScene, ec);
     std::filesystem::create_directories(dirSrc, ec);
     std::filesystem::create_directories(dirInterfaces, ec);
@@ -252,6 +299,34 @@ bool EditorConfig::eliminarProyecto(const std::string& nombre) {
     return !ec;
 }
 
+bool EditorConfig::crearProyectoPorDefecto() {
+    const std::string proyectsDir = directorioProyects();
+    std::error_code ec;
+
+    // Asegurar que existe el directorio Proyects
+    std::filesystem::create_directories(proyectsDir, ec);
+
+    // Verificar si ya hay proyectos
+    bool hayProyectos = false;
+    for (const auto& entry : std::filesystem::directory_iterator(proyectsDir, ec)) {
+        if (entry.is_directory(ec)) {
+            hayProyectos = true;
+            break;
+        }
+    }
+    if (hayProyectos) return false; // Ya hay proyectos, no hacer nada
+
+    // Crear "NuevoProyecto"
+    const std::string defaultName = "NuevoProyecto";
+    const std::string defaultDir = directorioProyecto(defaultName);
+    std::filesystem::create_directories(defaultDir + "/Memory/Binarios/Scene", ec);
+    std::filesystem::create_directories(defaultDir + "/Memory/Interfaces", ec);
+    std::filesystem::create_directories(defaultDir + "/" + nombreRaizSrc(defaultName) + "/Sonidos", ec);
+    std::filesystem::create_directories(defaultDir + "/" + nombreRaizSrc(defaultName), ec);
+
+    return !ec;
+}
+
 std::string EditorConfig::directorioProyectoPorDefecto() {
     return directorioMemory("Nuevo Proyecto");
 }
@@ -329,34 +404,6 @@ std::string EditorConfig::reemplazarPrefijoRuta(const std::string& ruta,
 }
 
 // ============================================================================
-// Helpers internos de lectura/escritura JSON
-// ============================================================================
-
-// Escribe un bloque JSON en disco, creando los directorios necesarios.
-static void escribirJson(const std::string& ruta, const nlohmann::json& j) {
-    std::error_code ec;
-    const std::string::size_type sep = ruta.find_last_of("/\\");
-    if (sep != std::string::npos)
-        std::filesystem::create_directories(ruta.substr(0, sep), ec);
-    std::ofstream out(ruta);
-    if (!out.is_open()) return;
-    out << j.dump(2) << '\n';
-}
-
-// Intenta abrir `ruta`; retorna el json parseado o un objeto vacio si falla.
-static nlohmann::json leerJson(const std::string& ruta) {
-    std::ifstream in(ruta);
-    if (!in.is_open()) return nlohmann::json::object();
-    nlohmann::json j;
-    try {
-        in >> j;
-    } catch (...) {
-        return nlohmann::json::object();
-    }
-    return j.is_object() ? j : nlohmann::json::object();
-}
-
-// ============================================================================
 // Carga: la funcion publica `cargar` es el punto de entrada historico;
 // delega en cargarGeneral + cargarProyecto para el arranque completo.
 // ============================================================================
@@ -370,106 +417,34 @@ void EditorConfig::cargar(const std::string& ruta) {
 }
 
 void EditorConfig::cargarGeneral(const std::string& ruta) {
-    // Determina la ruta a leer: si llega vacia usa la ruta canonica general.
-    const std::string rutaReal = ruta.empty() ? rutaConfiguracionGeneral() : ruta;
-    nlohmann::json j = leerJson(rutaReal);
+    // Una sola implementacion del esquema JSON: ConfigPersistence (y una sola
+    // de rutas: ProjectPaths). Este metodo solo vuelca los campos de la config
+    // general; los de proyecto no se tocan. Archivo ausente/corrupto/parcial ->
+    // los defaults que trae ConfigPersistence::General.
+    const ConfigPersistence::General g = ConfigPersistence::cargarGeneral(ruta);
 
-    // Compatibilidad: si el archivo no existe y se esta usando la ruta canonica,
-    // busca el archivo legacy en la raiz de MotorGrafico (para instalaciones
-    // que todavia tienen Configuracion.json en la raiz, antes de esta separacion).
-    // No aplica si se paso una ruta explicita distinta (p. ej. tests).
-    const std::string rutaCanonica = rutaConfiguracionGeneral();
-    if (j.empty() && rutaReal == rutaCanonica) {
-        // La ruta canonica ya ES la raiz de MotorGrafico/Configuracion.json,
-        // asi que no hay legacy distinto que buscar; simplemente no hay archivo.
-    }
-    if (j.empty()) return;
-
-    if (j.contains("version") && j["version"].is_number_integer())
-        datos_.version = j["version"].get<int>();
-
-    // Ultimo proyecto abierto: permite arrancar directamente en el proyecto
-    // que se estaba editando sin que el usuario tenga que seleccionarlo.
-    if (j.contains("ultimoProyecto") && j["ultimoProyecto"].is_string())
-        datos_.nombreProyecto = j["ultimoProyecto"].get<std::string>();
-    // Compatibilidad con archivos viejos que guardaban el proyecto en "menu/proyecto"
-    else if (j.contains("menu") && j["menu"].is_object()) {
-        const auto& menu = j["menu"];
-        if (menu.contains("proyecto") && menu["proyecto"].is_string())
-            datos_.nombreProyecto = menu["proyecto"].get<std::string>();
-        if (menu.contains("idioma") && menu["idioma"].is_string())
-            datos_.idioma = menu["idioma"].get<std::string>();
-        if (menu.contains("sensibilidadCamara") && menu["sensibilidadCamara"].is_number())
-            datos_.sensibilidadCamara = menu["sensibilidadCamara"].get<float>();
-    }
-
-    if (j.contains("idioma") && j["idioma"].is_string())
-        datos_.idioma = j["idioma"].get<std::string>();
-    if (j.contains("sensibilidadCamara") && j["sensibilidadCamara"].is_number())
-        datos_.sensibilidadCamara = j["sensibilidadCamara"].get<float>();
-    if (j.contains("sensibilidadMovimientoCamara") &&
-        j["sensibilidadMovimientoCamara"].is_number())
-        datos_.sensibilidadMovimientoCamara =
-            j["sensibilidadMovimientoCamara"].get<float>();
-
-    // Apariencia (tema, modo B/N, acento y fondo 3D). Tolerante: cada campo
-    // ausente o invalido conserva el default del perfil.
-    if (j.contains("apariencia") && j["apariencia"].is_object()) {
-        const nlohmann::json& ap = j["apariencia"];
-        if (ap.contains("temaClaro") && ap["temaClaro"].is_boolean())
-            datos_.apariencia.temaClaro = ap["temaClaro"].get<bool>();
-        if (ap.contains("blancoYNegro") && ap["blancoYNegro"].is_boolean())
-            datos_.apariencia.blancoYNegro = ap["blancoYNegro"].get<bool>();
-        if (ap.contains("acento") && ap["acento"].is_array() &&
-            ap["acento"].size() == 4) {
-            for (int i = 0; i < 4; ++i)
-                if (ap["acento"][i].is_number())
-                    datos_.apariencia.acento[i] = ap["acento"][i].get<float>();
-        }
-        if (ap.contains("fondo") && ap["fondo"].is_array() &&
-            ap["fondo"].size() == 3) {
-            for (int i = 0; i < 3; ++i)
-                if (ap["fondo"][i].is_number())
-                    datos_.apariencia.fondo[i] = ap["fondo"][i].get<float>();
-        }
-    }
+    datos_.version = g.version;
+    if (!g.ultimoProyecto.empty())
+        datos_.nombreProyecto = g.ultimoProyecto;
+    datos_.idioma = g.idioma;
+    datos_.sensibilidadCamara = g.sensibilidadCamara;
+    datos_.sensibilidadMovimientoCamara = g.sensibilidadMovimientoCamara;
+    datos_.apariencia = g.apariencia;
 }
 
 void EditorConfig::cargarProyecto(const std::string& nombreProyecto,
                                   const std::string& ruta) {
-    const std::string rutaReal =
-        ruta.empty() ? rutaConfiguracionProyecto(nombreProyecto) : ruta;
-    nlohmann::json j = leerJson(rutaReal);
+    const ConfigPersistence::Proyecto p =
+        ConfigPersistence::cargarProyecto(nombreProyecto, ruta);
 
-    // Compatibilidad: si el archivo nuevo no existe y se usa la ruta canonica,
-    // intenta el viejo nombre Configuracion.json que vivía en Memory antes de
-    // esta separacion. No aplica con rutas explícitas (p. ej. tests).
-    const std::string rutaCanonica = rutaConfiguracionProyecto(nombreProyecto);
-    if (j.empty() && rutaReal == rutaCanonica) {
-        j = leerJson(directorioMemory(nombreProyecto) + "/Configuracion.json");
-    }
-    if (j.empty()) return;
-
-    if (j.contains("editor") && j["editor"].is_object()) {
-        const nlohmann::json& editor = j["editor"];
-        if (editor.contains("ventanaCamarasAbierta") &&
-            editor["ventanaCamarasAbierta"].is_boolean())
-            datos_.ventanaCamarasAbierta = editor["ventanaCamarasAbierta"].get<bool>();
-        if (editor.contains("gizmoOperacion") && editor["gizmoOperacion"].is_number_integer())
-            datos_.gizmoOperacion = editor["gizmoOperacion"].get<int>();
-        if (editor.contains("gizmoGlobal") && editor["gizmoGlobal"].is_boolean())
-            datos_.gizmoGlobal = editor["gizmoGlobal"].get<bool>();
-        if (editor.contains("camaraActivaId") && editor["camaraActivaId"].is_number_integer())
-            datos_.camaraActivaId = editor["camaraActivaId"].get<int>();
-
-        if (editor.contains("ventanas") && editor["ventanas"].is_object()) {
-            for (auto it = editor["ventanas"].begin();
-                 it != editor["ventanas"].end(); ++it) {
-                if (it.value().is_boolean())
-                    datos_.estadoVentanas[it.key()] = it.value().get<bool>();
-            }
-        }
-    }
+    datos_.version = p.version;
+    datos_.ventanaCamarasAbierta = p.ventanaCamarasAbierta;
+    datos_.gizmoOperacion = p.gizmoOperacion;
+    datos_.gizmoGlobal = p.gizmoGlobal;
+    datos_.camaraActivaId = p.camaraActivaId;
+    // Se asigna entero (y no se fusiona) para que entrar a un proyecto sin
+    // configuracion arranque en defaults en lugar de heredar los del anterior.
+    datos_.estadoVentanas = p.estadoVentanas;
 }
 
 // ============================================================================
@@ -479,45 +454,56 @@ void EditorConfig::cargarProyecto(const std::string& nombreProyecto,
 void EditorConfig::guardar(const std::string& ruta) {
     // Guardado completo de compatibilidad: guarda general + proyecto.
     // En el flujo nuevo, main llama a guardarGeneral/guardarProyecto por separado.
-    guardarGeneral();
+    guardarGeneral(ruta);
     guardarProyecto(datos_.nombreProyecto);
 }
 
 void EditorConfig::guardarGeneral(const std::string& ruta) {
-    const std::string rutaReal = ruta.empty() ? rutaConfiguracionGeneral() : ruta;
-    nlohmann::json j;
-    j["version"] = datos_.version;
+    ConfigPersistence::General g;
+    g.version = datos_.version;
     // Ultimo proyecto abierto: al arrancar se retoma este proyecto sin pedir al
     // usuario. Con el nombre vacio (primer arranque sin proyecto elegido) la
-    // clave no se escribe: de lo contrario al releer quedaria "Nuevo Proyecto"
-    // y se crearían sus carpetas solas la proxima vez.
-    if (!datos_.nombreProyecto.empty()) j["ultimoProyecto"] = datos_.nombreProyecto;
-    j["idioma"] = datos_.idioma;
-    j["sensibilidadCamara"] = datos_.sensibilidadCamara;
-    j["sensibilidadMovimientoCamara"] = datos_.sensibilidadMovimientoCamara;
-    j["apariencia"]["temaClaro"] = datos_.apariencia.temaClaro;
-    j["apariencia"]["blancoYNegro"] = datos_.apariencia.blancoYNegro;
-    j["apariencia"]["acento"] = {datos_.apariencia.acento[0],
-                                 datos_.apariencia.acento[1],
-                                 datos_.apariencia.acento[2],
-                                 datos_.apariencia.acento[3]};
-    j["apariencia"]["fondo"] = {datos_.apariencia.fondo[0],
-                                datos_.apariencia.fondo[1],
-                                datos_.apariencia.fondo[2]};
-    escribirJson(rutaReal, j);
+    // clave no la escribe ConfigPersistence::guardarGeneral: de lo contrario al
+    // releer quedaria "Nuevo Proyecto" y se crearian sus carpetas solas.
+    g.ultimoProyecto = datos_.nombreProyecto;
+    g.idioma = datos_.idioma;
+    g.sensibilidadCamara = datos_.sensibilidadCamara;
+    g.sensibilidadMovimientoCamara = datos_.sensibilidadMovimientoCamara;
+    g.apariencia = datos_.apariencia;
+
+    ConfigPersistence::guardarGeneral(g, ruta);
+
+    // Fin del guardado diferido: hubo escritura (inmediata) ahora.
+    generalPendiente = false;
+    ultimaEscrituraGeneral = std::chrono::steady_clock::now();
 }
 
 void EditorConfig::guardarProyecto(const std::string& nombreProyecto,
                                    const std::string& ruta) {
-    const std::string rutaReal =
-        ruta.empty() ? rutaConfiguracionProyecto(nombreProyecto) : ruta;
-    nlohmann::json j;
-    j["version"] = datos_.version;
-    j["editor"]["ventanaCamarasAbierta"] = datos_.ventanaCamarasAbierta;
-    j["editor"]["gizmoOperacion"] = datos_.gizmoOperacion;
-    j["editor"]["gizmoGlobal"] = datos_.gizmoGlobal;
-    j["editor"]["camaraActivaId"] = datos_.camaraActivaId;
-    for (const auto& [nombre, abierta] : datos_.estadoVentanas)
-        j["editor"]["ventanas"][nombre] = abierta;
-    escribirJson(rutaReal, j);
+    ConfigPersistence::Proyecto p;
+    p.version = datos_.version;
+    p.ventanaCamarasAbierta = datos_.ventanaCamarasAbierta;
+    p.gizmoOperacion = datos_.gizmoOperacion;
+    p.gizmoGlobal = datos_.gizmoGlobal;
+    p.camaraActivaId = datos_.camaraActivaId;
+    p.estadoVentanas = datos_.estadoVentanas;
+
+    ConfigPersistence::guardarProyecto(p, nombreProyecto, ruta);
+}
+
+// ============================================================================
+// Guardado diferido de la configuracion general (ver EditorConfig.h)
+// ============================================================================
+
+void EditorConfig::solicitarGuardadoGeneral(const std::string& ruta) {
+    generalPendiente = true;
+    rutaGeneralPendiente = ruta;
+    volcarGuardadoGeneral();
+}
+
+void EditorConfig::volcarGuardadoGeneral() {
+    if (!generalPendiente) return;
+    const auto ahora = std::chrono::steady_clock::now();
+    if (ahora - ultimaEscrituraGeneral < kIntervaloEscritura) return;
+    guardarGeneral(rutaGeneralPendiente);
 }

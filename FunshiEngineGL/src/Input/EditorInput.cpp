@@ -29,6 +29,7 @@
 #include "../States/ApplicationStateMachine.h"
 #include "../States/OrquestadorEstadoGUI.h"
 #include "ImGuizmo.h"
+#include "../Scenes/EditorController.h"
 
 EditorInput* EditorInput::instancia = nullptr;
 
@@ -41,9 +42,8 @@ EditorInput::EditorInput(GameScene* escena, ApplicationStateMachine* maquina,
 void EditorInput::registrarCallbacks(GLFWwindow* window) {
     glfwSetKeyCallback(window, EditorInput::teclado_callback);
     glfwSetCursorPosCallback(window, EditorInput::mouse_callback);
-    // Clic derecho navega junto con los paneles; el backend de ImGui encadena
-    // estas callbacks (se registran antes de ImGui_ImplGlfw_InitForOpenGL).
     glfwSetMouseButtonCallback(window, EditorInput::mouse_button_callback);
+    glfwSetScrollCallback(window, EditorInput::scroll_callback);
 }
 
 void EditorInput::teclado_callback(GLFWwindow* window, int key, int scancode,
@@ -58,6 +58,11 @@ void EditorInput::mouse_callback(GLFWwindow* window, double xpos, double ypos) {
 void EditorInput::mouse_button_callback(GLFWwindow* window, int button,
                                         int action, int mods) {
     if (instancia) instancia->onMouseButton(window, button, action, mods);
+}
+
+void EditorInput::scroll_callback(GLFWwindow* window, double xoffset,
+                                  double yoffset) {
+    if (instancia) instancia->onScroll(window, xoffset, yoffset);
 }
 
 void EditorInput::aplicarModoCursor(GLFWwindow* window) {
@@ -91,6 +96,8 @@ void EditorInput::aplicarMovimiento(float deltaTime) {
     // mientras se edita un InputText).
     if (!scene || !appState || !appState->is(ApplicationState::Editing)) return;
     if (ImGui::GetIO().WantCaptureKeyboard) return;
+    // Durante orbita (editor oculto + clic derecho): bloquear traslacion WASD.
+    if (orbitando) return;
     // Misma regla que la mirada (EditorInput::onMouse): con las interfaces del
     // editor visibles el WASD no traslada la camara; hace falta ocultarlas (E)
     // o navegar con el clic derecho sostenido sobre el viewport. Sin esto se
@@ -153,6 +160,28 @@ void EditorInput::onKey(GLFWwindow* window, int key, int scancode, int action,
         return;
     }
 
+    // Ctrl+Z: deshacer (undo)
+    if (key == GLFW_KEY_Z && (mods & GLFW_MOD_CONTROL) &&
+        !(mods & GLFW_MOD_SHIFT) && action == GLFW_PRESS) {
+        if (scene && !ImGui::GetIO().WantCaptureKeyboard) {
+            if (auto* ec = scene->getEditorController()) {
+                if (ec->puedeDeshacer()) ec->deshacer();
+            }
+        }
+        return;
+    }
+
+    // Ctrl+Shift+Z: rehacer (redo)
+    if (key == GLFW_KEY_Z && (mods & GLFW_MOD_CONTROL) &&
+        (mods & GLFW_MOD_SHIFT) && action == GLFW_PRESS) {
+        if (scene && !ImGui::GetIO().WantCaptureKeyboard) {
+            if (auto* ec = scene->getEditorController()) {
+                if (ec->puedeRehacer()) ec->rehacer();
+            }
+        }
+        return;
+    }
+
     // F5/F6/F7: teclas de funcion de la simulacion (Play/Pausa/Stop). La regla
     // por estado vive en el orquestador (funcion de marco de la arquitectura,
     // igual que Escape); aca solo se reenvia el evento y se refleja la decision
@@ -208,6 +237,8 @@ void EditorInput::onKey(GLFWwindow* window, int key, int scancode, int action,
     }
 
     if (key == GLFW_KEY_E && action == GLFW_PRESS) {
+        // Durante orbita: bloquear toggle de editor (E).
+        if (orbitando) return;
         // Solo en el estado de edicion: desde el menu de inicio la E no debe
         // "activar el editor" mostrando sus interfaces sobre el menu (fallo de
         // la maquina de estados). Con un InputText de ImGui activo, E tampoco
@@ -247,9 +278,9 @@ void EditorInput::onMouseButton(GLFWwindow* window, int button, int action,
         const bool editorActivo = scene && scene->isEditorActivo();
 
         if (!editorActivo && !io.WantCaptureMouse && !gizmoCapturing) {
-// Editor oculto (E presionado) + clic derecho sobre la escena:
+            // Editor oculto (E presionado) + clic derecho sobre la escena:
             // entrar en modo orbita. El origen esta en la recta de la direccion
-            // de la camara; el radio es la distancia actual camara-origen.
+            // de la camara; el radio es la distancia horizontal actual camara-origen.
             if (CameraComponent* camara = scene ? scene->getActiveCamera() : nullptr) {
                 camara->refreshFromTransform();
                 const float* pos = camara->getPosition();
@@ -257,10 +288,14 @@ void EditorInput::onMouseButton(GLFWwindow* window, int button, int action,
                 // origen = pos + dir * radio. La camara queda sobre la
                 // circunferencia y el origen sobre la recta en direccion y
                 // sentido a donde mira la camara.
-                float radio = 10.0f; // radio fijo para la orbita
+                float radio = 10.0f;
                 origenOrbita[0] = pos[0] + dir[0] * radio;
                 origenOrbita[1] = pos[1] + dir[1] * radio;
                 origenOrbita[2] = pos[2] + dir[2] * radio;
+                // Calcular radio horizontal real (distancia XZ camara <-> origen).
+                float dx = pos[0] - origenOrbita[0];
+                float dz = pos[2] - origenOrbita[2];
+                radioOrbita = std::sqrt(dx * dx + dz * dz);
                 orbitando = true;
             }
         } else {
@@ -310,15 +345,16 @@ void EditorInput::onMouse(GLFWwindow* window, double xpos, double ypos) {
     //      La camara gira alrededor de un punto origen en la direccion de mirada,
     //      manteniendo radio fijo y mirando siempre hacia el origen.
     const bool navegandoLibre =
-        !editorActivo && !io.WantCaptureMouse && !gizmoCapturing;
+        !editorActivo && !io.WantCaptureMouse && !gizmoCapturing && !orbitando;
     const bool navegandoConDerecho =
-        mouseDerechoParaNavegar && !gizmoCapturing;
+        mouseDerechoParaNavegar && !gizmoCapturing && !orbitando;
 
     if (orbitando && !gizmoCapturing) {
         if (CameraComponent* camara = scene ? scene->getActiveCamera() : nullptr) {
             const float sensibilidad =
                 scene ? scene->getSensibilidadCamara() : 1.0f;
-            camara->orbitAround(origenOrbita, dx * sensibilidad, dy * sensibilidad);
+            camara->orbitAround(origenOrbita, radioOrbita,
+                                dx * sensibilidad, dy * sensibilidad);
         }
     } else if (navegandoLibre || navegandoConDerecho) {
         if (CameraComponent* camara = scene ? scene->getActiveCamera() : nullptr) {
@@ -326,5 +362,91 @@ void EditorInput::onMouse(GLFWwindow* window, double xpos, double ypos) {
                 scene ? scene->getSensibilidadCamara() : 1.0f;
             camara->updateYaw(dx * sensibilidad, dy * sensibilidad);
         }
+    }
+}
+
+void EditorInput::onScroll(GLFWwindow* window, double xoffset, double yoffset) {
+    (void)window;
+    (void)xoffset;
+    // Ajustar radio de orbita con la rueda del mouse solo durante orbita.
+    // Invertido: rueda arriba (yoffset>0) = decrementa, abajo = incrementa.
+    if (!orbitando) return;
+    const float factor = 1.01f;  // ~1% por notch
+    float radioAnterior = radioOrbita;
+    if (yoffset > 0) {
+        radioOrbita /= factor;
+        if (radioOrbita < CameraComponent::radioMin) radioOrbita = CameraComponent::radioMin;
+    } else if (yoffset < 0) {
+        radioOrbita *= factor;
+        if (radioOrbita > CameraComponent::radioMax) radioOrbita = CameraComponent::radioMax;
+    }
+    // Desplazar la camara suavemente sobre la recta del radio por el delta.
+    // La nueva posicion = origen - horizDir * radioOrbita.
+    // Delta = radioOrbita - radioAnterior. Si radio disminuye (rueda arriba),
+    // delta < 0 -> camara se acerca al origen (avanza sobre -horizDir).
+    // Si radio aumenta (rueda abajo), delta > 0 -> camara se aleja (retrocede).
+    if (CameraComponent* camara = scene ? scene->getActiveCamera() : nullptr) {
+        camara->refreshFromTransform();
+        const float* origen = origenOrbita;
+        const float radX = camara->getYawX() * (3.14159265358979f / 180.f);
+        float horizDir[3] = { std::sin(radX), 0.f, -std::cos(radX) };
+        float deltaRadio = radioOrbita - radioAnterior;
+        const float* pos = camara->getPosition();
+        // Mover posicion a lo largo de la recta del radio (suave, tiempo real).
+        // origen - horizDir * (radioAnterior + deltaRadio) = pos - horizDir * deltaRadio.
+        float nuevaPos[3] = {
+            pos[0] - horizDir[0] * deltaRadio,
+            pos[1],
+            pos[2] - horizDir[2] * deltaRadio
+        };
+        camara->setPosition(nuevaPos);
+        camara->escribirATransform();
+    }
+}
+
+void EditorInput::dibujarSidebarOrbita() {
+    if (!orbitando) return;
+    ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove |
+                             ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings |
+                             ImGuiWindowFlags_AlwaysAutoResize;
+    ImGui::SetNextWindowPos(ImVec2(10, 10), ImGuiCond_Always);
+    ImGui::SetNextWindowBgAlpha(0.7f);
+    if (ImGui::Begin("Orbita", nullptr, flags)) {
+        ImGui::Text("Radio Orbita");
+        ImGui::Separator();
+        // Barra vertical: altura fija, progreso = (radio - min) / (max - min).
+        float progreso = (radioOrbita - CameraComponent::radioMin) /
+                         (CameraComponent::radioMax - CameraComponent::radioMin);
+        if (progreso < 0.f) progreso = 0.f;
+        if (progreso > 1.f) progreso = 1.f;
+        // ProgressBar vertical custom: usar DrawList para barra vertical.
+        ImVec2 pos = ImGui::GetCursorScreenPos();
+        ImVec2 size(30, 200);
+        ImDrawList* draw = ImGui::GetWindowDrawList();
+        ImU32 bgCol = ImGui::GetColorU32(ImGuiCol_FrameBg);
+        // Relleno con el acento del tema (mismo criterio que la barra de
+        // StatusBarInterface): el amarillo de fabrica de ImGuiCol_PlotHistogram
+        // quedaba fuera del color elegido en Opciones.
+        ImU32 fgCol = ImGui::GetColorU32(ImGuiCol_SliderGrabActive);
+        // Fondo
+        draw->AddRectFilled(pos, ImVec2(pos.x + size.x, pos.y + size.y), bgCol);
+        // Relleno (de abajo hacia arriba)
+        float fillH = size.y * progreso;
+        draw->AddRectFilled(
+            ImVec2(pos.x, pos.y + size.y - fillH),
+            ImVec2(pos.x + size.x, pos.y + size.y),
+            fgCol);
+        // Borde
+        draw->AddRect(pos, ImVec2(pos.x + size.x, pos.y + size.y),
+                      ImGui::GetColorU32(ImGuiCol_Border));
+        // Avanzar cursor por el tamaño de la barra
+        ImGui::Dummy(size);
+        ImGui::SameLine();
+        ImGui::BeginGroup();
+        ImGui::Text("%.1f", radioOrbita);
+        ImGui::Text("min: %.1f", CameraComponent::radioMin);
+        ImGui::Text("max: %.1f", CameraComponent::radioMax);
+        ImGui::EndGroup();
+        ImGui::End();
     }
 }

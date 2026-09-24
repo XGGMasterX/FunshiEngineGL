@@ -38,10 +38,15 @@
 struct Apariencia {
     // Tema base de la interfaz ImGui: false = oscuro (por defecto), true = claro.
     bool temaClaro = false;
-    // Modo monocromo: fondo + grilla contrastados en blanco/negro.
+    // Modo monocromo: desatura TODA la interfaz (paleta de ImGui y acento
+    // incluidos) y fuerza el fondo del viewport y la grilla a blanco/negro
+    // segun el tema (claro/oscuro).
     bool blancoYNegro = false;
-    // Color de acento de la interfaz (RGB + alpha). Azul historico de Dear
-    // ImGui; el usuario puede cambiarlo para que la UI no sea siempre azul.
+    // Color de acento de la interfaz (RGB). Azul historico de Dear ImGui; el
+    // usuario puede cambiarlo para que la UI no sea siempre azul. El cuarto
+    // componente (alpha) se conserva por compatibilidad con la configuracion
+    // guardada, pero el tema no lo usa: cada rol aporta su propia
+    // transparencia (ver TemaEditor::acento).
     float acento[4] = {0.26f, 0.59f, 0.98f, 1.0f};
     // Color de fondo de la vista 3D (glClearColor). Gris oscuro historico.
     float fondo[3] = {0.10f, 0.10f, 0.10f};

@@ -164,15 +164,17 @@ std::string MenuModel::traducir(const std::string& clave) const {
         {"apariencia", {"Apariencia", "Appearance"}},
         {"tema_claro", {"Tema claro de la interfaz", "Light UI theme"}},
         {"modo_bn",
-         {"Modo blanco y negro (fondo y grilla)",
-          "Black & white mode (background and grid)"}},
+         {"Modo blanco y negro (interfaz y viewport)",
+          "Black & white mode (UI and viewport)"}},
         {"color_acento", {"Color de acento de la interfaz", "UI accent color"}},
         {"color_fondo", {"Color de fondo de la escena", "Scene background color"}},
         {"ayuda_bn",
-         {"El modo blanco y negro ignora estos colores y usa\n"
-          "blanco/negro segun el tema claro u oscuro.",
-          "Black & white mode ignores these colors and uses\n"
-          "black/white according to the light or dark theme."}},
+         {"El modo blanco y negro desatura toda la interfaz (incluido el\n"
+          "acento) y usa blanco/negro en el fondo y la grilla del viewport\n"
+          "segun el tema claro u oscuro.",
+          "Black & white mode desaturates the whole UI (accent included) and\n"
+          "uses black/white for the background and viewport grid according\n"
+          "to the light or dark theme."}},
         {"restablecer_apariencia", {"Restablecer apariencia", "Reset appearance"}},
         {"restablecer_configuracion",
          {"Restablecer configuracion", "Reset configuration"}},

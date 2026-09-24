@@ -110,6 +110,9 @@ void GUIManager::setSelecteableGUI(PriorityListaDE<GameObject*>* gameObjects) {
     // Kept for source compatibility. Scene state is injected with bindScene.
     (void)gameObjects;
 }
+SceneMenuBarInterface* GUIManager::getMenuBarGUI() {
+    return menuBarGUI.get();
+}
 SceneMenuBarInterface* GUIManager::getMenuBarGUI(bool* targetBool) {
     menuBarGUI->setActivador(targetBool);
     return menuBarGUI.get();

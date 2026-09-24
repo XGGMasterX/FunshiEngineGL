@@ -26,16 +26,20 @@ Motor y editor 3D en tiempo real escrito en C++17, con interfaz ImGui y renderiz
 - **Audio en runtime** (`src/Audio/`): `AudioEngine` (fachada thread-safe con cola + hilo de audio) sobre backends intercambiables (`MiniAudioBackend` con miniaudio, `NullAudioBackend`); `AudioClipsManager` descubre los clips de `Sonidos/` y los registra por nombre; `AudioSource` reproduce con volumen, loop y autoplay.
 - **Ventana "Estado"** (`StatusBarInterface`): muestra el toolchain externo (compilador C++, javac, libjvm) y el estado de compilación/carga de los scripts de la escena.
 - Explorador de archivos del proyecto con fachada propia (`FileManager`), estado de navegación compartido (`FileSelection`) y vigilancia de cambios externos (`FileSystemWatcher`).
-- **Apariencia del editor configurable** (perfil persisto en `Configuracion.json`):
-  tema claro/oscuro, **modo blanco y negro** que acompana al fondo y la grilla
-  del viewport, color de acento de la interfaz y color de fondo de la escena,
-  aplicados en vivo por `TemaEditor`/`AparienciaUtil`.
+- **Apariencia del editor configurable** (perfil persistido en `Configuracion.json`):
+  tema claro/oscuro, **modo blanco y negro** (desatura toda la interfaz y
+  acompaña al fondo y la grilla del viewport), color de acento de la interfaz y
+  color de fondo de la escena, aplicados en vivo por `TemaEditor`/`AparienciaUtil`.
+  El acento se inyecta en **todos** los roles visuales de ImGui (botones,
+  solapas del dock, campos de entrada, sliders, checks, enlaces, cabeceras de
+  tabla) y los grises azulados de fábrica pasan a gris neutro: la interfaz no
+  queda coloreada a medias ni con restos del azul clásico.
 - La **cámara activa** elegida con "Usar" se persiste por id en la configuración
   (default automática si el id ya no existe al cargar).
 - **Cámaras como componente** con vistas previas en vivo (render a FBO) — ver [CAMARAS_VISTAS_PREVIAS.md](CAMARAS_VISTAS_PREVIAS.md).
 - **Iluminación** gestionada por `LightSystem` (slots `GL_LIGHT0..7`, marcadores de luz y cámara en escena) y **materiales** con presets (`MaterialPresets`).
 - Menú de inicio modular (paquete `MenusGUI`, patrón MVP): idioma, nombre del proyecto y sensibilidad de cámara.
-- **Configuración del editor persistida en JSON** (`EditorConfig`, nlohmann/json): proyecto, idioma, sensibilidad, gizmo activo, ventana de cámaras y estado de las ventanas. Se guarda junto al binario (`<directorioEjecutable>/MotorGrafico/Configuracion.json`); tolerante a archivos ausentes o corruptos.
+- **Configuración del editor persistida en JSON** (nlohmann/json): proyecto, idioma, sensibilidad, gizmo activo, ventana de cámaras, estado de las ventanas y perfil de apariencia. Una sola implementación: `ConfigPersistence` (JSON puro) sobre `ProjectPaths` (rutas), con `EditorConfig` como fachada estable. Dos archivos junto al binario: `<directorioEjecutable>/MotorGrafico/Configuraciones/Configuracion.json` (general) y `MotorGrafico/Proyects/<proyecto>/Memory/ConfiguracionProyecto.json` (por proyecto). **Escritura atómica** (temporal + rename: un corte no corrompe el archivo) y **guardado diferido** de la general (los cambios en vivo de Opciones se escriben como máximo una vez cada 250 ms, y siempre al salir o con Ctrl+S). Tolerante a archivos ausentes o corruptos.
 - **Caché de assets compartida** (Flyweight): `AssetManager` (meshes CPU) y `TextureManager` (imágenes), con rutas normalizadas (`AssetPath`) y loader inyectable.
 - Estructuras de datos propias (listas, árboles, heaps, mergesort) y jerarquía de excepciones propia: las usadas por el motor (`ListaDE`, `ArbolEnlazado`, `PriorityListaDE`) están corregidas y verificadas, y las implementadas para el motor (`MinHeap`, `MaxHeap`, `ListMergeSort`, `ArbolBinarioEnlazado`) cuentan con pruebas headless.
 - **Pruebas headless** (`tests/`, CTest) y **CI multiplataforma** en GitHub Actions.
@@ -98,25 +102,26 @@ cmake -B build -S FunshiEngineGL -DCMAKE_BUILD_TYPE=Release -DENABLE_ASAN=OFF
 
 En Windows la misma receta funciona con el generador de Visual Studio. También existe `FunshiEngineGL.sln`, pero es un proyecto heredado con rutas absolutas de una máquina concreta: **prefiere siempre CMake** (`cmake -B build -S FunshiEngineGL`) para un build portable.
 
-> El primer arranque crea su configuración en `MotorGrafico/` junto al binario (la carpeta que contiene el ejecutable): ahí viven la escena serializada, `Configuracion.json` y el layout `imgui.ini` del editor.
+> El primer arranque crea su configuración en `MotorGrafico/` junto al binario (la carpeta que contiene el ejecutable): ahí viven la escena serializada, la configuración global en `Configuraciones/Configuracion.json`, la de cada proyecto en `Proyects/<proyecto>/Memory/ConfiguracionProyecto.json` y el layout `imgui.ini` del editor.
 
 
 ---
 
 ## Pruebas y CI
 
-Las pruebas son headless (sin pila gráfica), corren con CTest y hay **14 targets**
-(catorce siempre + `scripts-java-tests` si el build encontró el JDK):
+Las pruebas son headless (sin pila gráfica), corren con CTest y hay **17 targets**
+(dieciséis siempre + `scripts-java-tests` si el build encontró el JDK):
 
 ```bash
-cmake --build build --target filemanager-tests configuracion-tests eventbus-tests menu-tests assetmanager-tests texturemanager-tests estructuras-tests scripts-tests scripts-runtime-tests manifiesto-assets-tests orquestador-estado-tests
+cmake --build build --target filemanager-tests configuracion-tests eventbus-tests menu-tests tema-tests assetmanager-tests texturemanager-tests estructuras-tests scripts-tests scripts-runtime-tests manifiesto-assets-tests orquestador-estado-tests
 ctest --test-dir build --output-on-failure
 ```
 
 - `filemanager-tests` (27 verificaciones): explorador de archivos (`GestorDeArchivos`/`FileManager`/`FileSystemWatcher`).
-- `configuracion-tests` (53): `EditorConfig` (JSON tolerante + round-trip + `restablecer`).
+- `configuracion-tests` (99): `EditorConfig` sobre `ConfigPersistence`/`ProjectPaths` (round-trip general y por proyecto, prioridad de las claves modernas sobre el `menu/*` legacy, tolerancia a archivos ausentes/corruptos/parciales, `restablecer`, escritura atómica sin temporales colgados y guardado diferido con `volcarGuardadoGeneral`).
 - `eventbus-tests` (16): canal tipado de GUI interna (`EditorEventBus`).
 - `menu-tests` (30): `MenuModel` (traducción en vivo, observer de cambios y reset).
+- `tema-tests` (28): `TemaEditor` (aplicación del perfil `Apariencia` al estilo ImGui): el acento llega a **todos** los roles y ningún rol conserva el azul de fábrica de Dear ImGui (regresión "el color de acento no se aplica a toda la interfaz"), el acento por defecto no cambia el aspecto histórico, un acento translúcido no apaga los roles de primer plano, la aplicación es idempotente y el modo B/N deja la paleta monocroma.
 - `assetmanager-tests` (47) y `texturemanager-tests` (15): caches Flyweight de meshes e imágenes.
 - `estructuras-tests` (87): listas, árboles, heaps y ordenamiento propios.
 - `scripts-tests` (42): reflexión `SerializeField` (campos, arrays, grupos y round-trip binario).

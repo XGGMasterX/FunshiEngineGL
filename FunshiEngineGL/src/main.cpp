@@ -216,6 +216,10 @@ static int EjecutarMotor(int argc, char* argv[])
     // La escena es independiente: sigue en sus binarios (SceneSerializer).
     EditorConfig editorConfig;
     editorConfig.cargar(EditorConfig::rutaPorDefecto());
+
+    // Crear proyecto por defecto "NuevoProyecto" si no hay ninguno
+    EditorConfig::crearProyectoPorDefecto();
+
     std::string proyectoActual = editorConfig.datos().nombreProyecto;
     // Primer arranque (sin Configuracion.json todavia): no hay proyecto abierto.
     // Se deja el nombre vacio para OBLIGAR a elegir (o crear) un proyecto en el
@@ -328,8 +332,9 @@ static int EjecutarMotor(int argc, char* argv[])
     EditorEventBus* eventosGUI = managerOfGUI->getEditorEventBus();
     if (eventosGUI) {
         // Apariencia: aplica el estilo ImGui, el fondo del viewport y la
-        // apariencia de la escena (grilla/vistas previas), y persiste en la
-        // config GENERAL al instante (no depende del proyecto activo).
+        // apariencia de la escena (grilla/vistas previas), y encola el guardado
+        // de la config GENERAL (diferido: mientras se arrastra el selector de
+        // color se escribe como maximo una vez por kIntervaloEscritura).
         eventosGUI->subscribe([scene, &editorConfig, &proyectoActual](const EditorEvent& ev) {
             if (ev.type != EditorEventType::AparienciaCambio) return;
             scene->setApariencia(ev.apariencia);
@@ -339,13 +344,13 @@ static int EjecutarMotor(int argc, char* argv[])
             Rendering::Backend::activeBackend().setClearColor(fondo);
             auto& cfg = editorConfig.datos();
             cfg.apariencia = ev.apariencia;
-            editorConfig.guardarGeneral();
+            editorConfig.solicitarGuardadoGeneral();
         });
-        // Idioma: se persiste en la config general al instante.
+        // Idioma: se persiste en la config general (guardado diferido, ver arriba).
         eventosGUI->subscribe([&editorConfig](const EditorEvent& ev) {
             if (ev.type != EditorEventType::IdiomaCambio) return;
             editorConfig.datos().idioma = ev.idioma;
-            editorConfig.guardarGeneral();
+            editorConfig.solicitarGuardadoGeneral();
         });
         // Ventana Estado: al cerrarla con la 'X' se persiste en la config
         // del proyecto activo, no en la general. El mismo canal sirve para el
@@ -366,7 +371,7 @@ static int EjecutarMotor(int argc, char* argv[])
             if (ev.type != EditorEventType::SensibilidadCambio) return;
             scene->setSensibilidadCamara(ev.sensibilidad);
             editorConfig.datos().sensibilidadCamara = ev.sensibilidad;
-            editorConfig.guardarGeneral();
+            editorConfig.solicitarGuardadoGeneral();
         });
         // Sensibilidad de movimiento (WASD): misma semantica que la del mouse
         // look: se aplica a la escena al instante y se persiste en la config
@@ -376,7 +381,7 @@ static int EjecutarMotor(int argc, char* argv[])
             scene->setSensibilidadMovimientoCamara(ev.sensibilidadMovimiento);
             editorConfig.datos().sensibilidadMovimientoCamara =
                 ev.sensibilidadMovimiento;
-            editorConfig.guardarGeneral();
+            editorConfig.solicitarGuardadoGeneral();
         });
         // Restablecer configuracion: se reaplican los defaults en general
         // (idioma/apariencia/sensibilidad) y en el estado del proyecto
@@ -492,6 +497,9 @@ static int EjecutarMotor(int argc, char* argv[])
         editorConfig.guardarGeneral();
         if (!cfg.nombreProyecto.empty())
             editorConfig.guardarProyecto(cfg.nombreProyecto);
+        // Mostrar mensaje en la barra de estado
+        if (auto* status = managerOfGUI->getStatusBarGUI())
+            status->mostrarMensaje("Proyecto guardado (Ctrl+S)");
     };
     input->setAccionGuardar(guardarProyectoCompleto);
 
@@ -558,6 +566,12 @@ static int EjecutarMotor(int argc, char* argv[])
                     // panel "ShowFolder" (que se auto-oculta sin seleccion).
                     // Al salir, la config recoge el estado real y lo persiste.
                     managerOfGUI->setEstadoVentana(WindowNames::BrowseFile, true);
+                    // Actualizar proyecto actual en el menu bar para exportación
+                    if (!proyectoActual.empty()) {
+                        if (auto* menuBar = managerOfGUI->getMenuBarGUI()) {
+                            menuBar->setProyectoActual(proyectoActual);
+                        }
+                    }
                     // Se descarta el delta de look acumulado del clic en
                     // "Iniciar Estudio": sin esto el primer movimiento del
                     // mouse "teletransporta" el look y la camara queda mirando
@@ -618,6 +632,10 @@ static int EjecutarMotor(int argc, char* argv[])
                 EditorConfig::fijarRaizAssets(EditorConfig::directorioSrc(proyectoActual));
                 EditorConfig::asegurarEstructuraProyecto(proyectoActual);
                 managerOfGUI->configurarProyecto(proyectoActual);
+                // Actualizar proyecto actual en el menu bar para exportación
+                if (auto* menuBar = managerOfGUI->getMenuBarGUI()) {
+                    menuBar->setProyectoActual(proyectoActual);
+                }
                 // Re-explorar Sonidos/ e interfaces del proyecto entrante.
                 scene->configurarProyecto(proyectoActual);
                 editorConfig.datos().nombreProyecto = proyectoActual;
@@ -723,6 +741,13 @@ static int EjecutarMotor(int argc, char* argv[])
             // "Ventanas" (incluye cierres con 'X' del frame anterior).
             managerOfGUI->sincronizarVentanasMenu();
 
+            // Guardado diferido de la config general: los cambios en vivo de
+            // Opciones (apariencia/idioma/sensibilidades) quedaron encolados por
+            // sus handlers y aca se vuelcan como maximo una vez cada
+            // kIntervaloEscritura (la ultima edicion persiste al salir aunque
+            // no llegue a volcarse, porque guardarProyectoCompleto() guarda).
+            editorConfig.volcarGuardadoGeneral();
+
             if (sceneRunning) {
                 if (scene->isEditorActivo())
                     managerOfGUI->getDockSpaceGUI()->printGUI();
@@ -738,6 +763,9 @@ static int EjecutarMotor(int argc, char* argv[])
                 // sincronice la carpeta con setContentFolderGUI().
                 contentFolderInterface->printGUI();
             }
+
+        // Sidebar de radio de orbita (editor oculto + clic derecho).
+        input->dibujarSidebarOrbita();
 
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
