@@ -30,6 +30,7 @@ class File;
 class Carpeta;
 class FileManager;
 class IconosGUI;
+class EditorEventBus;
 
 // Panel "BrowseFile": dibuja el arbol de carpetas del proyecto y es la unica
 // vista que actualiza la seleccion compartida (FileSelection). Ya no posee
@@ -74,7 +75,12 @@ public:
     TreeFilesInterface(const TreeFilesInterface&) = delete;
     TreeFilesInterface& operator=(const TreeFilesInterface&) = delete;
 
+    EditorEventBus* eventoArchivos_ = nullptr;
+
     void setIconosGUI(IconosGUI* iconosG);
+    // Bus de eventos del editor: se usa para notificar ArchivosReubicados tras
+    // un rename exitoso (lo inyecta GUIManager; opcional, default nullptr).
+    void setEditorEventBus(EditorEventBus* bus) noexcept;
     void solicitarActualizacion();
 
     virtual void initGUI() override;

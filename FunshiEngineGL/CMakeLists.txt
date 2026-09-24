@@ -294,15 +294,54 @@ add_test(NAME eventbus-tests COMMAND eventbus-tests)
 # escenas con paths de mas de 99 bytes (std::length_error -> abort).
 add_executable(model-serialization-tests
     ${SRC_DIR}/Objetos/Componentes/Model.cpp
+    ${SRC_DIR}/Configuracion/EditorConfig.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../tests/ModelSerializationTests.cpp
 )
-target_include_directories(model-serialization-tests PRIVATE ${SRC_DIR})
+target_include_directories(model-serialization-tests PRIVATE
+    ${SRC_DIR}
+    ${CMAKE_SOURCE_DIR}/External
+)
 set_target_properties(model-serialization-tests PROPERTIES
     CXX_STANDARD 17
     CXX_STANDARD_REQUIRED ON
     CXX_EXTENSIONS OFF
 )
 add_test(NAME model-serialization-tests COMMAND model-serialization-tests)
+
+# Nucleo del manifiesto de assets de la escena (SceneAssets.json): headless,
+# sin GameObjects (como MenuModel). Cubre JSON round-trip, tolerancia a
+# archivos corruptos/inexistentes, relativizacion/absolutizacion contra la
+# raiz de assets y la regla de precedencia del manifiesto sobre el .db.
+add_executable(manifiesto-assets-tests
+    ${SRC_DIR}/Scenes/ManifiestoAssetsCore.cpp
+    ${SRC_DIR}/Configuracion/EditorConfig.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../tests/ManifiestoAssetsTests.cpp
+)
+target_include_directories(manifiesto-assets-tests PRIVATE
+    ${SRC_DIR}
+    ${CMAKE_SOURCE_DIR}/External
+)
+set_target_properties(manifiesto-assets-tests PROPERTIES
+    CXX_STANDARD 17
+    CXX_STANDARD_REQUIRED ON
+    CXX_EXTENSIONS OFF
+)
+add_test(NAME manifiesto-assets-tests COMMAND manifiesto-assets-tests)
+
+# Orquestador de estados de GUI (la "funcion de marco" de F5/F6/F7 y las teclas)
+# tambien es pura logica de estados y se prueba headless: cubre las reglas por
+# estado de Play/Pausa/Stop, Escape -> menu e "Iniciar Estudio" -> editor.
+add_executable(orquestador-estado-tests
+    ${SRC_DIR}/States/ApplicationStateMachine.cpp
+    ${SRC_DIR}/States/OrquestadorEstadoGUI.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../tests/OrquestadorEstadoTests.cpp
+)
+set_target_properties(orquestador-estado-tests PROPERTIES
+    CXX_STANDARD 17
+    CXX_STANDARD_REQUIRED ON
+    CXX_EXTENSIONS OFF
+)
+add_test(NAME orquestador-estado-tests COMMAND orquestador-estado-tests)
 
 # MenuModel (logica pura del menu: traduccion, observer de cambios y reset) se
 # prueba headless como los demas: no depende de ImGui/GLFW.

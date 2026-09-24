@@ -22,6 +22,7 @@
 #include "../Behaviour/IScriptBehaviour.h"
 #include "../Behaviour/ScriptGameObject.h"
 #include "../Behaviour/ScriptRuntime.h"
+#include "Configuracion/EditorConfig.h"
 #include "../Objetos/GameObject.h"
 
 namespace {
@@ -166,10 +167,14 @@ void Script::serializeComponent(std::ofstream* f) {
     f->write(reinterpret_cast<const char*>(&magic), sizeof(magic));
     f->write(reinterpret_cast<const char*>(&version), sizeof(version));
 
-    // 2. Campos historicos: path + nombre de clase
-    size_t pathLength = dllPath.size();
+    // 2. Campos historicos: path + nombre de clase. La ruta del fuente se
+    // persiste relativa a la raiz de assets del proyecto (si esta fijada): los
+    // fuentes viven bajo src<nombre>/Scripts, y asi la escena sigue valida al
+    // mover/renombrar el proyecto entero.
+    const std::string pathGuardado = EditorConfig::relativizarRuta(dllPath);
+    size_t pathLength = pathGuardado.size();
     f->write(reinterpret_cast<const char*>(&pathLength), sizeof(size_t));
-    f->write(dllPath.c_str(), pathLength);
+    f->write(pathGuardado.c_str(), pathLength);
 
     size_t nameLength = nameClass.size();
     f->write(reinterpret_cast<const char*>(&nameLength), sizeof(size_t));
@@ -194,6 +199,8 @@ void Script::deserializeComponent(std::ifstream* f) {
         f->read(reinterpret_cast<char*>(&pathLength), sizeof(size_t));
         dllPath.resize(pathLength);
         f->read(&dllPath[0], pathLength);
+        // Escena nueva: relativa a la raiz de assets; legacy: absoluta intacta.
+        dllPath = EditorConfig::absolutizarRuta(dllPath);
 
         size_t nameLength = 0;
         f->read(reinterpret_cast<char*>(&nameLength), sizeof(size_t));
@@ -212,6 +219,7 @@ void Script::deserializeComponent(std::ifstream* f) {
         f->read(reinterpret_cast<char*>(&pathLength), sizeof(size_t));
         dllPath.resize(pathLength);
         f->read(&dllPath[0], pathLength);
+        dllPath = EditorConfig::absolutizarRuta(dllPath);
 
         size_t nameLength = 0;
         f->read(reinterpret_cast<char*>(&nameLength), sizeof(size_t));

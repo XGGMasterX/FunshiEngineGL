@@ -178,6 +178,20 @@ int main() {
               "aviso de lista vacia menciona Config Proyect");
         m.setIdioma("English");
         CHECK(m.traducir("proyectos") == "Projects", "clave proyectos en");
+        CHECK(m.traducir("editar_nombre") == "Edit name", "clave editar_nombre en");
+    }
+
+    // 9. Edicion de nombre por click derecho (vacia = confirmar normal).
+    {
+        MenuModel m;
+        CHECK(m.getProyectoARenombrar().empty(),
+              "por defecto no hay carpeta en edicion");
+        m.setProyectoARenombrar("Viejo");
+        CHECK(m.getProyectoARenombrar() == "Viejo",
+              "click derecho registra la carpeta original");
+        m.limpiarProyectoARenombrar();
+        CHECK(m.getProyectoARenombrar().empty(),
+              "confirmar/volver limpian el registro");
     }
 
     std::cout << "Pruebas: " << total << ", fallos: " << fallos << std::endl;

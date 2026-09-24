@@ -104,7 +104,14 @@ void SceneSerializer::savePreOrder(
         std::to_string(object->getId()) +
         ".db";
 
-    archive << objectPath << '\n';
+    // Se guarda solo el nombre del archivo: al cargar, el .db real se resuelve
+    // contra el directorio de escena del proyecto (SceneSerializer::load);
+    // un path absoluto aquí no añade información y se rompería al mover o
+    // renombrar el proyecto. El lector solo consume el basename de cada linea.
+    const std::string basename =
+        objectPath.substr(objectPath.find_last_of("/\\") + 1);
+
+    archive << basename << '\n';
 
     /*
      * Si el nodo no tiene hijos, termina.

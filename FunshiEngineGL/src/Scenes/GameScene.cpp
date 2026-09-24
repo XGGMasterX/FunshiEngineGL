@@ -35,6 +35,7 @@
 #include "../Objetos/Componentes/Colliders/Collider.h"
 #include "../Objetos/Componentes/RigidBody/RigidBody.h"
 #include "EditorController.h"
+#include "ManifiestoAssets.h"
 #include "SceneRegistry.h"
 #include "SceneSerializer.h"
 #include "../Assets/AssetManager.h"
@@ -220,9 +221,27 @@ void GameScene::asegurarGrilla() {
 
 void GameScene::saveScene(const std::string& filename) {
     if (sceneSerializer) sceneSerializer->save(filename);
+    // Manifiesto de assets (add-on): se regenera en CADA guardado, asi el
+    // JSON centraliza siempre el estado vigente de las rutas (mover/renombrar
+    // assets lo renueva de paso). Es independiente del .db binario.
+    ManifiestoAssets::guardar(filename + "SceneAssets.json",
+                              getGameObjectsScene());
 }
 
 bool GameScene::isStart() { return start; }
+
+// La maquina de estados (orquestador) es la fuente de verdad de la simulacion:
+// EditorInput la refleja aca en el path de F5/F7 (F5 -> true, F7 -> false),
+// comparte flag con el boton Activar/Detener del menu de escena.
+void GameScene::setStart(bool activo) noexcept { start = activo; }
+
+bool GameScene::isSimulacionPausada() const noexcept { return simulacionPausada; }
+
+// Pausa (F6): congela la simulacion SIN salir de play; al reanudar se retoma
+// desde donde quedo (fisica y scripts solo avanzan con !pausada).
+void GameScene::setSimulacionPausada(bool pausada) noexcept {
+    simulacionPausada = pausada;
+}
 
 void GameScene::loadScene(const std::string& pathTxt, const std::string& semiPath) {
     if (sceneSerializer) {
@@ -239,6 +258,20 @@ void GameScene::loadScene(const std::string& pathTxt, const std::string& semiPat
         // Las escenas viejas no guardan el objeto "Grilla": se crea sobre la
         // marcha si falta, conservando la visibilidad por defecto.
         asegurarGrilla();
+
+        // Manifiesto de assets (add-on de la serializacion binaria): si
+        // existe, sus rutas tienen precedencia sobre las que dejo el .db.
+        // El pathTxt es <prefijo>BBDDObjetos.txt; el manifiesto comparte el
+        // prefijo con nombre SceneAssets.json.
+        const std::string sufijoBBDD = "BBDDObjetos.txt";
+        if (pathTxt.size() >= sufijoBBDD.size() &&
+            pathTxt.compare(pathTxt.size() - sufijoBBDD.size(),
+                            sufijoBBDD.size(), sufijoBBDD) == 0) {
+            const std::string prefijo =
+                pathTxt.substr(0, pathTxt.size() - sufijoBBDD.size());
+            ManifiestoAssets::cargar(prefijo + "SceneAssets.json",
+                                     getGameObjectsScene());
+        }
     }
 }
 
@@ -634,12 +667,16 @@ void GameScene::update(float value) {
     }
     previousStart = start;
 
-    if (phisics && start && !gizmoInUse()) phisics->stepSimulation(value);
+    // La fisica y los scripts SOLO avanzan en modo play (start==true) y sin
+    // pausa (F6): con simulacionPausada congelada se congela el motor pero la
+    // GUI/editor sigue, para reanudar desde el mismo frame.
+    if (phisics && start && !gizmoInUse() && !simulacionPausada)
+        phisics->stepSimulation(value);
 
     // Sincronizar la fisica de vuelta a los GameObjects del mundo
     // (GameObject::update escribe en los Transforms via RigidBody).
     procesarColaCompilacion();
-    if (start && !gizmoInUse()) {
+    if (start && !gizmoInUse() && !simulacionPausada) {
         auto* gameObjects = getGameObjectsScene();
         if (!gameObjects->isEmpty()) {
             Position<GameObject*>* pos = gameObjects->first();

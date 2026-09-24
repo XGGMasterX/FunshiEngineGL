@@ -76,13 +76,13 @@ void MenuView::contentGUI() {
     // Un solo Begin por frame: switch sobre la vista activa del modelo.
     switch (model->getVista()) {
     case MenuModel::Vista::Principal:
-        renderizarListaProyectos();
         renderizarPrincipal();
         break;
     case MenuModel::Vista::Opciones:
         renderizarOpciones();
         break;
     case MenuModel::Vista::ConfigProyecto:
+        renderizarListaProyectos();
         renderizarConfigProyecto();
         break;
     case MenuModel::Vista::Ninguna:
@@ -153,6 +153,8 @@ void MenuView::renderizarListaProyectos() {
     // <directorioBase>/MotorGrafico. Elegir una carpeta la vuelve el proyecto
     // activo (setNombreProyecto); main sincroniza el FileManager al detectar
     // el cambio de nombre. La lista se rellena desde la fachada por frame.
+    // El layout es: lista fija a la izquierda (ancho 300), formulario de
+    // edicion a la derecha (ver renderizarConfigProyecto).
     const ImVec2 win = ImGui::GetWindowSize();
     ImGui::SetCursorPos(ImVec2(40.0f, 60.0f));
     ImGui::BeginChild("##listaProyectos", ImVec2(300.0f, win.y - 140.0f), true);
@@ -162,14 +164,127 @@ void MenuView::renderizarListaProyectos() {
     if (proyectos.empty()) {
         ImGui::TextDisabled("%s", model->traducir("sin_proyectos").c_str());
     } else {
-        for (const std::string& nombre : proyectos) {
+        for (size_t i = 0; i < proyectos.size(); i++) {
+            const std::string& nombre = proyectos[i];
             const bool seleccionado = (nombre == model->getNombreProyecto());
-            if (ImGui::Selectable(nombre.c_str(), seleccionado)) {
+            // ID unico por fila (incluye el indice) para que ningun Selectable
+            // colisione, incluso si dos carpetas tienen el mismo nombre.
+            if (ImGui::Selectable((nombre + "###proyecto" + std::to_string(i)).c_str(),
+                                  seleccionado)) {
+                // Cambiar de proyecto: actualiza el modelo Y sincroniza el
+                // buffer de edicion para que el InputText muestre el proyecto
+                // recien elegido (sin marcarlo como pendiente).
                 model->setNombreProyecto(nombre);
+                model->limpiarProyectoARenombrar();
+                std::strncpy(nombreProyectoBuffer, nombre.c_str(),
+                             sizeof(nombreProyectoBuffer) - 1);
+                nombreProyectoBuffer[sizeof(nombreProyectoBuffer) - 1] = '\0';
+                nombreProyectoPendiente = false;
+            }
+            // Popup sin ID explicito: usa el ID del item anterior (unico por
+            // fila). "Editar nombre" abre el modal de renombre: una ventana
+            // con InputText para el nuevo nombre + botones Renombrar/Cancelar
+            // (igual que ContentFolderInterface). El renombre se registra en
+            // el modelo y lo ejecuta main en disco.
+            if (ImGui::BeginPopupContextItem()) {
+                if (ImGui::MenuItem(model->traducir("editar_nombre").c_str())) {
+                    proyectoRenombrando = nombre;
+                    std::memset(nombreRenombrarBuffer, 0,
+                                sizeof(nombreRenombrarBuffer));
+                    std::strncpy(nombreRenombrarBuffer, nombre.c_str(),
+                                  sizeof(nombreRenombrarBuffer) - 1);
+                    abrirModalRenombrar = true;
+                    ImGui::CloseCurrentPopup();
+                }
+                if (ImGui::MenuItem(
+                        model->traducir("eliminar_proyecto").c_str())) {
+                    proyectoEliminando = nombre;
+                    abrirModalEliminar = true;
+                    ImGui::CloseCurrentPopup();
+                }
+                ImGui::EndPopup();
             }
         }
     }
     ImGui::EndChild();
+
+    if (abrirModalRenombrar) {
+        ImGui::OpenPopup("RenombrarProyecto");
+        abrirModalRenombrar = false;
+    }
+    if (!proyectoRenombrando.empty() &&
+        ImGui::BeginPopupModal("RenombrarProyecto", NULL,
+                               ImGuiWindowFlags_AlwaysAutoResize)) {
+        ImGui::Text("%s", model->traducir("nombre").c_str());
+        ImGui::InputText("##renombrarProyecto", nombreRenombrarBuffer,
+                         sizeof(nombreRenombrarBuffer));
+        const bool esValido = nombreRenombrarBuffer[0] != '\0' &&
+                              proyectoRenombrando != nombreRenombrarBuffer;
+        if (!esValido) {
+            ImGui::BeginDisabled();
+        }
+        const bool confirmado =
+            ImGui::Button(model->traducir("confirmar").c_str(),
+                          ImVec2(140, 0)) ||
+            (ImGui::IsItemFocused() && ImGui::IsKeyPressed(ImGuiKey_Enter));
+        if (!esValido) {
+            ImGui::EndDisabled();
+        }
+        ImGui::SameLine();
+        if (ImGui::Button(model->traducir("volver").c_str(), ImVec2(140, 0))) {
+            proyectoRenombrando.clear();
+            std::memset(nombreRenombrarBuffer, 0,
+                        sizeof(nombreRenombrarBuffer));
+            ImGui::CloseCurrentPopup();
+        }
+        if (confirmado && esValido) {
+            // Confirmar renombra YA: se fija el nuevo nombre en el modelo y se
+            // registra la carpeta original; main aplica el rename en disco el
+            // proximo frame al detectar el cambio (mismo mecanismo que elegir
+            // un proyecto de la lista). El formulario lateral se sincroniza
+            // con el nombre confirmado (sin marcarlo como pendiente).
+            model->setProyectoARenombrar(proyectoRenombrando);
+            model->setNombreProyecto(nombreRenombrarBuffer);
+            std::strncpy(nombreProyectoBuffer, nombreRenombrarBuffer,
+                          sizeof(nombreProyectoBuffer) - 1);
+            nombreProyectoBuffer[sizeof(nombreProyectoBuffer) - 1] = '\0';
+            nombreProyectoPendiente = false;
+            proyectoRenombrando.clear();
+            std::memset(nombreRenombrarBuffer, 0,
+                        sizeof(nombreRenombrarBuffer));
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndPopup();
+    }
+
+    if (abrirModalEliminar) {
+        ImGui::OpenPopup("EliminarProyecto");
+        abrirModalEliminar = false;
+    }
+    if (!proyectoEliminando.empty() &&
+        ImGui::BeginPopupModal("EliminarProyecto", NULL,
+                               ImGuiWindowFlags_AlwaysAutoResize)) {
+        ImGui::Text("%s", model->traducir("aviso_eliminar").c_str());
+        ImGui::TextUnformatted(proyectoEliminando.c_str());
+        ImGui::Separator();
+        // Confirmar registra en el modelo la carpeta a eliminar; main la borra
+        // de disco el proximo frame al detectar el cambio (mismo mecanismo que
+        // el renombre por click derecho).
+        const bool borrarConfirmado =
+            ImGui::Button(model->traducir("eliminar").c_str(), ImVec2(140, 0)) ||
+            (ImGui::IsItemFocused() && ImGui::IsKeyPressed(ImGuiKey_Enter));
+        ImGui::SameLine();
+        if (ImGui::Button(model->traducir("volver").c_str(), ImVec2(140, 0))) {
+            proyectoEliminando.clear();
+            ImGui::CloseCurrentPopup();
+        }
+        if (borrarConfirmado) {
+            model->setProyectoAEliminar(proyectoEliminando);
+            proyectoEliminando.clear();
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndPopup();
+    }
 }
 
 void MenuView::renderizarOpciones() {
@@ -261,10 +376,15 @@ void MenuView::renderizarOpciones() {
 }
 
 void MenuView::renderizarConfigProyecto() {
-    cursorFila(0);
+    // Formulario a la derecha de la lista: la lista ocupa [40, 340] en X, asi
+    // que el formulario arranca en X=380. No se usa cursorFila (centrado en la
+    // ventana) porque solaparia el child de la izquierda.
+    const ImVec2 win = ImGui::GetWindowSize();
+    constexpr float kFormularioX = 380.0f;
+    ImGui::SetCursorPos(ImVec2(kFormularioX, 60.0f));
     ImGui::Text("%s", model->traducir("config_proyecto").c_str());
 
-    cursorFila(1);
+    ImGui::SetCursorPos(ImVec2(kFormularioX, 120.0f));
     ImGui::Text("%s", model->traducir("nombre").c_str());
     ImGui::SameLine();
 
@@ -293,7 +413,7 @@ void MenuView::renderizarConfigProyecto() {
                             model->getNombreProyecto().c_str());
     }
 
-    cursorFila(2);
+    ImGui::SetCursorPos(ImVec2(kFormularioX, 240.0f));
     // Confirmar: solo aqui se notifica al modelo (lo que dispara la creacion
     // de carpetas en main la proxima vez que se lea getNombreProyecto).
     const bool confirmarDeshabilitado =
@@ -304,21 +424,26 @@ void MenuView::renderizarConfigProyecto() {
     if (ImGui::Button(model->traducir("confirmar").c_str(),
                       ImVec2(kBotonAncho, kBotonAlto))) {
         model->setNombreProyecto(nombreProyectoBuffer);
+        // Confirmar conserva el registro de renombre: main lo consume este
+        // mismo frame (renombra en disco solo si vino de click derecho).
         nombreProyectoPendiente = false;
     }
     if (confirmarDeshabilitado) {
         ImGui::EndDisabled();
     }
 
-    cursorFila(3);
+    ImGui::SetCursorPos(ImVec2(kFormularioX, 320.0f));
     if (ImGui::Button(model->traducir("volver").c_str(),
                       ImVec2(kBotonAncho, kBotonAlto))) {
         // Descartar cambios pendientes: resetear el buffer para que la proxima
-        // apertura lo rellene desde el modelo (que no fue modificado).
+        // apertura lo rellene desde el modelo (que no fue modificado). Tambien
+        // se cancela cualquier edicion por click derecho.
         if (nombreProyectoPendiente) {
             nombreProyectoBuffer[0] = '\0';
             nombreProyectoPendiente = false;
         }
+        model->limpiarProyectoARenombrar();
         model->volver();
     }
+    (void)win;
 }

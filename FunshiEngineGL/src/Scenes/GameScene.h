@@ -103,6 +103,11 @@ private:
     // sincronizar los cuerpos a la pose VISUAL del editor ANTES de que el
     // primer stepSimulation los dispare desde la pose vieja.
     bool previousStart = false;
+    // Pausa de la simulacion (F6) dentro del play: congela fisica y scripts
+    // sin salir de Playing ni tocar `start` (asi no dispara la limpieza de la
+    // transicion play->editor). La gobierna main desde el orquestador de
+    // estados (funcion de marco de F5/F6/F7).
+    bool simulacionPausada = false;
     bool menuActivo = false;
     // Sensibilidad global del mouse look, sincronizada desde MenuGUI (vista
     // Opciones). La aplica main al offset del raton antes de updateYaw().
@@ -167,6 +172,13 @@ public:
     ListaDE<GameObject*>* getGameObjectsScene();
     void saveScene(const std::string& filename);
     bool isStart();
+    // Fuente de verdad de la simulacion: la maquina de estados (F5/F7) la
+    // refleja aca desde el input (EditorInput), compartida con el boton
+    // Activar/Detener del menu de escena.
+    void setStart(bool activo) noexcept;
+    // Pausa (F6): congela la simulacion sin salir de play.
+    bool isSimulacionPausada() const noexcept;
+    void setSimulacionPausada(bool pausada) noexcept;
     void loadScene(const std::string& pathTxt, const std::string& semiPath);
     // Configura los assets de audio (Sonidos/) e interfaces (Memory/Interfaces)
     // del proyecto. La llama main al arrancar y al cambiar de proyecto.

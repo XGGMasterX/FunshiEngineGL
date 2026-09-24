@@ -97,6 +97,30 @@ void MenuGUI::setNombreProyecto(const std::string& nombre) noexcept {
     model.setNombreProyecto(nombre);
 }
 
+const std::string& MenuGUI::getProyectoARenombrar() const noexcept {
+    return model.getProyectoARenombrar();
+}
+
+void MenuGUI::setProyectoARenombrar(const std::string& nombre) noexcept {
+    model.setProyectoARenombrar(nombre);
+}
+
+void MenuGUI::limpiarProyectoARenombrar() noexcept {
+    model.limpiarProyectoARenombrar();
+}
+
+const std::string& MenuGUI::getProyectoAEliminar() const noexcept {
+    return model.getProyectoAEliminar();
+}
+
+void MenuGUI::setProyectoAEliminar(const std::string& nombre) noexcept {
+    model.setProyectoAEliminar(nombre);
+}
+
+void MenuGUI::limpiarProyectoAEliminar() noexcept {
+    model.limpiarProyectoAEliminar();
+}
+
 void MenuGUI::actualizarProyectos() {
     // Los proyectos son carpetas del directorio base de MotorGrafico (una por
     // proyecto: Memory + src<Nombre>). Vista unica, sin duplicar la logica;

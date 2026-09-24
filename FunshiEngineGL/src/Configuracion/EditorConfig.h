@@ -108,7 +108,9 @@ public:
     static std::string rutaImguiIni(const std::string& nombreProyecto = "Nuevo Proyecto");
 
     // Carpeta de assets de audio del proyecto (clips descubiertos por
-    // AudioClipsManager): <directorioProyecto>/Sonidos
+    // AudioClipsManager): vive dentro del src para que el explorador de
+    // archivos (raiz src<nombre>) la liste junto a los demas assets:
+    // <directorioProyecto>/src<nombreProyecto>/Sonidos
     static std::string directorioSonidos(const std::string& nombreProyecto = "Nuevo Proyecto");
 
     // Carpeta de interfaces de usuario creadas (assets JSON del creador de
@@ -117,11 +119,49 @@ public:
 
     // Crea en disco la estructura de carpetas requerida para el proyecto:
     //   <directorioBase>/<nombreProyecto>/Memory/Binarios/Scene
-    //   <directorioBase>/<nombreProyecto>/Sonidos
     //   <directorioBase>/<nombreProyecto>/Memory/Interfaces
+    //   <directorioBase>/<nombreProyecto>/src<nombreProyecto>/Sonidos
     //   <directorioBase>/<nombreProyecto>/src<nombreProyecto>
-    // Y migra archivos previos si existian en la raiz de MotorGrafico.
+    // Migra archivos previos: escena/config en la raiz de MotorGrafico y la
+    // carpeta Sonidos que antes vivia en la raiz del proyecto (ahora en src).
     static void asegurarEstructuraProyecto(const std::string& nombreProyecto = "Nuevo Proyecto");
+
+    // Renombra un proyecto en disco: <base>/<viejo> -> <base>/<nuevo> y su raiz
+    // src dentro (<nuevo>/src<viejo> -> <nuevo>/src<nuevo>). Devuelve false sin
+    // tocar nada si falta el origen, si el destino ya existe o ante errores
+    // de E/S. El llamador (main) solo conmuta cuando el destino ya existe.
+    static bool renombrarProyecto(const std::string& viejo,
+                                  const std::string& nuevo);
+
+    // Elimina un proyecto completo en disco: <base>/<nombre> con todo su
+    // contenido (Memory, src<nombre>, configuracion). Devuelve false sin tocar
+    // nada si falta el proyecto o ante errores de E/S. Irreversible.
+    static bool eliminarProyecto(const std::string& nombre);
+
+    // Raiz de assets del proyecto abierto (src<nombre>). main la fija al
+    // entrar a un proyecto y la limpia al volver al estado "sin proyecto".
+    // Con raiz fijada la serializacion guarda las rutas de assets (mallas,
+    // texturas, fuentes de script) RELATIVAS a esa raiz y las resuelve a
+    // absolutas al cargar. Asi la escena es portable: renombrar o mover el
+    // proyecto desplaza la carpeta src entera y las referencias siguen
+    // encajando sin reescritura. Sin raiz (sin proyecto o tests) las rutas
+    // se guardan/cargan tal cual, como historicamente.
+    static void fijarRaizAssets(const std::string& srcRoot) noexcept;
+    static void limpiarRaizAssets() noexcept;
+    static bool hayRaizAssets() noexcept;
+
+    // Convierte una ruta absoluta que cae bajo la raiz de assets en relativa;
+    // cualquier otra ruta se devuelve sin tocar.
+    static std::string relativizarRuta(const std::string& rutaAbsoluta);
+    // Resuelve una ruta guardada: las relativas se unen con la raiz de assets
+    // y las absolutas (escenas legacy) se devuelven tal cual.
+    static std::string absolutizarRuta(const std::string& rutaGuardada);
+    // Reemplaza el prefijo de una ruta; devuelve vacio si la ruta no cae bajo
+    // `anterior`. Base de la actualizacion automatica de referencias al
+    // mover/renombrar archivos o carpetas dentro del explorador.
+    static std::string reemplazarPrefijoRuta(const std::string& ruta,
+                                             const std::string& anterior,
+                                             const std::string& reemplazo);
 
     // Ruta por defecto: apunta a Configuracion.json en la raiz de MotorGrafico
     static std::string rutaPorDefecto();

@@ -81,12 +81,21 @@ void EditorInput::descartarDeltaLook() {
     firstTimeMouseY = true;
 }
 
+void EditorInput::setAccionGuardar(std::function<void()> accion) {
+    accionGuardar = std::move(accion);
+}
+
 void EditorInput::aplicarMovimiento(float deltaTime) {
     // La camara del editor solo se mueve con WASD/Espacio/Shift dentro del
     // editor (ni en el menu ni cuando ImGui esta capturando el teclado, p. ej.
     // mientras se edita un InputText).
     if (!scene || !appState || !appState->is(ApplicationState::Editing)) return;
     if (ImGui::GetIO().WantCaptureKeyboard) return;
+    // Misma regla que la mirada (EditorInput::onMouse): con las interfaces del
+    // editor visibles el WASD no traslada la camara; hace falta ocultarlas (E)
+    // o navegar con el clic derecho sostenido sobre el viewport. Sin esto se
+    // podia volar por la escena sin "esconder" el editor.
+    if (scene->isEditorActivo() && !mouseDerechoParaNavegar) return;
 
     CameraComponent* camara = scene->getActiveCamera();
     if (!camara) return;
@@ -134,6 +143,44 @@ void EditorInput::onKey(GLFWwindow* window, int key, int scancode, int action,
         return;
     }
 
+    // Ctrl+S: guardado en caliente del proyecto (misma rutina que el guardado
+    // al salir, inyectada por main). Se intercepta ANTES de la maquina de
+    // movimiento para que el "S" con Ctrl no mueva la camara hacia atras, y
+    // con el mismo guard que Escape: si un campo de texto de ImGui esta
+    // capturando el teclado, la combinacion es del editor de texto.
+    if (key == GLFW_KEY_S && (mods & GLFW_MOD_CONTROL) && action == GLFW_PRESS) {
+        if (accionGuardar && !ImGui::GetIO().WantCaptureKeyboard) accionGuardar();
+        return;
+    }
+
+    // F5/F6/F7: teclas de funcion de la simulacion (Play/Pausa/Stop). La regla
+    // por estado vive en el orquestador (funcion de marco de la arquitectura,
+    // igual que Escape); aca solo se reenvia el evento y se refleja la decision
+    // sobre GameScene::start (el mismo flag que maneja el boton Activar/Detener
+    // del menu de escena, asi ambas puertas comparten estado). F5 y F7 salen
+    // entran de nav libre, por eso se recalcula tambien el modo del cursor.
+    if ((key == GLFW_KEY_F5 || key == GLFW_KEY_F6 || key == GLFW_KEY_F7) &&
+        action == GLFW_PRESS) {
+        if (orquestador) {
+            const auto tecla = key == GLFW_KEY_F5
+                                   ? OrquestadorEstadoGUI::TeclaSimulacion::Play
+                                   : key == GLFW_KEY_F6
+                                         ? OrquestadorEstadoGUI::TeclaSimulacion::Pausa
+                                         : OrquestadorEstadoGUI::TeclaSimulacion::Stop;
+            orquestador->manejarTeclaSimulacion(tecla);
+            // Refleja Playing/Editing sobre la simulacion de la escena (F5
+            // arranca, F7 corta; F5 con la maquina ya en Playing re-asegura el
+            // arranque despues de un "Detener" con el boton del menu de escena).
+            if (scene) scene->setStart(orquestador->enSimulacion());
+            // La pausa (F6) tambien se refleja: congela fisica/scripts sin
+            // tocar `start` (asi no se dispara la limpieza de play->editor).
+            if (scene)
+                scene->setSimulacionPausada(orquestador->simulacionPausada());
+            aplicarModoCursor(window);
+        }
+        return;
+    }
+
     // Maquina de estado de movimiento: las teclas NO mueven la camara aca;
     // solo registran si estan apretadas/sueltas y aplicarMovimiento() las
     // combina por frame. GLFW_REPEAT no cambia el estado.
@@ -161,9 +208,16 @@ void EditorInput::onKey(GLFWwindow* window, int key, int scancode, int action,
     }
 
     if (key == GLFW_KEY_E && action == GLFW_PRESS) {
-        if (scene) scene->toggleEditorInterfaces();
-        // Entrar/salir de navegacion libre: captura y oculta el cursor.
-        aplicarModoCursor(window);
+        // Solo en el estado de edicion: desde el menu de inicio la E no debe
+        // "activar el editor" mostrando sus interfaces sobre el menu (fallo de
+        // la maquina de estados). Con un InputText de ImGui activo, E tampoco
+        // toca las interfaces.
+        if (appState && appState->is(ApplicationState::Editing) &&
+            !ImGui::GetIO().WantCaptureKeyboard) {
+            if (scene) scene->toggleEditorInterfaces();
+            // Entrar/salir de navegacion libre: captura y oculta el cursor.
+            aplicarModoCursor(window);
+        }
     }
 
     // G: alterna el sistema de coordenadas del gizmo entre LOCAL (ejes que

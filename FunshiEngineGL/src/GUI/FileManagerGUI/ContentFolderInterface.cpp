@@ -41,6 +41,7 @@
 #include <filesystem>
 
 #include "../../Herramientas/PathUtils.h"
+#include "../../Events/EditorEventBus.h"
 #include "../../FileManager/FileManager.h"
 #include "../../FileManager/FileSelection.h"
 #include "../WindowNames.h"
@@ -52,6 +53,10 @@ ContentFolderInterface::ContentFolderInterface(bool stateGUI, FileManager* fileM
       fileManager(fileManager) {}
 
 void ContentFolderInterface::setIconosGUI(IconosGUI* iconosG) { iconosGUI = iconosG; }
+
+void ContentFolderInterface::setEditorEventBus(EditorEventBus* bus) noexcept {
+    eventoArchivos_ = bus;
+}
 
 std::string ContentFolderInterface::seleccionarCarpetaSistema() {
 #if defined(_WIN32)
@@ -494,6 +499,20 @@ void ContentFolderInterface::initGUI() {
             const std::string nuevo = bufferRenombrar;
             if (!nuevo.empty() &&
                 fileManager->renombrar(renombrarRuta, nuevo)) {
+                // Referencias de la escena bajo la ruta vieja (mallas,
+                // texturas, scripts): main las reescribe y persiste.
+                if (eventoArchivos_ != nullptr) {
+                    const std::string::size_type sep =
+                        renombrarRuta.find_last_of("/\\");
+                    if (sep != std::string::npos) {
+                        EditorEvent ev;
+                        ev.type = EditorEventType::ArchivosReubicados;
+                        ev.rutaAnterior = renombrarRuta;
+                        ev.rutaNueva =
+                            renombrarRuta.substr(0, sep) + PATH_SEP + nuevo;
+                        eventoArchivos_->publish(ev);
+                    }
+                }
                 // Si es carpeta, el arbol se rescancea; el cache del grid se
                 // invalida solo por mtime en el proximo recorrer().
                 if (renombrarEsCarpeta) sel->contadorCambios++;
