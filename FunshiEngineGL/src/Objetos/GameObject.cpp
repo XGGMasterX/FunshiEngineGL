@@ -18,6 +18,7 @@
 */
 #include "GameObject.h"
 #include "Componentes/ComponentFactory.h"
+#include "Componentes/CameraComponent.h"
 
 #include <cmath>
 #include <algorithm>
@@ -535,9 +536,16 @@ void GameObject::deserializeEntityComponents() {
 
             component->loadComponent(file);
 
+            Component* rawComponent = component.get();
+
             addComponent(
                 std::move(component)
             );
+
+            if (typeName == "CameraComponent" || typeName == "Camera") {
+                CameraComponent* cam = static_cast<CameraComponent*>(rawComponent);
+                cam->setUp(this);
+            }
 
             if (typeName == "Color") {
 
