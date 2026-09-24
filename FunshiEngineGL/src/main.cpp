@@ -216,6 +216,10 @@ static int EjecutarMotor(int argc, char* argv[])
     // La escena es independiente: sigue en sus binarios (SceneSerializer).
     EditorConfig editorConfig;
     editorConfig.cargar(EditorConfig::rutaPorDefecto());
+
+    // Crear proyecto por defecto "NuevoProyecto" si no hay ninguno
+    EditorConfig::crearProyectoPorDefecto();
+
     std::string proyectoActual = editorConfig.datos().nombreProyecto;
     // Primer arranque (sin Configuracion.json todavia): no hay proyecto abierto.
     // Se deja el nombre vacio para OBLIGAR a elegir (o crear) un proyecto en el

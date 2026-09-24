@@ -138,6 +138,11 @@ public:
     // a la nueva estructura MotorGrafico/Proyects/
     static void asegurarEstructuraProyecto(const std::string& nombreProyecto = "Nuevo Proyecto");
 
+    // Crea el proyecto por defecto "NuevoProyecto" si no hay ningun proyecto
+    // en MotorGrafico/Proyects/. Devuelve true si se creo, false si ya habia
+    // proyectos o si fallo la creacion.
+    static bool crearProyectoPorDefecto();
+
     // Renombra un proyecto en disco: <base>/<viejo> -> <base>/<nuevo> y su raiz
     // src dentro (<nuevo>/src<viejo> -> <nuevo>/src<nuevo>). Devuelve false sin
     // tocar nada si falta el origen, si el destino ya existe o ante errores

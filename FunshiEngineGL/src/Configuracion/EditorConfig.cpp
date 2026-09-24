@@ -386,6 +386,34 @@ bool EditorConfig::eliminarProyecto(const std::string& nombre) {
     return !ec;
 }
 
+bool EditorConfig::crearProyectoPorDefecto() {
+    const std::string proyectsDir = directorioProyects();
+    std::error_code ec;
+
+    // Asegurar que existe el directorio Proyects
+    std::filesystem::create_directories(proyectsDir, ec);
+
+    // Verificar si ya hay proyectos
+    bool hayProyectos = false;
+    for (const auto& entry : std::filesystem::directory_iterator(proyectsDir, ec)) {
+        if (entry.is_directory(ec)) {
+            hayProyectos = true;
+            break;
+        }
+    }
+    if (hayProyectos) return false; // Ya hay proyectos, no hacer nada
+
+    // Crear "NuevoProyecto"
+    const std::string defaultName = "NuevoProyecto";
+    const std::string defaultDir = directorioProyecto(defaultName);
+    std::filesystem::create_directories(defaultDir + "/Memory/Binarios/Scene", ec);
+    std::filesystem::create_directories(defaultDir + "/Memory/Interfaces", ec);
+    std::filesystem::create_directories(defaultDir + "/" + nombreRaizSrc(defaultName) + "/Sonidos", ec);
+    std::filesystem::create_directories(defaultDir + "/" + nombreRaizSrc(defaultName), ec);
+
+    return !ec;
+}
+
 std::string EditorConfig::directorioProyectoPorDefecto() {
     return directorioMemory("Nuevo Proyecto");
 }
