@@ -22,6 +22,7 @@
 #include <chrono>
 #include <memory>
 #include <cmath>
+#include <filesystem>
 
 ExportDialog::ExportDialog(Callback onCerrar, const std::string& proyectoActual) : onCerrar_(std::move(onCerrar)), proyectoActual_(proyectoActual) {}
 
@@ -29,6 +30,9 @@ ExportDialog::~ExportDialog() = default;
 
 void ExportDialog::render() {
     if (!abierto_) return;
+
+    // Procesar mensajes del hilo de exportacion en el hilo UI
+    procesarColas();
 
     ImGui::OpenPopup("Exportar Juego");
     ImVec2 center = ImGui::GetMainViewport()->GetCenter();
@@ -107,16 +111,25 @@ void ExportDialog::iniciarExportacion() {
         return;
     }
 
+    // Usar la ruta absoluta del proyecto desde EditorConfig
+    std::string proyectoPath = EditorConfig::directorioProyecto(proyectoActual_);
+    if (!std::filesystem::exists(proyectoPath)) {
+        agregarLog("Error: El proyecto no existe: " + proyectoPath);
+        finalizarExportacion(false, "Proyecto no encontrado: " + proyectoActual_);
+        return;
+    }
+
     GameExporter::Config cfg;
-    cfg.proyectoOrigen = "MotorGrafico/Proyects/" + proyectoActual_;
+    cfg.proyectoOrigen = proyectoPath;
     cfg.nombreEjecutable = nombreEjecutable_;
     cfg.nombreProyectoExportado = nombreProyectoExportado_;
     cfg.plataforma = (plataformaIdx_ == 0) ? GameExporter::Plataforma::Linux : GameExporter::Plataforma::Windows;
-    cfg.directorioSalida = "MotorGrafico/Exportaciones/" + std::string(nombreProyectoExportado_);
+    cfg.directorioSalida = EditorConfig::directorioExportaciones() + "/" + std::string(nombreProyectoExportado_);
 
-    cfg.onLog = [this](const std::string& msg) { agregarLog(msg); };
-    cfg.onProgreso = [this](float p, const std::string& etapa) { actualizarProgreso(p, etapa); };
-    cfg.onFinalizado = [this](bool exito, const std::string& msg) { finalizarExportacion(exito, msg); };
+    // Callbacks thread-safe: usan cola para pasar mensajes al hilo principal
+    cfg.onLog = [this](const std::string& msg) { encolarLog(msg); };
+    cfg.onProgreso = [this](float p, const std::string& etapa) { encolarProgreso(p, etapa); };
+    cfg.onFinalizado = [this](bool exito, const std::string& msg) { encolarFinalizado(exito, msg); };
 
     exporter_ = std::make_unique<GameExporter>(cfg);
     exporter_->iniciar();
@@ -143,6 +156,39 @@ void ExportDialog::finalizarExportacion(bool exito, const std::string& msg) {
 
 void ExportDialog::agregarLog(const std::string& msg) {
     ultimoLog_ = msg;
+}
+
+// Thread-safe enqueue desde hilo de exportacion
+void ExportDialog::encolarLog(const std::string& msg) {
+    std::lock_guard<std::mutex> lock(mtx_);
+    logQueue_.push({msg});
+}
+
+void ExportDialog::encolarProgreso(float p, const std::string& etapa) {
+    std::lock_guard<std::mutex> lock(mtx_);
+    progresoQueue_.push({p, etapa});
+}
+
+void ExportDialog::encolarFinalizado(bool exito, const std::string& msg) {
+    std::lock_guard<std::mutex> lock(mtx_);
+    finalizadoQueue_.push({exito, msg});
+}
+
+// Procesar colas en hilo UI
+void ExportDialog::procesarColas() {
+    std::lock_guard<std::mutex> lock(mtx_);
+    while (!logQueue_.empty()) {
+        agregarLog(logQueue_.front().msg);
+        logQueue_.pop();
+    }
+    while (!progresoQueue_.empty()) {
+        actualizarProgreso(progresoQueue_.front().p, progresoQueue_.front().etapa);
+        progresoQueue_.pop();
+    }
+    while (!finalizadoQueue_.empty()) {
+        finalizarExportacion(finalizadoQueue_.front().exito, finalizadoQueue_.front().msg);
+        finalizadoQueue_.pop();
+    }
 }
 
 void ExportDialog::renderSpinner(float radius, float thickness) {
