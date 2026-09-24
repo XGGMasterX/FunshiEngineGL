@@ -106,7 +106,10 @@ FunshiEngineGL/                          ← raíz del repo
         │       └── BehaviourReflection.* ← reflexión, macros SerializeField y serialización
         ├── Configuracion/
         │   ├── Apariencia.h             ← perfil de apariencia (tema/acento/fondo/B-N) + utilidades
-        │   └── EditorConfig.h/.cpp      ← persistencia JSON de la configuración (menú + GUI)
+        │   ├── EditorConfig.h/.cpp      ← fachada de la configuración (datos() + cargar*/guardar*, guardado diferido)
+        │   ├── ConfigPersistence.h/.cpp ← JSON puro de la config: general + proyecto (escritura atómica)
+        │   ├── ProjectPaths.h/.cpp      ← rutas canónicas del motor (una sola fuente de verdad)
+        │   └── ProjectManager.h/.cpp    ← alta y listado de proyectos en Proyects/ (delega rutas en ProjectPaths)
         ├── Entity/
         │   ├── Entity.h                 ← base: lista de componentes, Transform, serialización
         │   └── Entity.cpp
@@ -398,13 +401,27 @@ internamente `GUIManager`, `SceneRegistry`, `EditorController`, `SceneSerializer
 - `Binario` encapsula los streams binarios usados por las entidades.
 - `GameObject::saveEntity/loadEntity` coordina la serialización binaria propia
   (atributos globales, locales, componentes).
-- `EditorConfig` (JSON via nlohmann) persiste la configuración del editor:
-  menú (proyecto, idioma, sensibilidad de cámara), gizmo, ventana de cámaras,
-  ventanas (estado abierto/cerrado de GUIManager), la cámara activa por id y el
-  perfil de apariencia, en `<directorioEjecutable>/MotorGrafico/Configuracion.json`
-  (junto al binario, en Linux y Windows). Tolerante a
-  archivos ausentes o corruptos: los defaults quedan en `EditorConfig.h`.
-  El layout `imgui.ini` también se guarda junto al proyecto (no en el CWD).
+- La configuración del editor se persiste en JSON con **una sola fuente de
+  verdad**: `Configuracion/ConfigPersistence.{h,cpp}` (JSON puro, sin estado)
+  sobre `Configuracion/ProjectPaths.{h,cpp}` (rutas), con
+  `EditorConfig.{h,cpp}` como fachada estable que expone `datos()` y
+  `cargar*/guardar*` a main, escenas y tests. Guarda: menú (proyecto, idioma,
+  sensibilidad de cámara), gizmo, ventana de cámaras, ventanas (estado
+  abierto/cerrado de GUIManager), cámara activa por id y perfil de apariencia,
+  en dos archivos junto al binario (Linux y Windows):
+  `<directorioEjecutable>/MotorGrafico/Configuraciones/Configuracion.json`
+  (general) y `Proyects/<proyecto>/Memory/ConfiguracionProyecto.json`
+  (por proyecto). Tolerante a archivos ausentes o corruptos: los defaults
+  viven en `EditorConfig.h`/`ConfigPersistence.h`.
+  - **Escritura atómica**: `ConfigPersistence::escribirJson` escribe a
+    `<archivo>.tmp` y renombra encima; un corte a mitad de escritura no deja
+    el JSON cortado ni temporales colgados.
+  - **Guardado diferido de la general**: `EditorConfig::solicitarGuardadoGeneral`
+    encola los cambios en vivo de Opciones y `volcarGuardadoGeneral()` (llamado
+    por main una vez por frame) escribe como máximo una vez cada
+    `kIntervaloEscritura` (250 ms); `guardarGeneral()` (Ctrl+S, salida, reset)
+    vuelca el pendiente sin esperar.
+  - El layout `imgui.ini` también se guarda junto al proyecto (no en el CWD).
 - Limitación conocida: la serialización binaria no tiene versionado ni validación
   de tamaños; un cambio en la estructura de atributos invalida escenas guardadas.
 
@@ -471,8 +488,10 @@ registrados en CTest (compilan en cualquier plataforma con `BUILD_ENGINE=OFF`;
 
 - `filemanager-tests` (27): ejercita `GestorDeArchivos`/`FileManager`/`FileSystemWatcher`
   contra un proyecto temporal, sin ventanas ni pila gráfica.
-- `configuracion-tests` (53): round-trip del JSON de `EditorConfig`, carga tolerante
-  ante archivos ausentes/corruptos y `restablecer`.
+- `configuracion-tests` (99): round-trip del JSON de `EditorConfig` (general y
+  por proyecto, con `ConfigPersistence`/`ProjectPaths`), carga tolerante ante
+  archivos ausentes/corruptos/parciales, prioridad de las claves modernas sobre
+  el `menu/*` legacy, `restablecer`, escritura atómica y guardado diferido.
 - `eventbus-tests` (16): suscripción/publicación/unsubscribe del canal tipado de GUI.
 - `menu-tests` (30): lógica pura del menú (traducción, observer de cambios y reset).
 - `assetmanager-tests` (47): caché Flyweight de meshes (rutas `AssetPath`, geometría
@@ -621,8 +640,10 @@ GameScene → coordina todos los subsistemas del frame
 - `tests/FileManagerTests.cpp`: construcción y re-resolución del árbol de archivos,
   operaciones de dominio (crear, renombrar, copiar, eliminar, búsqueda) y
   `FileSystemWatcher` (detección de cambios externos, en Linux via inotify).
-- `tests/EditorConfigTests.cpp`: round-trip del JSON y tolerancia a archivos
-  ausentes o corruptos.
+- `tests/EditorConfigTests.cpp`: round-trip del JSON (general, por proyecto y
+  legacy `menu/*`), tolerancia a archivos ausentes/corruptos/parciales,
+  escritura atómica (sin temporales colgados) y guardado diferido
+  (`solicitarGuardadoGeneral`/`volcarGuardadoGeneral` con `kIntervaloEscritura`).
 - `tests/AssetManagerTests.cpp` y `tests/TextureManagerTests.cpp`: caches
   Flyweight con loader artificial; validan rutas normalizadas, compartición y ciclo
   de vida de los recursos.
@@ -687,9 +708,9 @@ suele necesitarlas están resueltos con otras herramientas:
   `std::path` con separadores y síndromes `.`/`..` del propio API), sin patrones.
 - **Extensión de archivos**: predicados directos (`entrada.path().extension()`,
   comparaciones de `std::string`) en `GestorDeArchivos` y `AssetManager`.
-- **Configuración del editor**: `EditorConfig` parsea JSON con **nlohmann/json**
-  (librería ya vendoriada en `External/`); las claves se validan por acceso
-  estructurado, no por patrones.
+- **Configuración del editor**: `ConfigPersistence` (invocada por la fachada
+  `EditorConfig`) parsea JSON con **nlohmann/json** (librería ya vendoriada en
+  `External/`); las claves se validan por acceso estructurado, no por patrones.
 - **Serialización de escenas**: `SceneSerializer` usa un formato binario en
   preorden con marcadores literales `=>`/`<=`, decididos con comparaciones de
   `std::string` exactas (búsqueda del look-ahead), no con matching.

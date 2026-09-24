@@ -318,10 +318,15 @@ MotorGrafico\Exportaciones\MiJuego\MiJuego.exe
   tablas) y los grises azulados de fábrica quedan en gris neutro, así que al
   cambiar de color no quedan restos del azul clásico ni hace falta reiniciar el
   editor.
-- Sensibilidad de camara, ventana de camaras y visibilidad de ventanas se
-  guardan en `Configuracion.json` junto al binario
-  (`<directorioEjecutable>/MotorGrafico/Configuracion.json`); tolerante a
-  archivos ausentes o corruptos.
+- Sensibilidad de camara, ventana de camaras, visibilidad de ventanas y la
+  apariencia se guardan junto al binario en
+  `<directorioEjecutable>/MotorGrafico/Configuraciones/Configuracion.json`
+  (la configuración por proyecto vive en
+  `Proyects/<proyecto>/Memory/ConfiguracionProyecto.json`). La escritura es
+  **atómica** (archivo temporal + rename: un corte no deja el JSON cortado) y
+  la configuración general se guarda de forma **diferida**: mientras cambiás
+  opciones en vivo se escribe como máximo una vez cada 250 ms, y siempre al
+  salir o con Ctrl+S. Tolera archivos ausentes o corruptos.
 - Idioma del editor: Espanol / English desde Opciones.
 
 ---

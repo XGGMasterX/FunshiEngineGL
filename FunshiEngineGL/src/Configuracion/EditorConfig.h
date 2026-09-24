@@ -19,6 +19,7 @@
 #ifndef EDITORCONFIG_H
 #define EDITORCONFIG_H
 
+#include <chrono>
 #include <map>
 #include <string>
 
@@ -197,6 +198,20 @@ public:
     void guardarProyecto(const std::string& nombreProyecto, const std::string& ruta = "");
     void cargarProyecto(const std::string& nombreProyecto, const std::string& ruta = "");
 
+    // Guardado diferido de la CONFIG GENERAL. Los cambios en vivo de Opciones
+    // (apariencia/idioma/sensibilidades) publican un evento mientras el usuario
+    // interactua y reescribir el JSON en cada uno era I/O innecesaria. Con
+    // solicitarGuardadoGeneral() el cambio queda pendiente y se escribe como
+    // maximo una vez por kIntervaloEscritura; main llama a volcarGuardadoGeneral
+    // una vez por frame y el pendiente tambien se vuelca en cualquier
+    // guardarGeneral() (Ctrl+S, salida, reset o borrado de proyecto), que no
+    // espera al intervalo. Los proyectos NO se diferiran: sus cambios son por
+    // toggle (ventana abierta/cerrada), no por frame.
+    static constexpr std::chrono::milliseconds kIntervaloEscritura{250};
+    // `ruta` vacia = la canonica de la config general (es la que usa main).
+    void solicitarGuardadoGeneral(const std::string& ruta = "");
+    void volcarGuardadoGeneral();
+
     const Datos& datos() const noexcept { return datos_; }
     Datos& datos() noexcept { return datos_; }
 
@@ -207,6 +222,14 @@ public:
 
 private:
     Datos datos_;
+    // Estado del guardado diferido de la config general (ver arriba).
+    bool generalPendiente = false;
+    // Ruta destino del guardado pendiente ("" = canonica) para que el volcado
+    // escriba donde pidio el que encolo (los tests usan una ruta temporal).
+    std::string rutaGeneralPendiente;
+    // Epoch por defecto = nunca escribio: el primer volcado no espera al
+    // intervalo y una unica edicion persiste en el frame siguiente.
+    std::chrono::steady_clock::time_point ultimaEscrituraGeneral{};
 };
 
 #endif

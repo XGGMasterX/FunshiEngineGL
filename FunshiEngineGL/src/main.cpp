@@ -332,8 +332,9 @@ static int EjecutarMotor(int argc, char* argv[])
     EditorEventBus* eventosGUI = managerOfGUI->getEditorEventBus();
     if (eventosGUI) {
         // Apariencia: aplica el estilo ImGui, el fondo del viewport y la
-        // apariencia de la escena (grilla/vistas previas), y persiste en la
-        // config GENERAL al instante (no depende del proyecto activo).
+        // apariencia de la escena (grilla/vistas previas), y encola el guardado
+        // de la config GENERAL (diferido: mientras se arrastra el selector de
+        // color se escribe como maximo una vez por kIntervaloEscritura).
         eventosGUI->subscribe([scene, &editorConfig, &proyectoActual](const EditorEvent& ev) {
             if (ev.type != EditorEventType::AparienciaCambio) return;
             scene->setApariencia(ev.apariencia);
@@ -343,13 +344,13 @@ static int EjecutarMotor(int argc, char* argv[])
             Rendering::Backend::activeBackend().setClearColor(fondo);
             auto& cfg = editorConfig.datos();
             cfg.apariencia = ev.apariencia;
-            editorConfig.guardarGeneral();
+            editorConfig.solicitarGuardadoGeneral();
         });
-        // Idioma: se persiste en la config general al instante.
+        // Idioma: se persiste en la config general (guardado diferido, ver arriba).
         eventosGUI->subscribe([&editorConfig](const EditorEvent& ev) {
             if (ev.type != EditorEventType::IdiomaCambio) return;
             editorConfig.datos().idioma = ev.idioma;
-            editorConfig.guardarGeneral();
+            editorConfig.solicitarGuardadoGeneral();
         });
         // Ventana Estado: al cerrarla con la 'X' se persiste en la config
         // del proyecto activo, no en la general. El mismo canal sirve para el
@@ -370,7 +371,7 @@ static int EjecutarMotor(int argc, char* argv[])
             if (ev.type != EditorEventType::SensibilidadCambio) return;
             scene->setSensibilidadCamara(ev.sensibilidad);
             editorConfig.datos().sensibilidadCamara = ev.sensibilidad;
-            editorConfig.guardarGeneral();
+            editorConfig.solicitarGuardadoGeneral();
         });
         // Sensibilidad de movimiento (WASD): misma semantica que la del mouse
         // look: se aplica a la escena al instante y se persiste en la config
@@ -380,7 +381,7 @@ static int EjecutarMotor(int argc, char* argv[])
             scene->setSensibilidadMovimientoCamara(ev.sensibilidadMovimiento);
             editorConfig.datos().sensibilidadMovimientoCamara =
                 ev.sensibilidadMovimiento;
-            editorConfig.guardarGeneral();
+            editorConfig.solicitarGuardadoGeneral();
         });
         // Restablecer configuracion: se reaplican los defaults en general
         // (idioma/apariencia/sensibilidad) y en el estado del proyecto
@@ -739,6 +740,13 @@ static int EjecutarMotor(int argc, char* argv[])
             // Estado actual de los paneles para las casillas del menu
             // "Ventanas" (incluye cierres con 'X' del frame anterior).
             managerOfGUI->sincronizarVentanasMenu();
+
+            // Guardado diferido de la config general: los cambios en vivo de
+            // Opciones (apariencia/idioma/sensibilidades) quedaron encolados por
+            // sus handlers y aca se vuelcan como maximo una vez cada
+            // kIntervaloEscritura (la ultima edicion persiste al salir aunque
+            // no llegue a volcarse, porque guardarProyectoCompleto() guarda).
+            editorConfig.volcarGuardadoGeneral();
 
             if (sceneRunning) {
                 if (scene->isEditorActivo())
