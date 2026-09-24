@@ -91,6 +91,11 @@ void EditorInput::aplicarMovimiento(float deltaTime) {
     // mientras se edita un InputText).
     if (!scene || !appState || !appState->is(ApplicationState::Editing)) return;
     if (ImGui::GetIO().WantCaptureKeyboard) return;
+    // Misma regla que la mirada (EditorInput::onMouse): con las interfaces del
+    // editor visibles el WASD no traslada la camara; hace falta ocultarlas (E)
+    // o navegar con el clic derecho sostenido sobre el viewport. Sin esto se
+    // podia volar por la escena sin "esconder" el editor.
+    if (scene->isEditorActivo() && !mouseDerechoParaNavegar) return;
 
     CameraComponent* camara = scene->getActiveCamera();
     if (!camara) return;
@@ -175,9 +180,16 @@ void EditorInput::onKey(GLFWwindow* window, int key, int scancode, int action,
     }
 
     if (key == GLFW_KEY_E && action == GLFW_PRESS) {
-        if (scene) scene->toggleEditorInterfaces();
-        // Entrar/salir de navegacion libre: captura y oculta el cursor.
-        aplicarModoCursor(window);
+        // Solo en el estado de edicion: desde el menu de inicio la E no debe
+        // "activar el editor" mostrando sus interfaces sobre el menu (fallo de
+        // la maquina de estados). Con un InputText de ImGui activo, E tampoco
+        // toca las interfaces.
+        if (appState && appState->is(ApplicationState::Editing) &&
+            !ImGui::GetIO().WantCaptureKeyboard) {
+            if (scene) scene->toggleEditorInterfaces();
+            // Entrar/salir de navegacion libre: captura y oculta el cursor.
+            aplicarModoCursor(window);
+        }
     }
 
     // G: alterna el sistema de coordenadas del gizmo entre LOCAL (ejes que

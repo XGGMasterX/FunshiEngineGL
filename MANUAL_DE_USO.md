@@ -121,10 +121,10 @@ ImGui la combinacion la consume el editor de texto y no guarda.
 
 | Tecla / accion | Funcion |
 |---|---|
-| `W` `A` `S` `D` | Mover la camara activa (diagonales normalizadas) |
-| `Espacio` / `Shift izq.` | Subir / bajar la camara |
-| Mouse | Nav FPS (sensibilidad de Opciones) |
-| `E` | Mostrar/ocultar interfaces del editor |
+| `W` `A` `S` `D` | Mover la camara activa (diagonales normalizadas). Solo con las interfaces del editor ocultas (`E`) o con el clic derecho sostenido sobre el viewport |
+| `Espacio` / `Shift izq.` | Subir / bajar la camara (misma condicion que `WASD`) |
+| Mouse / clic der. | Nav FPS; el clic derecho sostenido sobre el viewport navega **sin** esconder las interfaces (sensibilidad en Opciones) |
+| `E` | Mostrar/ocultar interfaces del editor (solo funciona dentro del editor, no en el menu de inicio) |
 | `Ctrl+S` | Guardar el proyecto en caliente (escena + manifiesto + config) |
 | `Escape` | Volver al menu de inicio |
 | `1` / `T` | Gizmo: traslacion |
