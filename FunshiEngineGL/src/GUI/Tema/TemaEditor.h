@@ -32,9 +32,14 @@
 // desde la vista Opciones.
 //
 // El color de acento se inyecta en los roles visuales de ImGui (botones,
-// headers, tabs, sliders, checks, etc.) para que la interfaz no dependa del
-// azul de fabrica. Los widgets que necesitan el mismo acento (por ejemplo el
-// overlay de Estado) lo derivan con ImGui::GetStyleColorVec4.
+// headers, solapas del dock, sliders, checks, enlaces, fondo de los campos de
+// entrada, cabeceras de tabla y destino de arrastre) y los grises azulados de
+// fabrica se neutralizan: NINGUN rol de la paleta conserva el azul de Dear
+// ImGui, asi que la interfaz se ve del color elegido en Opciones y no a medias.
+// Los widgets que necesitan el mismo acento (por ejemplo el overlay de Estado)
+// lo derivan con ImGui::GetStyleColorVec4.
+// En modo blanco y negro se desatura toda la paleta (incluido el acento) para
+// dejar la interfaz monocroma, coherente con el fondo y la grilla del viewport.
 // ============================================================================
 namespace TemaEditor {
 

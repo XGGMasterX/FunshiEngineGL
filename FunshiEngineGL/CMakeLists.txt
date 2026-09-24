@@ -370,6 +370,29 @@ set_target_properties(menu-tests PROPERTIES
 )
 add_test(NAME menu-tests COMMAND menu-tests)
 
+# TemaEditor (aplicacion del perfil de apariencia al estilo de ImGui) se prueba
+# headless como los anteriores: el estilo solo necesita el contexto de ImGui,
+# sin backends ni pila grafica. Cubre la regresion "el color de acento no llega
+# a toda la interfaz": verifica que con un acento no azul NINGUN rol de la
+# paleta conserve el azul de fabrica de Dear ImGui (FrameBg, Tab, Border,
+# TableHeaderBg, TextLink, DragDropTarget...), que con el acento por defecto no
+# cambie el aspecto historico, y que el modo B/N siga dejando todo monocromo.
+add_executable(tema-tests
+    ${SRC_DIR}/ImGui/imgui.cpp
+    ${SRC_DIR}/ImGui/imgui_draw.cpp
+    ${SRC_DIR}/ImGui/imgui_tables.cpp
+    ${SRC_DIR}/ImGui/imgui_widgets.cpp
+    ${SRC_DIR}/GUI/Tema/TemaEditor.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../tests/TemaEditorTests.cpp
+)
+target_include_directories(tema-tests PRIVATE ${SRC_DIR} ${SRC_DIR}/ImGui)
+set_target_properties(tema-tests PROPERTIES
+    CXX_STANDARD 17
+    CXX_STANDARD_REQUIRED ON
+    CXX_EXTENSIONS OFF
+)
+add_test(NAME tema-tests COMMAND tema-tests)
+
 # AssetManager (cache Flyweight de meshes CPU) tambien headless y portatil:
 # rutas (AssetPath), geometria (Mesh) y el registro compartido con un loader
 # artificial, sin Assimp ni pila grafica.

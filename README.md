@@ -26,10 +26,14 @@ Motor y editor 3D en tiempo real escrito en C++17, con interfaz ImGui y renderiz
 - **Audio en runtime** (`src/Audio/`): `AudioEngine` (fachada thread-safe con cola + hilo de audio) sobre backends intercambiables (`MiniAudioBackend` con miniaudio, `NullAudioBackend`); `AudioClipsManager` descubre los clips de `Sonidos/` y los registra por nombre; `AudioSource` reproduce con volumen, loop y autoplay.
 - **Ventana "Estado"** (`StatusBarInterface`): muestra el toolchain externo (compilador C++, javac, libjvm) y el estado de compilación/carga de los scripts de la escena.
 - Explorador de archivos del proyecto con fachada propia (`FileManager`), estado de navegación compartido (`FileSelection`) y vigilancia de cambios externos (`FileSystemWatcher`).
-- **Apariencia del editor configurable** (perfil persisto en `Configuracion.json`):
-  tema claro/oscuro, **modo blanco y negro** que acompana al fondo y la grilla
-  del viewport, color de acento de la interfaz y color de fondo de la escena,
-  aplicados en vivo por `TemaEditor`/`AparienciaUtil`.
+- **Apariencia del editor configurable** (perfil persistido en `Configuracion.json`):
+  tema claro/oscuro, **modo blanco y negro** (desatura toda la interfaz y
+  acompaña al fondo y la grilla del viewport), color de acento de la interfaz y
+  color de fondo de la escena, aplicados en vivo por `TemaEditor`/`AparienciaUtil`.
+  El acento se inyecta en **todos** los roles visuales de ImGui (botones,
+  solapas del dock, campos de entrada, sliders, checks, enlaces, cabeceras de
+  tabla) y los grises azulados de fábrica pasan a gris neutro: la interfaz no
+  queda coloreada a medias ni con restos del azul clásico.
 - La **cámara activa** elegida con "Usar" se persiste por id en la configuración
   (default automática si el id ya no existe al cargar).
 - **Cámaras como componente** con vistas previas en vivo (render a FBO) — ver [CAMARAS_VISTAS_PREVIAS.md](CAMARAS_VISTAS_PREVIAS.md).
@@ -105,11 +109,11 @@ En Windows la misma receta funciona con el generador de Visual Studio. También 
 
 ## Pruebas y CI
 
-Las pruebas son headless (sin pila gráfica), corren con CTest y hay **14 targets**
-(catorce siempre + `scripts-java-tests` si el build encontró el JDK):
+Las pruebas son headless (sin pila gráfica), corren con CTest y hay **17 targets**
+(dieciséis siempre + `scripts-java-tests` si el build encontró el JDK):
 
 ```bash
-cmake --build build --target filemanager-tests configuracion-tests eventbus-tests menu-tests assetmanager-tests texturemanager-tests estructuras-tests scripts-tests scripts-runtime-tests manifiesto-assets-tests orquestador-estado-tests
+cmake --build build --target filemanager-tests configuracion-tests eventbus-tests menu-tests tema-tests assetmanager-tests texturemanager-tests estructuras-tests scripts-tests scripts-runtime-tests manifiesto-assets-tests orquestador-estado-tests
 ctest --test-dir build --output-on-failure
 ```
 
@@ -117,6 +121,7 @@ ctest --test-dir build --output-on-failure
 - `configuracion-tests` (53): `EditorConfig` (JSON tolerante + round-trip + `restablecer`).
 - `eventbus-tests` (16): canal tipado de GUI interna (`EditorEventBus`).
 - `menu-tests` (30): `MenuModel` (traducción en vivo, observer de cambios y reset).
+- `tema-tests` (20): `TemaEditor` (aplicación del perfil `Apariencia` al estilo ImGui): el acento llega a **todos** los roles y ningún rol conserva el azul de fábrica de Dear ImGui (regresión "el color de acento no se aplica a toda la interfaz"), el acento por defecto no cambia el aspecto histórico, la aplicación es idempotente y el modo B/N deja la paleta monocroma.
 - `assetmanager-tests` (47) y `texturemanager-tests` (15): caches Flyweight de meshes e imágenes.
 - `estructuras-tests` (87): listas, árboles, heaps y ordenamiento propios.
 - `scripts-tests` (42): reflexión `SerializeField` (campos, arrays, grupos y round-trip binario).
