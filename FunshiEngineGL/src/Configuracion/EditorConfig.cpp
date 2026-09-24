@@ -139,6 +139,14 @@ std::string EditorConfig::directorioInterfaces(const std::string& nombreProyecto
     return directorioMemory(nombreProyecto) + "/Interfaces";
 }
 
+std::string EditorConfig::directorioExportaciones() {
+    return directorioBaseMotorGrafico() + "/Exportaciones";
+}
+
+std::string EditorConfig::directorioExportacion(const std::string& nombreExportacion) {
+    return directorioExportaciones() + "/" + nombreExportacion;
+}
+
 void EditorConfig::asegurarEstructuraProyecto(const std::string& nombreProyecto) {
     const std::string nombre = nombreProyecto.empty() ? "Nuevo Proyecto" : nombreProyecto;
     const std::string dirMemory = directorioMemory(nombre);

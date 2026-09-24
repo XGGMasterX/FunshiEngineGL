@@ -117,6 +117,11 @@ public:
     // interfaces): <directorioMemory>/Interfaces
     static std::string directorioInterfaces(const std::string& nombreProyecto = "Nuevo Proyecto");
 
+    // Directorio de exportaciones: <directorioBase>/Exportaciones/<nombreExportacion>/
+    // Cada exportación es una carpeta independiente con el juego compilado + Data/
+    static std::string directorioExportaciones();
+    static std::string directorioExportacion(const std::string& nombreExportacion);
+
     // Crea en disco la estructura de carpetas requerida para el proyecto:
     //   <directorioBase>/<nombreProyecto>/Memory/Binarios/Scene
     //   <directorioBase>/<nombreProyecto>/Memory/Interfaces

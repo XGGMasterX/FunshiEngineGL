@@ -36,6 +36,11 @@ void SceneMenuBarInterface::setVentanas(const std::map<std::string, bool>& estad
 void SceneMenuBarInterface::initGUI() {
     ImGui::Begin(getNameGui().c_str(), &stateGUI, getFlagGui());
     ImGui::PushID(this);
+
+    // Actualizar dialogo de exportación si está abierto
+    if (mostrarExportDialog_ && exportDialog_) {
+        exportDialog_->render();
+    }
 }
 // Etiqueta en espanol por WindowName para el menu "Ventanas"; nullptr para las
 // ventanas que no se pueden alternar desde aqui (dock, propia barra, settings).
@@ -49,10 +54,14 @@ static const char* etiquetaVentana(const std::string& nombre) {
 void SceneMenuBarInterface::contentGUI() {
     ImGui::BeginMenuBar();
     if (ImGui::BeginMenu("Archivo")) {
-        if (ImGui::MenuItem("Exportar juego") && busEditor) {
-            EditorEvent ev;
-            ev.type = EditorEventType::ExportarJuego;
-            busEditor->publish(ev);
+        if (ImGui::MenuItem("Exportar juego")) {
+            if (!exportDialog_) {
+                exportDialog_ = std::make_unique<ExportDialog>([this](const ExportDialog::Resultado& r) {
+                    mostrarExportDialog_ = false;
+                    exportDialog_.reset();
+                });
+            }
+            mostrarExportDialog_ = true;
         }
         ImGui::EndMenu();
     }

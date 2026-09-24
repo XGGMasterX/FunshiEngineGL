@@ -289,9 +289,10 @@ void CameraComponent::orbitAround(const float* origen, float dYawX, float dYawY)
     calculardireccion();
 
     // Nueva posicion en el circulo horizontal (misma Y, radio constante).
-    m_pos[0] = origen[0] + m_dir[0] * radio;
+    // Usamos origen - m_dir * radio para que la camara mire HACIA el origen.
+    m_pos[0] = origen[0] - m_dir[0] * radio;
     // m_pos[1] se mantiene igual (altura fija)
-    m_pos[2] = origen[2] + m_dir[2] * radio;
+    m_pos[2] = origen[2] - m_dir[2] * radio;
 
     escribirATransform();
 }
