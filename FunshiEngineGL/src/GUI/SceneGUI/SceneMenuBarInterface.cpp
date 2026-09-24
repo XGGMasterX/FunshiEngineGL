@@ -33,6 +33,13 @@ void SceneMenuBarInterface::setEditorEventBus(EditorEventBus* bus) {
 void SceneMenuBarInterface::setVentanas(const std::map<std::string, bool>& estados) {
     ventanas_ = estados;
 }
+
+void SceneMenuBarInterface::setProyectoActual(const std::string& proyecto) {
+    proyectoActual_ = proyecto;
+    if (exportDialog_) {
+        exportDialog_->setProyectoActual(proyecto);
+    }
+}
 void SceneMenuBarInterface::initGUI() {
     ImGui::Begin(getNameGui().c_str(), &stateGUI, getFlagGui());
     ImGui::PushID(this);
@@ -59,7 +66,7 @@ void SceneMenuBarInterface::contentGUI() {
                 exportDialog_ = std::make_unique<ExportDialog>([this](const ExportDialog::Resultado& r) {
                     mostrarExportDialog_ = false;
                     exportDialog_.reset();
-                });
+                }, proyectoActual_);
             }
             mostrarExportDialog_ = true;
         }

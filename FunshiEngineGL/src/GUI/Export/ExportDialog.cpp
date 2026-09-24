@@ -23,7 +23,7 @@
 #include <memory>
 #include <cmath>
 
-ExportDialog::ExportDialog(Callback onCerrar) : onCerrar_(std::move(onCerrar)) {}
+ExportDialog::ExportDialog(Callback onCerrar, const std::string& proyectoActual) : onCerrar_(std::move(onCerrar)), proyectoActual_(proyectoActual) {}
 
 ExportDialog::~ExportDialog() = default;
 
@@ -101,10 +101,14 @@ void ExportDialog::iniciarExportacion() {
     etapaActual_ = "Iniciando...";
     ultimoLog_.clear();
 
-    // Obtener directorio del proyecto actual desde EditorConfig
-    // Por ahora usar ruta relativa
+    if (proyectoActual_.empty()) {
+        agregarLog("Error: No hay proyecto seleccionado");
+        finalizarExportacion(false, "No hay proyecto seleccionado");
+        return;
+    }
+
     GameExporter::Config cfg;
-    cfg.proyectoOrigen = "MotorGrafico/Proyects/ProyectoActual"; // TODO: desde EditorConfig
+    cfg.proyectoOrigen = "MotorGrafico/Proyects/" + proyectoActual_;
     cfg.nombreEjecutable = nombreEjecutable_;
     cfg.nombreProyectoExportado = nombreProyectoExportado_;
     cfg.plataforma = (plataformaIdx_ == 0) ? GameExporter::Plataforma::Linux : GameExporter::Plataforma::Windows;

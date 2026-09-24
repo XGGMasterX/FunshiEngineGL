@@ -562,6 +562,12 @@ static int EjecutarMotor(int argc, char* argv[])
                     // panel "ShowFolder" (que se auto-oculta sin seleccion).
                     // Al salir, la config recoge el estado real y lo persiste.
                     managerOfGUI->setEstadoVentana(WindowNames::BrowseFile, true);
+                    // Actualizar proyecto actual en el menu bar para exportación
+                    if (!proyectoActual.empty()) {
+                        if (auto* menuBar = managerOfGUI->getMenuBarGUI()) {
+                            menuBar->setProyectoActual(proyectoActual);
+                        }
+                    }
                     // Se descarta el delta de look acumulado del clic en
                     // "Iniciar Estudio": sin esto el primer movimiento del
                     // mouse "teletransporta" el look y la camara queda mirando
@@ -622,6 +628,10 @@ static int EjecutarMotor(int argc, char* argv[])
                 EditorConfig::fijarRaizAssets(EditorConfig::directorioSrc(proyectoActual));
                 EditorConfig::asegurarEstructuraProyecto(proyectoActual);
                 managerOfGUI->configurarProyecto(proyectoActual);
+                // Actualizar proyecto actual en el menu bar para exportación
+                if (auto* menuBar = managerOfGUI->getMenuBarGUI()) {
+                    menuBar->setProyectoActual(proyectoActual);
+                }
                 // Re-explorar Sonidos/ e interfaces del proyecto entrante.
                 scene->configurarProyecto(proyectoActual);
                 editorConfig.datos().nombreProyecto = proyectoActual;
@@ -742,6 +752,9 @@ static int EjecutarMotor(int argc, char* argv[])
                 // sincronice la carpeta con setContentFolderGUI().
                 contentFolderInterface->printGUI();
             }
+
+        // Sidebar de radio de orbita (editor oculto + clic derecho).
+        input->dibujarSidebarOrbita();
 
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());

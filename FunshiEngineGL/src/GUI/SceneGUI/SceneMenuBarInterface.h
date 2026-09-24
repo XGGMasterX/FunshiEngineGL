@@ -39,6 +39,7 @@ protected:
     std::map<std::string, bool> ventanas_;
     std::unique_ptr<ExportDialog> exportDialog_;
     bool mostrarExportDialog_ = false;
+    std::string proyectoActual_;
 
 public:
     SceneMenuBarInterface(bool stateGUI);
@@ -49,6 +50,7 @@ public:
     void setCargarScripts(bool value);
     void setEditorEventBus(EditorEventBus* bus);
     void setVentanas(const std::map<std::string, bool>& estados);
+    void setProyectoActual(const std::string& proyecto);
     virtual void initGUI() override;
     virtual void contentGUI() override;
     virtual void endGUI() override;

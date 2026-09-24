@@ -47,9 +47,11 @@ private:
 
     Transform* getLocalTransform() const;
     void leerDesdeTransform();
-    void escribirATransform();
     void calculardireccion();
     void move(const float direction[3], float velocity);
+
+public:
+    void escribirATransform();
 
 protected:
     void serializeComponent(std::ofstream* file) override;
@@ -91,11 +93,20 @@ public:
 
     // Orbita: la camara gira alrededor de un punto origen manteniendo la
     // distancia (radio) y mirando hacia ese punto. El caller pasa el delta
-    // de yaw/pitch y el origen; se recalcula posicion y orientacion.
-    void orbitAround(const float* origen, float dYawX, float dYawY);
+    // de yaw/pitch, el origen y el radio (ajustable con rueda del mouse);
+    // se recalcula posicion y orientacion. Devuelve el radio efectivo usado
+    // (clampado a [radioMin, radioMax]).
+    float orbitAround(const float* origen, float radio, float dYawX, float dYawY);
+
+    // Limites de radio para orbita.
+    static constexpr float radioMin = 0.5f;
+    static constexpr float radioMax = 200.0f;
 
     const float* getPosition() const { return m_pos; }
+    void setPosition(const float pos[3]) { m_pos[0] = pos[0]; m_pos[1] = pos[1]; m_pos[2] = pos[2]; }
     const float* getDirection() const { return m_dir; }
+
+    float getYawX() const { return yawX; }
 
     float getFov() const { return fov; }
     void setFov(float v) { fov = v; }

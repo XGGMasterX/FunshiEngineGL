@@ -32,13 +32,16 @@ public:
 
     using Callback = std::function<void(const Resultado&)>;
 
-    explicit ExportDialog(Callback onCerrar);
+    explicit ExportDialog(Callback onCerrar, const std::string& proyectoActual = "");
     ~ExportDialog();
+
+    void setProyectoActual(const std::string& proyecto) { proyectoActual_ = proyecto; }
 
     void render();
 
 private:
     Callback onCerrar_;
+    std::string proyectoActual_;
     bool abierto_ = true;
     char nombreEjecutable_[256] = "MiJuego";
     char nombreProyectoExportado_[256] = "Exportacion";

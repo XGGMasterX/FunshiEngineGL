@@ -100,6 +100,7 @@ public:
 	SettingsObjectInterface* getSettingGUI(GameObject* gameObject);
 	void removeSettingsGUI();
 	void setSelecteableGUI(PriorityListaDE<GameObject*>* gameObjects);
+	SceneMenuBarInterface* getMenuBarGUI();
 	SceneMenuBarInterface* getMenuBarGUI(bool* targetBool);
 	SceneSelectedInterface* getSelecteableGUI();
 	ContentFolderInterface* getContentFolderGUI();
