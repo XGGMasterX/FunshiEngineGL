@@ -275,6 +275,27 @@ void CameraComponent::updateYaw(float dYawX, float dYawY) {
     escribirATransform();
 }
 
+void CameraComponent::orbitAround(const float* origen, float dYawX, float dYawY) {
+    leerDesdeTransform();
+
+    float dx = m_pos[0] - origen[0];
+    float dy = m_pos[1] - origen[1];
+    float dz = m_pos[2] - origen[2];
+    float radio = std::sqrt(dx * dx + dy * dy + dz * dz);
+
+    yawX += dYawX;
+    yawY += dYawY;
+    if (yawY > kPitchMaxGrados) yawY = kPitchMaxGrados;
+    if (yawY < -kPitchMaxGrados) yawY = -kPitchMaxGrados;
+    calculardireccion();
+
+    m_pos[0] = origen[0] + m_dir[0] * radio;
+    m_pos[1] = origen[1] + m_dir[1] * radio;
+    m_pos[2] = origen[2] + m_dir[2] * radio;
+
+    escribirATransform();
+}
+
 void CameraComponent::getViewMatrix(float* outMatrix) const {
     const_cast<CameraComponent*>(this)->leerDesdeTransform();
     glm::vec3 eye(m_pos[0], m_pos[1], m_pos[2]);

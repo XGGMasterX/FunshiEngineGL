@@ -63,6 +63,9 @@ public:
     void saveComponent(std::ofstream* file) override;
     void loadComponent(std::ifstream* file) override;
 
+    // Fuerza lectura de posicion/direccion desde el Transform del duenio.
+    void refreshFromTransform() { leerDesdeTransform(); }
+
     // Vista actual segun el Transform del duenio (nunca cachead) : el gizmo,
     // el picking y el render comparten la misma fuente de verdad.
     void getViewMatrix(float* outMatrix) const;
@@ -86,7 +89,13 @@ public:
     void moverDireccion(const float direccion[3], float dt);
     void updateYaw(float dYawX, float dYawY);
 
+    // Orbita: la camara gira alrededor de un punto origen manteniendo la
+    // distancia (radio) y mirando hacia ese punto. El caller pasa el delta
+    // de yaw/pitch y el origen; se recalcula posicion y orientacion.
+    void orbitAround(const float* origen, float dYawX, float dYawY);
+
     const float* getPosition() const { return m_pos; }
+    const float* getDirection() const { return m_dir; }
 
     float getFov() const { return fov; }
     void setFov(float v) { fov = v; }

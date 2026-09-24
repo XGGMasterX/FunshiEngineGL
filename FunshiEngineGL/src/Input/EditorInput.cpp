@@ -242,21 +242,34 @@ void EditorInput::onMouseButton(GLFWwindow* window, int button, int action,
     (void)mods;
     if (button != GLFW_MOUSE_BUTTON_RIGHT) return;
     if (action == GLFW_PRESS) {
-        // Solo se engancha si el clic cayo sobre la escena 3D y no sobre un
-        // panel de ImGui (ahi WantCaptureMouse=true y el clic derecho sigue
-        // siendo del panel: menues contextuales, etc.). La callback corre
-        // delante del procesamiento del evento en el backend de ImGui, asi
-        // que io.WantCaptureMouse refleja el estado de hover del frame.
         ImGuiIO& io = ImGui::GetIO();
         const bool gizmoCapturing = scene && scene->isGizmoCapturingInput();
-        mouseDerechoParaNavegar = !io.WantCaptureMouse && !gizmoCapturing;
+        const bool editorActivo = scene && scene->isEditorActivo();
+
+        if (!editorActivo && !io.WantCaptureMouse && !gizmoCapturing) {
+// Editor oculto (E presionado) + clic derecho sobre la escena:
+            // entrar en modo orbita. El origen esta en la recta de la direccion
+            // de la camara; el radio es la distancia actual camara-origen.
+            if (CameraComponent* camara = scene ? scene->getActiveCamera() : nullptr) {
+                camara->refreshFromTransform();
+                const float* pos = camara->getPosition();
+                const float* dir = camara->getDirection();
+                // origen = pos + dir * radio. La camara queda sobre la
+                // circunferencia y el origen sobre la recta en direccion y
+                // sentido a donde mira la camara.
+                float radio = 10.0f; // radio fijo para la orbita
+                origenOrbita[0] = pos[0] + dir[0] * radio;
+                origenOrbita[1] = pos[1] + dir[1] * radio;
+                origenOrbita[2] = pos[2] + dir[2] * radio;
+                orbitando = true;
+            }
+        } else {
+            mouseDerechoParaNavegar = !io.WantCaptureMouse && !gizmoCapturing;
+        }
     } else {
         mouseDerechoParaNavegar = false;
+        orbitando = false;
     }
-    // Mientras se navega con el clic derecho el cursor se atrapa al centro y
-    // se oculta (igual que con E); al soltar, se restaura (si el editor sigue
-    // visible). GLFW_CURSOR_DISABLED + integracion ImGui: la navegacion con
-    // el mouse no se choca con los paneles.
     aplicarModoCursor(window);
 }
 
@@ -286,20 +299,29 @@ void EditorInput::onMouse(GLFWwindow* window, double xpos, double ypos) {
     ImGuiIO& io = ImGui::GetIO();
     const bool gizmoCapturing = scene && scene->isGizmoCapturingInput();
     const bool editorActivo = scene && scene->isEditorActivo();
-    // Dos caminos para rotar la camara:
+    // Tres caminos para rotar la camara:
     //  (1) modo editor libre (sin E y sin objeto seleccionado), mirada con el
     //      mouse suelto y sin ImGui capturando la escena;
     //  (2) CLIC DERECHO sostenido sobre la escena desde el editor: permite
     //      mira-se (y con WASD trasladarse) sin apretar E y SIN esconder las
     //      interfaces. Una vez enganchado, se mantiene aunque el cursor pase
     //      sobre un panel (los popups de ImGui necesitan clic nuevo).
+    //  (3) ORBITA: editor oculto (E) + clic derecho sostenido sobre la escena.
+    //      La camara gira alrededor de un punto origen en la direccion de mirada,
+    //      manteniendo radio fijo y mirando siempre hacia el origen.
     const bool navegandoLibre =
         !editorActivo && !io.WantCaptureMouse && !gizmoCapturing;
     const bool navegandoConDerecho =
         mouseDerechoParaNavegar && !gizmoCapturing;
-    if ((navegandoLibre || navegandoConDerecho)) {
+
+    if (orbitando && !gizmoCapturing) {
         if (CameraComponent* camara = scene ? scene->getActiveCamera() : nullptr) {
-            // Sensibilidad global configurada en Opciones (menuGUI).
+            const float sensibilidad =
+                scene ? scene->getSensibilidadCamara() : 1.0f;
+            camara->orbitAround(origenOrbita, dx * sensibilidad, dy * sensibilidad);
+        }
+    } else if (navegandoLibre || navegandoConDerecho) {
+        if (CameraComponent* camara = scene ? scene->getActiveCamera() : nullptr) {
             const float sensibilidad =
                 scene ? scene->getSensibilidadCamara() : 1.0f;
             camara->updateYaw(dx * sensibilidad, dy * sensibilidad);
