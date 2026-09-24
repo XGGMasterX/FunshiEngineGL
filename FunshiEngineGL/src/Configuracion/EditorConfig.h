@@ -122,13 +122,20 @@ public:
     static std::string directorioExportaciones();
     static std::string directorioExportacion(const std::string& nombreExportacion);
 
+    // Carpeta de proyectos: <directorioBase>/Proyects/
+    static std::string directorioProyects();
+    // Carpeta de configuraciones globales: <directorioBase>/Configuraciones/
+    static std::string directorioConfiguraciones();
+
     // Crea en disco la estructura de carpetas requerida para el proyecto:
-    //   <directorioBase>/<nombreProyecto>/Memory/Binarios/Scene
-    //   <directorioBase>/<nombreProyecto>/Memory/Interfaces
-    //   <directorioBase>/<nombreProyecto>/src<nombreProyecto>/Sonidos
-    //   <directorioBase>/<nombreProyecto>/src<nombreProyecto>
-    // Migra archivos previos: escena/config en la raiz de MotorGrafico y la
-    // carpeta Sonidos que antes vivia en la raiz del proyecto (ahora en src).
+    //   <directorioBase>/Proyects/<nombreProyecto>/Memory/Binarios/Scene
+    //   <directorioBase>/Proyects/<nombreProyecto>/Memory/Interfaces
+    //   <directorioBase>/Proyects/<nombreProyecto>/src<nombreProyecto>/Sonidos
+    //   <directorioBase>/Proyects/<nombreProyecto>/src<nombreProyecto>
+    //   <directorioBase>/Configuraciones/Configuracion.json
+    //   <directorioBase>/Exportaciones/
+    // Migra proyectos previos de la estructura antigua (directamente bajo MotorGrafico/)
+    // a la nueva estructura MotorGrafico/Proyects/
     static void asegurarEstructuraProyecto(const std::string& nombreProyecto = "Nuevo Proyecto");
 
     // Renombra un proyecto en disco: <base>/<viejo> -> <base>/<nuevo> y su raiz

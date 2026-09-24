@@ -180,13 +180,13 @@ int main() {
         const std::string rootName = EditorConfig::nombreRaizSrc(proyNombre);
 
         CHECK(rootName == "srcJuegoPrueba",              "nombreRaizSrc correcto");
-        CHECK(proyDir == baseMotor + "/" + proyNombre,   "directorioProyecto correcto");
+        CHECK(proyDir == baseMotor + "/Proyects/" + proyNombre,   "directorioProyecto en Proyects/");
         CHECK(memDir  == proyDir + "/Memory",            "directorioMemory dentro del proyecto");
         CHECK(srcDir  == proyDir + "/srcJuegoPrueba",    "directorioSrc hermano de Memory");
 
-        // Config general: en la raiz de MotorGrafico, hermana de las carpetas de proyecto.
-        CHECK(EditorConfig::rutaConfiguracionGeneral() == baseMotor + "/Configuracion.json",
-              "rutaConfiguracionGeneral en raiz de MotorGrafico");
+        // Config general: en <base>/Configuraciones/Configuracion.json
+        CHECK(EditorConfig::rutaConfiguracionGeneral() == baseMotor + "/Configuraciones/Configuracion.json",
+              "rutaConfiguracionGeneral en Configuraciones/");
         // Config del proyecto: dentro de Memory del proyecto.
         CHECK(EditorConfig::rutaConfiguracionProyecto(proyNombre) ==
               memDir + "/ConfiguracionProyecto.json",

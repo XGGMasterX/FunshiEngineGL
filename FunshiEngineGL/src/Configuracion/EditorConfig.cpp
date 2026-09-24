@@ -66,6 +66,61 @@ std::string directorioEjecutable() {
 } // namespace
 
 // ============================================================================
+// Migración de estructura antigua a nueva (Proyects/, Configuraciones/)
+// ============================================================================
+
+namespace {
+
+static void migrarProyectosAntiguos() {
+    const std::string base = EditorConfig::directorioBaseMotorGrafico();
+    const std::string proyectsDir = EditorConfig::directorioProyects();
+    std::error_code ec;
+
+    // Listar directorios directamente bajo MotorGrafico/ (excluyendo carpetas conocidas)
+    const std::vector<std::string> carpetasReservadas = {
+        "Proyects", "Configuraciones", "Exportaciones",
+        "Binarios", "Memory", "Interfaces", "Sonidos",
+        "srcNuevo Proyecto", "src", "Configuracion.json", "imgui.ini"
+    };
+
+    for (const auto& entry : std::filesystem::directory_iterator(base, ec)) {
+        if (!entry.is_directory(ec)) continue;
+        const std::string nombre = entry.path().filename().string();
+
+        // Saltar carpetas reservadas/sistema
+        bool reservado = false;
+        for (const auto& r : carpetasReservadas) {
+            if (nombre == r || (nombre.rfind("src", 0) == 0 && nombre.size() > 3)) {
+                reservado = true;
+                break;
+            }
+        }
+        if (reservado) continue;
+
+        // Mover proyecto a Proyects/
+        std::string origen = entry.path().string();
+        std::string destino = proyectsDir + "/" + nombre;
+        if (!std::filesystem::exists(destino, ec)) {
+            std::filesystem::rename(origen, destino, ec);
+        }
+    }
+}
+
+static void migrarConfiguracionGlobal() {
+    const std::string base = EditorConfig::directorioBaseMotorGrafico();
+    const std::string oldConfig = base + "/Configuracion.json";
+    const std::string newConfig = EditorConfig::directorioConfiguraciones() + "/Configuracion.json";
+    std::error_code ec;
+
+    if (std::filesystem::exists(oldConfig, ec) && !std::filesystem::exists(newConfig, ec)) {
+        std::filesystem::create_directories(EditorConfig::directorioConfiguraciones(), ec);
+        std::filesystem::copy_file(oldConfig, newConfig, std::filesystem::copy_options::overwrite_existing, ec);
+    }
+}
+
+} // namespace
+
+// ============================================================================
 
 std::string EditorConfig::directorioBaseMotorGrafico() {
     // Relativo al ejecutable: los datos de config/proyectos se crean junto al
@@ -74,9 +129,19 @@ std::string EditorConfig::directorioBaseMotorGrafico() {
     return exeDir.empty() ? "MotorGrafico" : exeDir + "MotorGrafico";
 }
 
+std::string EditorConfig::directorioProyects() {
+    // Carpeta que contiene todos los proyectos: <base>/Proyects/
+    return directorioBaseMotorGrafico() + "/Proyects";
+}
+
+std::string EditorConfig::directorioConfiguraciones() {
+    // Carpeta de configuraciones globales: <base>/Configuraciones/
+    return directorioBaseMotorGrafico() + "/Configuraciones";
+}
+
 std::string EditorConfig::directorioProyecto(const std::string& nombreProyecto) {
     const std::string nombre = nombreProyecto.empty() ? "Nuevo Proyecto" : nombreProyecto;
-    return directorioBaseMotorGrafico() + "/" + nombre;
+    return directorioProyects() + "/" + nombre;
 }
 
 std::string EditorConfig::directorioMemory(const std::string& nombreProyecto) {
@@ -93,10 +158,10 @@ std::string EditorConfig::nombreRaizSrc(const std::string& nombreProyecto) {
 }
 
 std::string EditorConfig::rutaConfiguracionGeneral() {
-    // Configuracion general: hermana de las carpetas de proyecto, no dentro de ninguna.
+    // Configuracion general: <base>/Configuraciones/Configuracion.json
     // Guarda solo lo independiente del proyecto: apariencia, idioma, sensibilidad,
     // y el ultimo proyecto abierto para saber cual cargar al arrancar.
-    return directorioBaseMotorGrafico() + "/Configuracion.json";
+    return directorioConfiguraciones() + "/Configuracion.json";
 }
 
 std::string EditorConfig::rutaConfiguracionProyecto(const std::string& nombreProyecto) {
@@ -149,6 +214,21 @@ std::string EditorConfig::directorioExportacion(const std::string& nombreExporta
 
 void EditorConfig::asegurarEstructuraProyecto(const std::string& nombreProyecto) {
     const std::string nombre = nombreProyecto.empty() ? "Nuevo Proyecto" : nombreProyecto;
+
+    // 1. Crear estructura base: MotorGrafico/Proyects/ y MotorGrafico/Configuraciones/
+    std::error_code ec;
+    std::filesystem::create_directories(directorioProyects(), ec);
+    std::filesystem::create_directories(directorioConfiguraciones(), ec);
+    std::filesystem::create_directories(directorioExportaciones(), ec);
+
+    // 2. Migrar proyectos existentes de la estructura antigua (directamente bajo MotorGrafico/)
+    // a la nueva estructura MotorGrafico/Proyects/
+    migrarProyectosAntiguos();
+
+    // 3. Migrar configuración global antigua (MotorGrafico/Configuracion.json)
+    // a MotorGrafico/Configuraciones/Configuracion.json
+    migrarConfiguracionGlobal();
+
     const std::string dirMemory = directorioMemory(nombre);
     const std::string dirScene = dirMemory + "/Binarios/Scene";
     const std::string dirSrc = directorioSrc(nombre);
@@ -157,7 +237,6 @@ void EditorConfig::asegurarEstructuraProyecto(const std::string& nombreProyecto)
     const std::string dirSonidos = directorioSonidos(nombre);
     const std::string dirInterfaces = directorioInterfaces(nombre);
 
-    std::error_code ec;
     std::filesystem::create_directories(dirScene, ec);
     std::filesystem::create_directories(dirSrc, ec);
     std::filesystem::create_directories(dirInterfaces, ec);
@@ -208,6 +287,53 @@ void EditorConfig::asegurarEstructuraProyecto(const std::string& nombreProyecto)
     } else {
         ec.clear();
         std::filesystem::create_directories(dirSonidos, ec);
+    }
+}
+
+static void migrarProyectosAntiguos() {
+    const std::string base = EditorConfig::directorioBaseMotorGrafico();
+    const std::string proyectsDir = EditorConfig::directorioProyects();
+    std::error_code ec;
+
+    // Listar directorios directamente bajo MotorGrafico/ (excluyendo carpetas conocidas)
+    const std::vector<std::string> carpetasReservadas = {
+        "Proyects", "Configuraciones", "Exportaciones",
+        "Binarios", "Memory", "Interfaces", "Sonidos",
+        "srcNuevo Proyecto", "src", "Configuracion.json", "imgui.ini"
+    };
+
+    for (const auto& entry : std::filesystem::directory_iterator(base, ec)) {
+        if (!entry.is_directory(ec)) continue;
+        const std::string nombre = entry.path().filename().string();
+
+        // Saltar carpetas reservadas/sistema
+        bool reservado = false;
+        for (const auto& r : carpetasReservadas) {
+            if (nombre == r || (nombre.rfind("src", 0) == 0 && nombre.size() > 3)) {
+                reservado = true;
+                break;
+            }
+        }
+        if (reservado) continue;
+
+        // Mover proyecto a Proyects/
+        std::string origen = entry.path().string();
+        std::string destino = proyectsDir + "/" + nombre;
+        if (!std::filesystem::exists(destino, ec)) {
+            std::filesystem::rename(origen, destino, ec);
+        }
+    }
+}
+
+static void migrarConfiguracionGlobal() {
+    const std::string base = EditorConfig::directorioBaseMotorGrafico();
+    const std::string oldConfig = base + "/Configuracion.json";
+    const std::string newConfig = EditorConfig::directorioConfiguraciones() + "/Configuracion.json";
+    std::error_code ec;
+
+    if (std::filesystem::exists(oldConfig, ec) && !std::filesystem::exists(newConfig, ec)) {
+        std::filesystem::create_directories(EditorConfig::directorioConfiguraciones(), ec);
+        std::filesystem::copy_file(oldConfig, newConfig, std::filesystem::copy_options::overwrite_existing, ec);
     }
 }
 
