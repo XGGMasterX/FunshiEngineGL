@@ -278,19 +278,19 @@ void CameraComponent::updateYaw(float dYawX, float dYawY) {
 void CameraComponent::orbitAround(const float* origen, float dYawX, float dYawY) {
     leerDesdeTransform();
 
+    // Orbita horizontal: solo yawX (rotacion en plano XZ).
+    // La altura (Y) se mantiene fija; el radio es la distancia horizontal al origen.
     float dx = m_pos[0] - origen[0];
-    float dy = m_pos[1] - origen[1];
     float dz = m_pos[2] - origen[2];
-    float radio = std::sqrt(dx * dx + dy * dy + dz * dz);
+    float radio = std::sqrt(dx * dx + dz * dz);
 
     yawX += dYawX;
-    yawY += dYawY;
-    if (yawY > kPitchMaxGrados) yawY = kPitchMaxGrados;
-    if (yawY < -kPitchMaxGrados) yawY = -kPitchMaxGrados;
+    // yawY NO cambia: orbita puramente horizontal, sin pitch.
     calculardireccion();
 
+    // Nueva posicion en el circulo horizontal (misma Y, radio constante).
     m_pos[0] = origen[0] + m_dir[0] * radio;
-    m_pos[1] = origen[1] + m_dir[1] * radio;
+    // m_pos[1] se mantiene igual (altura fija)
     m_pos[2] = origen[2] + m_dir[2] * radio;
 
     escribirATransform();

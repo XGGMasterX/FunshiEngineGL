@@ -91,6 +91,8 @@ void EditorInput::aplicarMovimiento(float deltaTime) {
     // mientras se edita un InputText).
     if (!scene || !appState || !appState->is(ApplicationState::Editing)) return;
     if (ImGui::GetIO().WantCaptureKeyboard) return;
+    // Durante orbita (editor oculto + clic derecho): bloquear traslacion WASD.
+    if (orbitando) return;
     // Misma regla que la mirada (EditorInput::onMouse): con las interfaces del
     // editor visibles el WASD no traslada la camara; hace falta ocultarlas (E)
     // o navegar con el clic derecho sostenido sobre el viewport. Sin esto se
@@ -208,6 +210,8 @@ void EditorInput::onKey(GLFWwindow* window, int key, int scancode, int action,
     }
 
     if (key == GLFW_KEY_E && action == GLFW_PRESS) {
+        // Durante orbita: bloquear toggle de editor (E).
+        if (orbitando) return;
         // Solo en el estado de edicion: desde el menu de inicio la E no debe
         // "activar el editor" mostrando sus interfaces sobre el menu (fallo de
         // la maquina de estados). Con un InputText de ImGui activo, E tampoco
@@ -310,9 +314,9 @@ void EditorInput::onMouse(GLFWwindow* window, double xpos, double ypos) {
     //      La camara gira alrededor de un punto origen en la direccion de mirada,
     //      manteniendo radio fijo y mirando siempre hacia el origen.
     const bool navegandoLibre =
-        !editorActivo && !io.WantCaptureMouse && !gizmoCapturing;
+        !editorActivo && !io.WantCaptureMouse && !gizmoCapturing && !orbitando;
     const bool navegandoConDerecho =
-        mouseDerechoParaNavegar && !gizmoCapturing;
+        mouseDerechoParaNavegar && !gizmoCapturing && !orbitando;
 
     if (orbitando && !gizmoCapturing) {
         if (CameraComponent* camara = scene ? scene->getActiveCamera() : nullptr) {
