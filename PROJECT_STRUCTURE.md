@@ -150,7 +150,7 @@ FunshiEngineGL/                          ← raíz del repo
         │   │                                  libjvm) y estado de scripts (compilando/cargado/error)
         │   ├── Tema/
         │   │   └── TemaEditor.h/.cpp      ← aplica el perfil Apariencia al estilo ImGui en vivo
-        │   │                                  (tema claro/oscuro, acento en TODOS los roles de ImGui
+        │   │                                  (tema claro/oscuro, acento RGB en TODOS los roles de ImGui
         │   │                                  y grises azulados de fábrica a gris neutro; ver tests/TemaEditorTests.cpp)
         │   ├── FileManagerGUI/             ← TreeFilesInterface + ContentFolderInterface
         │   │                                  (vistas del explorador; conversan con FileManager)
@@ -641,8 +641,10 @@ GameScene → coordina todos los subsistemas del frame
   verifica que **ningún** rol de la paleta conserve el azul de fábrica de Dear ImGui
   (`FrameBg` —campos y pista del slider—, `Tab`/`TabDimmed`, `Border`/`Separator`,
   `TableHeaderBg`, `TextLink`, `DragDropTarget`), que el acento por defecto mantenga
-  el aspecto y las transparencias históricas, que aplicar el mismo perfil dos veces
-  sea idempotente y que el modo blanco y negro deje la paleta monocroma.
+  el aspecto y las transparencias históricas, que un acento translúcido no apague
+  los roles de primer plano (el alpha del perfil no participa del tema), que
+  aplicar el mismo perfil dos veces sea idempotente y que el modo blanco y negro
+  deje la paleta monocroma.
 - Los diecisiete targets compilan en cualquier plataforma y se ejecutan con `ctest`.
 - `.github/workflows/ci.yml` compila el engine completo en Ubuntu (Release, sin
   ASan) y ejecuta las pruebas; además ejecuta las headless en

@@ -401,7 +401,10 @@ void EditorInput::dibujarSidebarOrbita() {
         ImVec2 size(30, 200);
         ImDrawList* draw = ImGui::GetWindowDrawList();
         ImU32 bgCol = ImGui::GetColorU32(ImGuiCol_FrameBg);
-        ImU32 fgCol = ImGui::GetColorU32(ImGuiCol_PlotHistogram);
+        // Relleno con el acento del tema (mismo criterio que la barra de
+        // StatusBarInterface): el amarillo de fabrica de ImGuiCol_PlotHistogram
+        // quedaba fuera del color elegido en Opciones.
+        ImU32 fgCol = ImGui::GetColorU32(ImGuiCol_SliderGrabActive);
         // Fondo
         draw->AddRectFilled(pos, ImVec2(pos.x + size.x, pos.y + size.y), bgCol);
         // Relleno (de abajo hacia arriba)

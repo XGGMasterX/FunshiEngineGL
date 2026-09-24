@@ -216,6 +216,35 @@ int main() {
               "restablecer apaga el tema claro y el modo B/N");
     }
 
+    // 7. El alpha del acento no participa del tema: un acento translucido
+    // (config guardada antes, o elegido con la barra de alpha que ya no se
+    // expone en Opciones) no puede dejar apagados los roles de primer plano.
+    {
+        Apariencia ap = perfil(false, false, 0.10f, 0.80f, 0.20f);
+        ap.acento[3] = 0.0f; // caso extremo: totalmente transparente
+        TemaEditor::aplicarEstilo(ap);
+        const ImGuiStyle& s = ImGui::GetStyle();
+
+        CHECK(s.Colors[ImGuiCol_CheckMark].w == 1.0f,
+              "con acento transparente el check sigue opaco");
+        CHECK(s.Colors[ImGuiCol_SliderGrab].w == 1.0f,
+              "el grab del slider sigue opaco");
+        CHECK(s.Colors[ImGuiCol_NavCursor].w == 1.0f,
+              "el cursor de navegacion sigue opaco");
+        CHECK(s.Colors[ImGuiCol_TextLink].w == 1.0f,
+              "los enlaces de texto siguen opacos");
+        CHECK(TemaEditor::acento(ap).w == 1.0f,
+              "acento() devuelve el acento opaco");
+        CHECK(s.Colors[ImGuiCol_Button].w == 0.55f &&
+                  s.Colors[ImGuiCol_Header].w == 0.45f,
+              "los fondos conservan su alpha propio (no el del perfil)");
+        CHECK(s.Colors[ImGuiCol_FrameBg].w ==
+                  fabricaOscura.Colors[ImGuiCol_FrameBg].w,
+              "el fondo del campo conserva la transparencia de fabrica");
+        CHECK(azulesSobrevivientes(fabricaOscura) == 0,
+              "el acento transparente tampoco deja restos azules de fabrica");
+    }
+
     ImGui::DestroyContext();
 
     std::cout << (fallos == 0 ? "OK: " : "FALLOS: ") << (total - fallos) << "/"

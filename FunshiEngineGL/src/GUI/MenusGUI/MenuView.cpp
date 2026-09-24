@@ -19,6 +19,7 @@
 #include "MenuView.h"
 
 #include <cstring>
+#include <string>
 
 namespace {
 // Constantes de layout del menu (solo lectura): tamanio de boton y desvios
@@ -45,6 +46,15 @@ void etiquetaDerecha(ImVec2 posBoton, const char* texto) {
         posBoton.x + kBotonAncho + 10.0f,
         posBoton.y + (kBotonAlto - ImGui::GetTextLineHeight()) * 0.5f));
     ImGui::Text("%s", texto);
+}
+
+// Etiqueta traducida con ID estable. ImGui deriva el ID de un widget de su
+// texto, asi que pasar la traduccion directa hacia que el ID cambiara al
+// cambiar de idioma (se perdia el foco/estado del widget en ese frame y los
+// IDs no eran predecibles). Se agrega el sufijo oculto "##<clave>": el usuario
+// ve solo el texto traducido y el ID queda atado a la clave, no al idioma.
+std::string etiqueta(const MenuModel* model, const char* clave) {
+    return model->traducir(clave) + "##" + clave;
 }
 } // namespace
 
@@ -114,7 +124,7 @@ void MenuView::renderizarPrincipal() {
         ImGui::BeginDisabled();
     }
     cursorFila(0);
-    if (ImGui::Button(model->traducir("iniciar_estudio").c_str(),
+    if (ImGui::Button(etiqueta(model, "iniciar_estudio").c_str(),
                       ImVec2(kBotonAncho, kBotonAlto))) {
         // Cerrar el menu afecta al resto del motor: se notifica por el
         // presenter (DebeCerrar -> ConsultarCierre en main), que hace la
@@ -127,7 +137,7 @@ void MenuView::renderizarPrincipal() {
 
     cursorFila(1);
     ImVec2 posBoton = ImGui::GetCursorScreenPos();
-    if (ImGui::Button(model->traducir("config_proyecto").c_str(),
+    if (ImGui::Button(etiqueta(model, "config_proyecto").c_str(),
                       ImVec2(kBotonAncho, kBotonAlto))) {
         model->abrirConfigProyecto();
     }
@@ -135,14 +145,14 @@ void MenuView::renderizarPrincipal() {
 
     cursorFila(2);
     posBoton = ImGui::GetCursorScreenPos();
-    if (ImGui::Button(model->traducir("opciones").c_str(),
+    if (ImGui::Button(etiqueta(model, "opciones").c_str(),
                       ImVec2(kBotonAncho, kBotonAlto))) {
         model->abrirOpciones();
     }
     etiquetaDerecha(posBoton, model->getIdioma().c_str());
 
     cursorFila(3);
-    if (ImGui::Button(model->traducir("salir").c_str(),
+    if (ImGui::Button(etiqueta(model, "salir").c_str(),
                       ImVec2(kBotonAncho, kBotonAlto))) {
         glfwSetWindowShouldClose(window, GLFW_TRUE);
     }
@@ -187,7 +197,7 @@ void MenuView::renderizarListaProyectos() {
             // (igual que ContentFolderInterface). El renombre se registra en
             // el modelo y lo ejecuta main en disco.
             if (ImGui::BeginPopupContextItem()) {
-                if (ImGui::MenuItem(model->traducir("editar_nombre").c_str())) {
+                if (ImGui::MenuItem(etiqueta(model, "editar_nombre").c_str())) {
                     proyectoRenombrando = nombre;
                     std::memset(nombreRenombrarBuffer, 0,
                                 sizeof(nombreRenombrarBuffer));
@@ -197,7 +207,7 @@ void MenuView::renderizarListaProyectos() {
                     ImGui::CloseCurrentPopup();
                 }
                 if (ImGui::MenuItem(
-                        model->traducir("eliminar_proyecto").c_str())) {
+                        etiqueta(model, "eliminar_proyecto").c_str())) {
                     proyectoEliminando = nombre;
                     abrirModalEliminar = true;
                     ImGui::CloseCurrentPopup();
@@ -224,14 +234,14 @@ void MenuView::renderizarListaProyectos() {
             ImGui::BeginDisabled();
         }
         const bool confirmado =
-            ImGui::Button(model->traducir("confirmar").c_str(),
+            ImGui::Button(etiqueta(model, "confirmar").c_str(),
                           ImVec2(140, 0)) ||
             (ImGui::IsItemFocused() && ImGui::IsKeyPressed(ImGuiKey_Enter));
         if (!esValido) {
             ImGui::EndDisabled();
         }
         ImGui::SameLine();
-        if (ImGui::Button(model->traducir("volver").c_str(), ImVec2(140, 0))) {
+        if (ImGui::Button(etiqueta(model, "volver").c_str(), ImVec2(140, 0))) {
             proyectoRenombrando.clear();
             std::memset(nombreRenombrarBuffer, 0,
                         sizeof(nombreRenombrarBuffer));
@@ -271,10 +281,10 @@ void MenuView::renderizarListaProyectos() {
         // de disco el proximo frame al detectar el cambio (mismo mecanismo que
         // el renombre por click derecho).
         const bool borrarConfirmado =
-            ImGui::Button(model->traducir("eliminar").c_str(), ImVec2(140, 0)) ||
+            ImGui::Button(etiqueta(model, "eliminar").c_str(), ImVec2(140, 0)) ||
             (ImGui::IsItemFocused() && ImGui::IsKeyPressed(ImGuiKey_Enter));
         ImGui::SameLine();
-        if (ImGui::Button(model->traducir("volver").c_str(), ImVec2(140, 0))) {
+        if (ImGui::Button(etiqueta(model, "volver").c_str(), ImVec2(140, 0))) {
             proyectoEliminando.clear();
             ImGui::CloseCurrentPopup();
         }
@@ -331,17 +341,22 @@ void MenuView::renderizarOpciones() {
     Apariencia ap = model->getApariencia();
     bool cambio = false;
 
-    cambio |= ImGui::Checkbox(model->traducir("tema_claro").c_str(), &ap.temaClaro);
-    cambio |= ImGui::Checkbox(model->traducir("modo_bn").c_str(),
+    cambio |= ImGui::Checkbox(etiqueta(model, "tema_claro").c_str(),
+                              &ap.temaClaro);
+    cambio |= ImGui::Checkbox(etiqueta(model, "modo_bn").c_str(),
                               &ap.blancoYNegro);
     ImGui::TextUnformatted(model->traducir("color_acento").c_str());
-    cambio |= ImGui::ColorEdit4("##acento", ap.acento,
-                                ImGuiColorEditFlags_AlphaBar);
+    // Acento solo RGB (ColorEdit3 = ColorEdit4 + NoAlpha): el alpha del perfil
+    // no participa del tema (cada rol aporta su propia transparencia, ver
+    // TemaEditor::acento), asi que no se expone la barra de alpha que podia
+    // apagar los checks, los grabs y los enlaces de la interfaz. ColorEdit3
+    // preserva acento[3] tal como estaba guardado.
+    cambio |= ImGui::ColorEdit3("##acento", ap.acento);
     ImGui::TextUnformatted(model->traducir("color_fondo").c_str());
     cambio |= ImGui::ColorEdit3("##fondo", ap.fondo);
     ImGui::TextDisabled("%s", model->traducir("ayuda_bn").c_str());
 
-    if (ImGui::Button(model->traducir("restablecer_apariencia").c_str(),
+    if (ImGui::Button(etiqueta(model, "restablecer_apariencia").c_str(),
                       ImVec2(-1.0f, 0.0f))) {
         ap.restablecer();
         cambio = true;
@@ -350,7 +365,7 @@ void MenuView::renderizarOpciones() {
     if (cambio) model->setApariencia(ap);
 
     ImGui::SeparatorText(model->traducir("configuracion").c_str());
-    if (ImGui::Button(model->traducir("restablecer_configuracion").c_str(),
+    if (ImGui::Button(etiqueta(model, "restablecer_configuracion").c_str(),
                       ImVec2(-1.0f, 0.0f))) {
         model->restablecerConfiguracion();
     }
@@ -361,7 +376,7 @@ void MenuView::renderizarOpciones() {
     // Boton "Volver" fijo abajo, centrado, fuera del area con scroll.
     ImGui::SetCursorPos(ImVec2((win.x - kBotonAncho) * 0.5f,
                                win.y - kAltoInferior + 20.0f));
-    if (ImGui::Button(model->traducir("volver").c_str(),
+    if (ImGui::Button(etiqueta(model, "volver").c_str(),
                       ImVec2(kBotonAncho, kBotonAlto))) {
         model->volver();
     }
@@ -428,7 +443,8 @@ void MenuView::renderizarConfigProyecto() {
     const bool confirmarDeshabilitado =
         !nombreProyectoPendiente || nombreProyectoBuffer[0] == '\0';
     if (confirmarDeshabilitado) ImGui::BeginDisabled();
-    if (ImGui::Button(model->traducir("confirmar").c_str(), ImVec2(btnWidth, 0))) {
+    if (ImGui::Button(etiqueta(model, "confirmar").c_str(),
+                      ImVec2(btnWidth, 0))) {
         model->setNombreProyecto(nombreProyectoBuffer);
         nombreProyectoPendiente = false;
     }
@@ -437,7 +453,8 @@ void MenuView::renderizarConfigProyecto() {
     ImGui::SameLine(0, btnSpacing);
 
     // Volver
-    if (ImGui::Button(model->traducir("volver").c_str(), ImVec2(btnWidth, 0))) {
+    if (ImGui::Button(etiqueta(model, "volver").c_str(),
+                      ImVec2(btnWidth, 0))) {
         if (nombreProyectoPendiente) {
             nombreProyectoBuffer[0] = '\0';
             nombreProyectoPendiente = false;

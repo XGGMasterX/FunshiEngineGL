@@ -64,7 +64,11 @@ constexpr float kMezclaSolapaAtenuadaSel = 0.40f;  // TabDimmedSelected
 } // namespace
 
 ImVec4 TemaEditor::acento(const Apariencia& ap) {
-    ImVec4 c(ap.acento[0], ap.acento[1], ap.acento[2], ap.acento[3]);
+    // El alpha del perfil NO participa: cada rol del estilo aporta su propia
+    // transparencia (conAlpha) y los roles de primer plano (checks, grabs,
+    // enlaces, cursor) quedan opacos. Se normaliza aca para que un acento
+    // translucido guardado en la configuracion no pueda apagar la interfaz.
+    const ImVec4 c(ap.acento[0], ap.acento[1], ap.acento[2], 1.0f);
     return ap.blancoYNegro ? aGris(c) : c;
 }
 

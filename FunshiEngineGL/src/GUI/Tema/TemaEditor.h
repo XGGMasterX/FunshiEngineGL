@@ -44,7 +44,8 @@
 namespace TemaEditor {
 
 // Color de acento resuelto: en modo B/N se devuelve su version en escala de
-// grises (asi toda la interfaz queda monocroma).
+// grises (asi toda la interfaz queda monocroma). Se devuelve opaco: el alpha
+// del perfil no participa del tema (cada rol aporta el suyo).
 ImVec4 acento(const Apariencia& ap);
 
 // Aplica el tema base (claro/oscuro), el acento y un conjunto coherente de

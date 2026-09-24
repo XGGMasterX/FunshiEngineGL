@@ -310,12 +310,14 @@ MotorGrafico\Exportaciones\MiJuego\MiJuego.exe
 ## 11. Apariencia y configuracion del editor
 
 - Tema claro/oscuro, modo blanco y negro (desatura la interfaz completa y
-  acompaña fondo y grilla del viewport), color de acento y color de fondo de la
-  escena, aplicados en vivo por `TemaEditor` / `AparienciaUtil`. El acento
-  alcanza **todos** los roles de la interfaz (botones, solapas del dock, campos
-  de entrada, sliders, checkboxes, enlaces, bordes, separadores y tablas) y los
-  grises azulados de fábrica quedan en gris neutro, así que al cambiar de color
-  no quedan restos del azul clásico ni hace falta reiniciar el editor.
+  acompaña fondo y grilla del viewport), color de acento (solo RGB: la
+  transparencia de cada elemento la define el tema, no el color elegido) y color
+  de fondo de la escena, aplicados en vivo por `TemaEditor` / `AparienciaUtil`.
+  El acento alcanza **todos** los roles de la interfaz (botones, solapas del
+  dock, campos de entrada, sliders, checkboxes, enlaces, bordes, separadores y
+  tablas) y los grises azulados de fábrica quedan en gris neutro, así que al
+  cambiar de color no quedan restos del azul clásico ni hace falta reiniciar el
+  editor.
 - Sensibilidad de camara, ventana de camaras y visibilidad de ventanas se
   guardan en `Configuracion.json` junto al binario
   (`<directorioEjecutable>/MotorGrafico/Configuracion.json`); tolerante a
