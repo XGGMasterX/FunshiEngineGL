@@ -293,6 +293,11 @@ internamente `GUIManager`, `SceneRegistry`, `EditorController`, `SceneSerializer
   `RigidBody`. Todos heredan de `Component` y serializan sus datos binarios.
 - `ComponentFactory` centraliza la creación por nombre de tipo tanto desde la GUI
   como durante la deserialización (`"CameraComponent"` acepta el alias `"Camera"`).
+- `Component::onLoaded(GameObject&)` es el hook polimórfico de post-carga:
+  `deserializeEntityComponents` aplica `loadComponent()` y luego el hook, sin
+  despachar por nombre de tipo. `Color` lo usa para reflejar su valor en
+  `GameObject::auxColor` (el buffer del inspector); cualquier componente nuevo
+  con dependencias post-carga lo implementa en vez de abrir el objetos de carga.
 - `Transform` provee transformaciones locales y globales usando GLM; expone
   descomposición de matrices para ImGuizmo y blinda su cadena contra NaN
   (valores no finitos no entran al estado ni al render).

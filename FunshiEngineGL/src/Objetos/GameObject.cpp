@@ -504,18 +504,14 @@ void GameObject::deserializeEntityComponents() {
 
             component->loadComponent(file);
 
+            // Post-carga polimorfica: cada componente aplica su estado al dueno
+            // (p. ej. Color refleja su valor en auxColor para el inspector).
+            // Sin dispatch manual por nombre de tipo aqui.
+            component->onLoaded(*this);
+
             addComponent(
                 std::move(component)
             );
-
-            if (typeName == "Color") {
-
-                const float* c =
-                    getComponent<Color>()->getColor();
-
-                for (int j = 0; j < 4; ++j)
-                    auxColor[j] = c[j];
-            }
 
         }
         else {
