@@ -260,6 +260,73 @@ if(WIN32)
     target_link_libraries(comandos-tests PRIVATE dbghelp)
 endif()
 
+# Nucleo del manifiesto de assets de la escena (SceneAssets.json): headless,
+# sin GameObjects (como MenuModel). Cubre JSON round-trip, tolerancia a
+# archivos corruptos/inexistentes, relativizacion/absolutizacion contra la
+# raiz de assets y la regla de precedencia del manifiesto sobre el .db.
+add_executable(manifiesto-assets-tests
+    ${SRC_DIR}/Configuracion/ProjectPaths.cpp
+    ${SRC_DIR}/Configuracion/ProjectManager.cpp
+    ${SRC_DIR}/Configuracion/ConfigPersistence.cpp
+    ${SRC_DIR}/Scenes/ManifiestoAssetsCore.cpp
+    ${SRC_DIR}/Configuracion/EditorConfig.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../tests/ManifiestoAssetsTests.cpp
+)
+target_include_directories(manifiesto-assets-tests PRIVATE
+    ${SRC_DIR}
+    ${CMAKE_SOURCE_DIR}/External
+)
+set_target_properties(manifiesto-assets-tests PROPERTIES
+    CXX_STANDARD 17
+    CXX_STANDARD_REQUIRED ON
+    CXX_EXTENSIONS OFF
+)
+add_test(NAME manifiesto-assets-tests COMMAND manifiesto-assets-tests)
+
+# Orquestador de estados de GUI (la "funcion de marco" de F5/F6/F7 y las teclas)
+# tambien es pura logica de estados y se prueba headless: cubre las reglas por
+# estado de Play/Pausa/Stop, Escape -> menu e "Iniciar Estudio" -> editor.
+add_executable(orquestador-estado-tests
+    ${SRC_DIR}/States/ApplicationStateMachine.cpp
+    ${SRC_DIR}/States/OrquestadorEstadoGUI.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../tests/OrquestadorEstadoTests.cpp
+)
+set_target_properties(orquestador-estado-tests PROPERTIES
+    CXX_STANDARD 17
+    CXX_STANDARD_REQUIRED ON
+    CXX_EXTENSIONS OFF
+)
+add_test(NAME orquestador-estado-tests COMMAND orquestador-estado-tests)
+
+# TemaEditor (aplicacion del perfil de apariencia al estilo de ImGui) se prueba
+# headless como los anteriores: el estilo solo necesita el contexto de ImGui,
+# sin backends ni pila grafica. Cubre la regresion "el color de acento no llega
+# a toda la interfaz": verifica que con un acento no azul NINGUN rol de la
+# paleta conserve el azul de fabrica de Dear ImGui (FrameBg, Tab, Border,
+# TableHeaderBg, TextLink, DragDropTarget...), que con el acento por defecto no
+# cambie el aspecto historico, y que el modo B/N siga dejando todo monocromo.
+add_executable(tema-tests
+    ${SRC_DIR}/ImGui/imgui.cpp
+    ${SRC_DIR}/ImGui/imgui_draw.cpp
+    ${SRC_DIR}/ImGui/imgui_tables.cpp
+    ${SRC_DIR}/ImGui/imgui_widgets.cpp
+    ${SRC_DIR}/GUI/Tema/TemaEditor.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../tests/TemaEditorTests.cpp
+)
+target_include_directories(tema-tests PRIVATE ${SRC_DIR} ${SRC_DIR}/ImGui)
+set_target_properties(tema-tests PROPERTIES
+    CXX_STANDARD 17
+    CXX_STANDARD_REQUIRED ON
+    CXX_EXTENSIONS OFF
+)
+add_test(NAME tema-tests COMMAND tema-tests)
+
+if(WIN32)
+    target_link_libraries(manifiesto-assets-tests PRIVATE dbghelp)
+    target_link_libraries(orquestador-estado-tests PRIVATE dbghelp)
+    target_link_libraries(tema-tests PRIVATE dbghelp)
+endif()
+
 endif()
 
 # --- Pruebas headless del subsistema FileManager (sin pila gráfica) ---------
@@ -339,44 +406,6 @@ set_target_properties(model-serialization-tests PROPERTIES
 )
 add_test(NAME model-serialization-tests COMMAND model-serialization-tests)
 
-# Nucleo del manifiesto de assets de la escena (SceneAssets.json): headless,
-# sin GameObjects (como MenuModel). Cubre JSON round-trip, tolerancia a
-# archivos corruptos/inexistentes, relativizacion/absolutizacion contra la
-# raiz de assets y la regla de precedencia del manifiesto sobre el .db.
-add_executable(manifiesto-assets-tests
-    ${SRC_DIR}/Configuracion/ProjectPaths.cpp
-    ${SRC_DIR}/Configuracion/ProjectManager.cpp
-    ${SRC_DIR}/Configuracion/ConfigPersistence.cpp
-    ${SRC_DIR}/Scenes/ManifiestoAssetsCore.cpp
-    ${SRC_DIR}/Configuracion/EditorConfig.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../tests/ManifiestoAssetsTests.cpp
-)
-target_include_directories(manifiesto-assets-tests PRIVATE
-    ${SRC_DIR}
-    ${CMAKE_SOURCE_DIR}/External
-)
-set_target_properties(manifiesto-assets-tests PROPERTIES
-    CXX_STANDARD 17
-    CXX_STANDARD_REQUIRED ON
-    CXX_EXTENSIONS OFF
-)
-add_test(NAME manifiesto-assets-tests COMMAND manifiesto-assets-tests)
-
-# Orquestador de estados de GUI (la "funcion de marco" de F5/F6/F7 y las teclas)
-# tambien es pura logica de estados y se prueba headless: cubre las reglas por
-# estado de Play/Pausa/Stop, Escape -> menu e "Iniciar Estudio" -> editor.
-add_executable(orquestador-estado-tests
-    ${SRC_DIR}/States/ApplicationStateMachine.cpp
-    ${SRC_DIR}/States/OrquestadorEstadoGUI.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../tests/OrquestadorEstadoTests.cpp
-)
-set_target_properties(orquestador-estado-tests PROPERTIES
-    CXX_STANDARD 17
-    CXX_STANDARD_REQUIRED ON
-    CXX_EXTENSIONS OFF
-)
-add_test(NAME orquestador-estado-tests COMMAND orquestador-estado-tests)
-
 # MenuModel (logica pura del menu: traduccion, observer de cambios y reset) se
 # prueba headless como los demas: no depende de ImGui/GLFW.
 add_executable(menu-tests
@@ -390,29 +419,6 @@ set_target_properties(menu-tests PROPERTIES
     CXX_EXTENSIONS OFF
 )
 add_test(NAME menu-tests COMMAND menu-tests)
-
-# TemaEditor (aplicacion del perfil de apariencia al estilo de ImGui) se prueba
-# headless como los anteriores: el estilo solo necesita el contexto de ImGui,
-# sin backends ni pila grafica. Cubre la regresion "el color de acento no llega
-# a toda la interfaz": verifica que con un acento no azul NINGUN rol de la
-# paleta conserve el azul de fabrica de Dear ImGui (FrameBg, Tab, Border,
-# TableHeaderBg, TextLink, DragDropTarget...), que con el acento por defecto no
-# cambie el aspecto historico, y que el modo B/N siga dejando todo monocromo.
-add_executable(tema-tests
-    ${SRC_DIR}/ImGui/imgui.cpp
-    ${SRC_DIR}/ImGui/imgui_draw.cpp
-    ${SRC_DIR}/ImGui/imgui_tables.cpp
-    ${SRC_DIR}/ImGui/imgui_widgets.cpp
-    ${SRC_DIR}/GUI/Tema/TemaEditor.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../tests/TemaEditorTests.cpp
-)
-target_include_directories(tema-tests PRIVATE ${SRC_DIR} ${SRC_DIR}/ImGui)
-set_target_properties(tema-tests PROPERTIES
-    CXX_STANDARD 17
-    CXX_STANDARD_REQUIRED ON
-    CXX_EXTENSIONS OFF
-)
-add_test(NAME tema-tests COMMAND tema-tests)
 
 # AssetManager (cache Flyweight de meshes CPU) tambien headless y portatil:
 # rutas (AssetPath), geometria (Mesh) y el registro compartido con un loader
