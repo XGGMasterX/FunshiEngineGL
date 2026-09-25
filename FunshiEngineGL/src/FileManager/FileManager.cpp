@@ -23,6 +23,7 @@
 // Windows.h antes de la stdlib (colision 'byte' de rpcndr.h vs std::byte con
 // MinGW; ver RuntimeException.cpp).
 #if defined(_WIN32)
+#define _HAS_STD_BYTE 0
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif

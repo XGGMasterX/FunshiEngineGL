@@ -22,6 +22,7 @@
 #include <filesystem>
 
 #ifdef _WIN32
+#define _HAS_STD_BYTE 0
 #include <windows.h>
 #else
 #include <unistd.h>

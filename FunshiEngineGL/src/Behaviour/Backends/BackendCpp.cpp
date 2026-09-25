@@ -36,6 +36,7 @@
 #endif
 
 #if defined(_WIN32)
+#define _HAS_STD_BYTE 0
 #include <windows.h>
 #define FUNSHI_DLOPEN(name) LoadLibraryA((name).c_str())
 #define FUNSHI_DLSYM(handle, symbol) GetProcAddress(reinterpret_cast<HMODULE>(handle), symbol)
