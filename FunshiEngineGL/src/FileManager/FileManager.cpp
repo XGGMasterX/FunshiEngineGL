@@ -16,12 +16,9 @@
 
     SPDX-License-Identifier: Apache-2.0
 */
-#include "FileManager.h"
 
-#include <filesystem>
-
-// Windows.h antes de la stdlib (colision 'byte' de rpcndr.h vs std::byte con
-// MinGW; ver RuntimeException.cpp).
+// Windows.h ANTES del header propio (que incluye <filesystem>), para que
+// _HAS_STD_BYTE=0 surta efecto antes de que la stdlib defina std::byte.
 #if defined(_WIN32)
 #define _HAS_STD_BYTE 0
 #ifndef WIN32_LEAN_AND_MEAN
@@ -38,6 +35,10 @@
 #include <cstdio>
 #include <unistd.h>
 #endif
+
+#include "FileManager.h"
+
+#include <filesystem>
 
 #include "FileSystemWatcher.h"
 #include "../GestorDeArchivos/Carpeta.h"

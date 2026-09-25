@@ -16,17 +16,21 @@
 
     SPDX-License-Identifier: Apache-2.0
 */
+
+// Windows.h ANTES del header propio y de la stdlib, para que
+// _HAS_STD_BYTE=0 surta efecto antes de que la stdlib defina std::byte.
+#ifdef _WIN32
+#define _HAS_STD_BYTE 0
+#include <windows.h>
+#else
+#include <unistd.h>
+#endif
+
 #include "Ventana.h"
 
 #include <fstream>
 #include <iostream>
 #include <vector>
-
-#ifdef _WIN32
-#include <windows.h>
-#else
-#include <unistd.h>
-#endif
 
 #include "Rendering/Backend/IRenderBackend.h"
 #include "Herramientas/IconosGUI/stb_image.h"

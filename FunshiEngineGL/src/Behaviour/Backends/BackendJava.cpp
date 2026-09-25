@@ -16,15 +16,19 @@
 
     SPDX-License-Identifier: Apache-2.0
 */
+
+// Windows.h ANTES del header propio y de la stdlib, para que
+// _HAS_STD_BYTE=0 surta efecto antes de que la stdlib defina std::byte.
+#if defined(_WIN32)
+#define _HAS_STD_BYTE 0
+#include <windows.h>
+#else
+#include <dlfcn.h>
+#endif
+
 #include "BackendJava.h"
 
 #include <jni.h>
-
-// _HAS_STD_BYTE=0 DEBE ir ANTES de cualquier include de stdlib en Windows
-// para evitar colision con typedef 'byte' de rpcndr.h vs std::byte (C++17)
-#ifdef _WIN32
-#define _HAS_STD_BYTE 0
-#endif
 
 #include <cstdint>
 #include <cstdlib>
@@ -36,12 +40,6 @@
 #include <vector>
 
 #include "../ScriptGameObject.h"
-
-#if defined(_WIN32)
-#include <windows.h>
-#else
-#include <dlfcn.h>
-#endif
 
 #ifndef FUNSHI_LIBJVM_DEFAULT
 #define FUNSHI_LIBJVM_DEFAULT ""
