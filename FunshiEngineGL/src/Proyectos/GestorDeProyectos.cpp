@@ -76,12 +76,6 @@ void GestorDeProyectos::guardarProyectoCompleto() {
 }
 
 void GestorDeProyectos::sincronizarProyectoDesdeMenu() {
-    // Workaround practico: al ir al menu de proyectos, desactivar el editor
-    // (como si se apretara 'E'). Esto evita el bug de ventanas docked que se
-    // separan al volver del menu con editor activo: las ventanas no estan
-    // "activas" durante el switch de proyecto, asi LoadIniSettingsFromDisk
-    // no dispara el undock de nodos con LastFrameAlive = 0.
-    scene_->setMenuActivo(false);
     // Sincroniza cambio de nombre de proyecto si se edito en Config Proyect
     // (o se eligio una carpeta en el listado del menu). Reconfigura el
     // FileManager y, si aun no habia proyecto, fija el imgui.ini del nuevo

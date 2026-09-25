@@ -492,7 +492,6 @@ static int EjecutarMotor(int argc, char* argv[])
                     // en vez de esperar a apretar E o seleccionar un objeto
                     // (antes solo aparecia la vista 3D "navegacion libre" y el
                     // browser parecia no existir).
-                    scene->setMenuActivo(true);
                     // El explorador se abre aunque la config del proyecto lo
                     // tenga persistido cerrado: sin el arbol no hay forma de
                     // navegar las carpetas ni de que muestre su contenido el
@@ -526,6 +525,9 @@ static int EjecutarMotor(int argc, char* argv[])
                 orquestadorDeGUI.menuDebeEstarVisible();
             if (menuDebeEstarAbierto != menuReflejadoEnFachada) {
                 mainMenu->SetMenuActivo(menuDebeEstarAbierto);
+                // Sincronizar editor: al ir al menu (Escape) desactivar editor;
+                // al volver al editor ("Iniciar Estudio") activarlo.
+                scene->setMenuActivo(!menuDebeEstarAbierto);
                 menuReflejadoEnFachada = menuDebeEstarAbierto;
             }
 
