@@ -99,6 +99,11 @@ void CameraComponent::loadComponent(std::ifstream* file) {
     deserializeComponent(file);
 }
 
+void CameraComponent::onLoaded(GameObject& owner) {
+    setUp(&owner);
+    sincronizarConTransform();
+}
+
 Transform* CameraComponent::getLocalTransform() const {
     if (!owner) return nullptr;
     return owner->getComponent<Transform>();

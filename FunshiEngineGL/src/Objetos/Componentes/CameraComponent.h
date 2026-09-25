@@ -66,6 +66,11 @@ public:
     void saveComponent(std::ofstream* file) override;
     void loadComponent(std::ifstream* file) override;
 
+    // Post-carga: vincula el dueno y deriva el estado de la vista local desde
+    // su Transform global. Reemplaza el despacho por nombre de tipo que hacia
+    // deserializeEntityComponents ("CameraComponent"/"Camera").
+    void onLoaded(GameObject& owner) override;
+
     // Fuerza lectura de posicion/direccion desde el Transform del duenio.
     void refreshFromTransform() { leerDesdeTransform(); }
 

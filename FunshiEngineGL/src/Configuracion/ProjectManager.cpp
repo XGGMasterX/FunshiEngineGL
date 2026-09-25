@@ -83,6 +83,34 @@ bool ProjectManager::crearEstructuraProyecto(const std::string& nombre) {
     if (viejoExiste && !nuevoExiste) {
         std::filesystem::create_directories(ProjectPaths::directorioSrc(nombre), ec);
         std::filesystem::rename(sonidosViejo, sonidos, ec);
+        if (ec) {
+            // Fallback entre dispositivos (p. ej. Windows con volumenes
+            // distintos): copiar; si la copia funciona, retirar el original.
+            ec.clear();
+            std::filesystem::copy(sonidosViejo, sonidos,
+                                  std::filesystem::copy_options::recursive, ec);
+            if (!ec) {
+                std::error_code ec2;
+                std::filesystem::remove_all(sonidosViejo, ec2);
+            }
+        }
+    }
+
+    // Migracion de proyectos legacy que guardaban el descriptor y la escena
+    // directamente en la raiz de MotorGrafico/Binarios (estructura anterior a
+    // Proyects/).
+    const std::string base = ProjectPaths::directorioBase();
+    const std::string oldBBDD = base + "/Binarios/SceneBBDDObjetos.txt";
+    const std::string newBBDD = ProjectPaths::directorioBinarios(nombre) + "/SceneBBDDObjetos.txt";
+    if (!std::filesystem::exists(newBBDD, ec) && std::filesystem::exists(oldBBDD, ec)) {
+        std::filesystem::copy_file(oldBBDD, newBBDD,
+                                   std::filesystem::copy_options::overwrite_existing, ec);
+        const std::string oldSceneDir = base + "/Binarios/Scene";
+        if (std::filesystem::exists(oldSceneDir, ec)) {
+            std::filesystem::copy(oldSceneDir, binScene,
+                                  std::filesystem::copy_options::recursive |
+                                  std::filesystem::copy_options::overwrite_existing, ec);
+        }
     }
 
     return crearDirs(mem + "/Binarios/Scene", ec) &&

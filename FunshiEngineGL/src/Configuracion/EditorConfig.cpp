@@ -19,74 +19,19 @@
 #include "EditorConfig.h"
 
 #include "ConfigPersistence.h"
+#include "ProjectManager.h"
 #include "ProjectPaths.h"
-
-#include <filesystem>
 
 // ============================================================================
 // Configuracion del editor: fachada sobre la UNICA implementacion del esquema
 // (ConfigPersistence, JSON con nlohmann vendoriado en External/nlohmann) y de
 // las rutas (ProjectPaths), mas el estado en memoria (Datos) y el guardado
-// diferido de la configuracion general. Carga tolerante: si el archivo falta,
-// esta corrupto o le faltan campos, se quedan los valores por defecto y se
-// conserva lo que si se pudo leer. El binario solo persiste datos de escena,
-// no configuracion.
+// diferido de la configuracion general. El ciclo de vida de los proyectos
+// (CRUD, migraciones y estructura en disco) vive en ProjectManager; aqui solo
+// se delega. Carga tolerante: si el archivo falta, esta corrupto o le faltan
+// campos, se quedan los valores por defecto y se conserva lo que si se pudo
+// leer. El binario solo persiste datos de escena, no configuracion.
 // ============================================================================
-
-// ============================================================================
-// Migración de estructura antigua a nueva (Proyects/, Configuraciones/)
-// ============================================================================
-
-namespace {
-
-static void migrarProyectosAntiguos() {
-    const std::string base = EditorConfig::directorioBaseMotorGrafico();
-    const std::string proyectsDir = EditorConfig::directorioProyects();
-    std::error_code ec;
-
-    // Listar directorios directamente bajo MotorGrafico/ (excluyendo carpetas conocidas)
-    const std::vector<std::string> carpetasReservadas = {
-        "Proyects", "Configuraciones", "Exportaciones",
-        "Binarios", "Memory", "Interfaces", "Sonidos",
-        "srcNuevo Proyecto", "src", "Configuracion.json", "imgui.ini"
-    };
-
-    for (const auto& entry : std::filesystem::directory_iterator(base, ec)) {
-        if (!entry.is_directory(ec)) continue;
-        const std::string nombre = entry.path().filename().string();
-
-        // Saltar carpetas reservadas/sistema
-        bool reservado = false;
-        for (const auto& r : carpetasReservadas) {
-            if (nombre == r || (nombre.rfind("src", 0) == 0 && nombre.size() > 3)) {
-                reservado = true;
-                break;
-            }
-        }
-        if (reservado) continue;
-
-        // Mover proyecto a Proyects/
-        std::string origen = entry.path().string();
-        std::string destino = proyectsDir + "/" + nombre;
-        if (!std::filesystem::exists(destino, ec)) {
-            std::filesystem::rename(origen, destino, ec);
-        }
-    }
-}
-
-static void migrarConfiguracionGlobal() {
-    const std::string base = EditorConfig::directorioBaseMotorGrafico();
-    const std::string oldConfig = base + "/Configuracion.json";
-    const std::string newConfig = EditorConfig::directorioConfiguraciones() + "/Configuracion.json";
-    std::error_code ec;
-
-    if (std::filesystem::exists(oldConfig, ec) && !std::filesystem::exists(newConfig, ec)) {
-        std::filesystem::create_directories(EditorConfig::directorioConfiguraciones(), ec);
-        std::filesystem::copy_file(oldConfig, newConfig, std::filesystem::copy_options::overwrite_existing, ec);
-    }
-}
-
-} // namespace
 
 // ============================================================================
 // Rutas del motor: una sola fuente de verdad es ProjectPaths (mismo ancla, el
@@ -173,81 +118,13 @@ std::string EditorConfig::directorioExportacion(const std::string& nombreExporta
 }
 
 void EditorConfig::asegurarEstructuraProyecto(const std::string& nombreProyecto) {
-    const std::string nombre = nombreProyecto.empty() ? "Nuevo Proyecto" : nombreProyecto;
-
-    // 1. Crear estructura base: MotorGrafico/Proyects/ y MotorGrafico/Configuraciones/
-    std::error_code ec;
-    std::filesystem::create_directories(directorioProyects(), ec);
-    std::filesystem::create_directories(directorioConfiguraciones(), ec);
-    std::filesystem::create_directories(directorioExportaciones(), ec);
-
-    // 2. Migrar proyectos existentes de la estructura antigua (directamente bajo MotorGrafico/)
-    // a la nueva estructura MotorGrafico/Proyects/
-    migrarProyectosAntiguos();
-
-    // 3. Migrar configuración global antigua (MotorGrafico/Configuracion.json)
-    // a MotorGrafico/Configuraciones/Configuracion.json
-    migrarConfiguracionGlobal();
-
-    const std::string dirMemory = directorioMemory(nombre);
-    const std::string dirScene = dirMemory + "/Binarios/Scene";
-    const std::string dirSrc = directorioSrc(nombre);
-    // Assets del nuevo sistema: sonidos importados por el usuario y las
-    // interfaces creadas en el creador (se guardan como JSON en Memory).
-    const std::string dirSonidos = directorioSonidos(nombre);
-    const std::string dirInterfaces = directorioInterfaces(nombre);
-
-    std::filesystem::create_directories(dirScene, ec);
-    std::filesystem::create_directories(dirSrc, ec);
-    std::filesystem::create_directories(dirInterfaces, ec);
-
-    // Migracion automatica si venimos de la version anterior donde se guardaba
-    // directamente en MotorGrafico:
-    const std::string base = directorioBaseMotorGrafico();
-    const std::string oldBBDD = base + "/Binarios/SceneBBDDObjetos.txt";
-    const std::string newBBDD = dirMemory + "/Binarios/SceneBBDDObjetos.txt";
-    if (!std::filesystem::exists(newBBDD, ec) && std::filesystem::exists(oldBBDD, ec)) {
-        std::filesystem::copy_file(oldBBDD, newBBDD, std::filesystem::copy_options::overwrite_existing, ec);
-        const std::string oldSceneDir = base + "/Binarios/Scene";
-        if (std::filesystem::exists(oldSceneDir, ec)) {
-            std::filesystem::copy(oldSceneDir, dirScene,
-                                  std::filesystem::copy_options::recursive |
-                                  std::filesystem::copy_options::overwrite_existing, ec);
-        }
-    }
-
-    const std::string oldConfig = base + "/Configuracion.json";
-    const std::string newConfig = dirMemory + "/Configuracion.json";
-    if (!std::filesystem::exists(newConfig, ec) && std::filesystem::exists(oldConfig, ec)) {
-        std::filesystem::copy_file(oldConfig, newConfig, std::filesystem::copy_options::overwrite_existing, ec);
-    }
-
-    // Migracion de la carpeta Sonidos de versiones anteriores: vivia en la
-    // raiz del proyecto y ahora pertenece al src (es un asset visible en el
-    // explorador). Se mueve con sus clips ANTES de crear el destino, o el
-    // create_directories dejaria la carpeta vieja sin tocar.
-    const std::string sonidosViejo = directorioProyecto(nombre) + "/Sonidos";
-    ec.clear();
-    const bool existeViejo = std::filesystem::is_directory(sonidosViejo, ec);
-    ec.clear();
-    const bool existeNuevo = std::filesystem::exists(dirSonidos, ec);
-    if (existeViejo && !existeNuevo) {
-        ec.clear();
-        std::filesystem::rename(sonidosViejo, dirSonidos, ec);
-        if (ec) {
-            // Fallback entre dispositivos: copiar y retirar el original.
-            ec.clear();
-            std::filesystem::copy(sonidosViejo, dirSonidos,
-                                  std::filesystem::copy_options::recursive, ec);
-            if (!ec) {
-                std::error_code ec2;
-                std::filesystem::remove_all(sonidosViejo, ec2);
-            }
-        }
-    } else {
-        ec.clear();
-        std::filesystem::create_directories(dirSonidos, ec);
-    }
+    // Toda la estructura y las migraciones legacy viven en ProjectManager:
+    // aqui solo se delega (las rutas que usa ProjectManager coinciden con las
+    // de ProjectPaths, que alimenta a EditorConfig).
+    ProjectManager::asegurarEstructuraBase();
+    const std::string nombre =
+        nombreProyecto.empty() ? "Nuevo Proyecto" : nombreProyecto;
+    ProjectManager::crearProyecto(nombre);
 }
 
 std::string EditorConfig::rutaPorDefecto() {
@@ -259,72 +136,15 @@ std::string EditorConfig::rutaPorDefecto() {
 
 bool EditorConfig::renombrarProyecto(const std::string& viejo,
                                      const std::string& nuevo) {
-    if (viejo.empty() || nuevo.empty() || viejo == nuevo) return false;
-
-    const std::string rutaViejo = directorioProyecto(viejo);
-    const std::string rutaNuevo = directorioProyecto(nuevo);
-
-    std::error_code ec;
-    if (!std::filesystem::is_directory(rutaViejo, ec) || ec) return false;
-    ec.clear();
-    // Destino ocupado: no tocar (el llamador conmuta a ese proyecto).
-    if (std::filesystem::exists(rutaNuevo, ec)) return false;
-
-    ec.clear();
-    std::filesystem::rename(rutaViejo, rutaNuevo, ec);
-    if (ec) return false;
-
-    // La raiz del explorador deriva del nombre (src<nombre>): hay que
-    // renombrarla tambien, o el FileManager apuntaria a una carpeta fantasma.
-    const std::string srcViejo = rutaNuevo + "/" + nombreRaizSrc(viejo);
-    const std::string srcNuevo = rutaNuevo + "/" + nombreRaizSrc(nuevo);
-    ec.clear();
-    if (std::filesystem::is_directory(srcViejo, ec) && !ec) {
-        ec.clear();
-        std::filesystem::rename(srcViejo, srcNuevo, ec);
-        if (ec) return false;
-    }
-    return true;
+    return ProjectManager::renombrarProyecto(viejo, nuevo);
 }
 
 bool EditorConfig::eliminarProyecto(const std::string& nombre) {
-    if (nombre.empty()) return false;
-
-    const std::string ruta = directorioProyecto(nombre);
-    std::error_code ec;
-    if (!std::filesystem::is_directory(ruta, ec) || ec) return false;
-
-    ec.clear();
-    std::filesystem::remove_all(ruta, ec);
-    return !ec;
+    return ProjectManager::eliminarProyecto(nombre);
 }
 
 bool EditorConfig::crearProyectoPorDefecto() {
-    const std::string proyectsDir = directorioProyects();
-    std::error_code ec;
-
-    // Asegurar que existe el directorio Proyects
-    std::filesystem::create_directories(proyectsDir, ec);
-
-    // Verificar si ya hay proyectos
-    bool hayProyectos = false;
-    for (const auto& entry : std::filesystem::directory_iterator(proyectsDir, ec)) {
-        if (entry.is_directory(ec)) {
-            hayProyectos = true;
-            break;
-        }
-    }
-    if (hayProyectos) return false; // Ya hay proyectos, no hacer nada
-
-    // Crear "NuevoProyecto"
-    const std::string defaultName = "NuevoProyecto";
-    const std::string defaultDir = directorioProyecto(defaultName);
-    std::filesystem::create_directories(defaultDir + "/Memory/Binarios/Scene", ec);
-    std::filesystem::create_directories(defaultDir + "/Memory/Interfaces", ec);
-    std::filesystem::create_directories(defaultDir + "/" + nombreRaizSrc(defaultName) + "/Sonidos", ec);
-    std::filesystem::create_directories(defaultDir + "/" + nombreRaizSrc(defaultName), ec);
-
-    return !ec;
+    return ProjectManager::crearProyectoPorDefecto();
 }
 
 std::string EditorConfig::directorioProyectoPorDefecto() {

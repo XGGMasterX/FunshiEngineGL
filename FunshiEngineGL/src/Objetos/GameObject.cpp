@@ -577,26 +577,15 @@ void GameObject::deserializeEntityComponents() {
 
             component->loadComponent(file);
 
-            Component* rawComponent = component.get();
+            // Post-carga polimorfica: cada componente aplica su estado al dueno
+            // (p. ej. CameraComponent vincula su dueno y deriva la vista del
+            // Transform; Color refleja su valor en auxColor para el inspector).
+            // Sin dispatch manual por nombre de tipo aqui.
+            component->onLoaded(*this);
 
             addComponent(
                 std::move(component)
             );
-
-            if (typeName == "CameraComponent" || typeName == "Camera") {
-                CameraComponent* cam = static_cast<CameraComponent*>(rawComponent);
-                cam->setUp(this);
-                cam->sincronizarConTransform();
-            }
-
-            if (typeName == "Color") {
-
-                const float* c =
-                    getComponent<Color>()->getColor();
-
-                for (int j = 0; j < 4; ++j)
-                    auxColor[j] = c[j];
-            }
 
         }
         else {

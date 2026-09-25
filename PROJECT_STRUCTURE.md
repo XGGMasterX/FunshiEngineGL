@@ -106,10 +106,13 @@ FunshiEngineGL/                          ← raíz del repo
         │       └── BehaviourReflection.* ← reflexión, macros SerializeField y serialización
         ├── Configuracion/
         │   ├── Apariencia.h             ← perfil de apariencia (tema/acento/fondo/B-N) + utilidades
-        │   ├── EditorConfig.h/.cpp      ← fachada de la configuración (datos() + cargar*/guardar*, guardado diferido)
+        │   ├── EditorConfig.h/.cpp      ← fachada de la configuración (datos() + cargar*/guardar*, guardado
+        │   │                              diferido) y punto de entrada estable del CRUD de proyectos, que
+        │   │                              DELEGA en ProjectManager (una sola implementación)
         │   ├── ConfigPersistence.h/.cpp ← JSON puro de la config: general + proyecto (escritura atómica)
         │   ├── ProjectPaths.h/.cpp      ← rutas canónicas del motor (una sola fuente de verdad)
-        │   └── ProjectManager.h/.cpp    ← alta y listado de proyectos en Proyects/ (delega rutas en ProjectPaths)
+        │   └── ProjectManager.h/.cpp    ← único dueño del ciclo de vida de proyectos (CRUD, migraciones
+        │                                  de estructura antigua, fallbacks de copia); delega rutas en ProjectPaths
         ├── Entity/
         │   ├── Entity.h                 ← base: lista de componentes, Transform, serialización
         │   └── Entity.cpp
@@ -139,7 +142,9 @@ FunshiEngineGL/                          ← raíz del repo
         │   ├── PhysicsEngine.h/.cpp     ← fachada PIMPL; el header no expone Bullet
         │   └── BulletPhysicsAdapter.h/.cpp ← adaptador concreto de Bullet (RAII)
         ├── FileManager/
-        │   ├── FileManager.h/.cpp       ← fachada del explorador: modelo + operaciones
+        │   ├── FileManager.h/.cpp       ← fachada del explorador: modelo + operaciones de dominio
+        │   │                              Y toda la E/S nativa (diálogos, abrir con la app del
+        │   │                              sistema, listado de directorio, plantillas de scripts)
         │   ├── FileSelection.h          ← estado de navegación compartido entre vistas
         │   └── FileSystemWatcher.h/.cpp ← vigilancia de cambios externos (inotify)
         ├── GestorDeArchivos/            ← Binario (streams binarios), File, Carpeta,
@@ -226,6 +231,10 @@ FunshiEngineGL/                          ← raíz del repo
         │           ├── EsfereCollider.*  ← btSphereShape
         │           ├── CubeCollider.*    ← btBoxShape (half extents = radio)
         │           └── MallaCollider.*   ← btConvexHullShape a partir de la malla
+        ├── Proyectos/
+        │   └── GestorDeProyectos.h/.cpp  ← ciclo de vida del proyecto activo (entrar,
+        │                                  guardar estado y escena Ctrl+S, renombrar, eliminar,
+        │                                  exportar, imgui.ini); extraído de main.cpp
         ├── Comandos/
         │   ├── IComando.h              ← interfaz Command: ejecutar(), deshacer(), descripcion()
         │   ├── GestorComandos.h/.cpp   ← pilas undo/redo (máx 50), ejecuta/deshace/rehace
@@ -239,6 +248,10 @@ FunshiEngineGL/                          ← raíz del repo
         └── Scenes/
             ├── GameScene.h/.cpp          ← coordinador del frame: render, GUI, física, gizmo,
             │                                previews y pasada de la grilla
+            ├── GizmoController.h/.cpp   ← gizmo ImGuizmo + picking (desde GameScene): estado
+            │                                (operación/global/listo), arrastre con
+            │                                TransformComando (historial) y congelación de
+            │                                hijos; interacción vía ImGuizmo + raycast AABB
             ├── SceneRegistry.h/.cpp      ← ownership único (unique_ptr) + árbol + vista lineal
             ├── EditorController.h/.cpp   ← mutaciones + GizmoTarget + registro de física
             ├── SceneSerializer.h/.cpp    ← save/load binario preorden con marcadores =>/<=
@@ -266,7 +279,7 @@ FunshiEngineGL/                          ← raíz del repo
 ```text
 main.cpp
   ├── Ventana (GLFW init)
-  ├── ImGui init (backends glfw + opengl3; imgui.ini junto al proyecto)
+  ├── ImGui init (backends glfw + opengl3; imgui.ini gestionado por el gestor)
   ├── GUIManager (crea el menú y las ventanas; posee FileManager)
   ├── GameScene(guiManager)
   │   ├── SceneRegistry            ← ownership de objetos
@@ -274,6 +287,8 @@ main.cpp
   │   ├── EditorController         ← mutaciones, gizmo, registro de física
   │   ├── SceneSerializer          ← persistencia
   │   └── EventBus                 ← notificaciones
+  ├── GestorDeProyectos            ← ciclo de vida del proyecto activo (entrar/guardar/
+  │                                  renombrar/eliminar/exportar + imgui.ini)
   ├── EditorConfig                 ← carga JSON y aplica a menú/GUI/escena
   ├── ApplicationStateMachine      ← MainMenu / Editing / Playing / Exiting
   └── bucle principal
@@ -287,8 +302,9 @@ main.cpp
       ├── dibujarGameObjects (MeshRenderer VBO/VAO+shader → fallback glBegin/glEnd)
       ├── gizmo ImGuizmo sobre el objetivo activo (objeto o collider)
       ├── GUI() de GameScene (paneles) + vistas previas de cámaras (FBO)
+      ├── GestorDeProyectos::sincronizar/eliminar (cambios de proyecto desde el menú)
       ├── ImGui::Render + swap buffers
-      └── al salir: saveScene + guardar EditorConfig
+      └── al salir: GestorDeProyectos::guardarProyectoCompleto (escena + config)
 ```
 
 `main.cpp` es el composition root; las callbacks de teclado y ratón de GLFW
@@ -298,7 +314,11 @@ mantiene la máquina de estado del movimiento de cámara. El estado del menú lo
 gobierna el modelo del paquete `MenuGUI`,
 sincronizado por frame desde `ApplicationStateMachine`. `GameScene` configura
 internamente `GUIManager`, `SceneRegistry`, `EditorController`, `SceneSerializer` y
-`EventBus`.
+`EventBus`. El ciclo de vida del proyecto activo (determinar el proyecto al
+arrancar, entrar/guardar/renombrar/eliminar, exportar y el `imgui.ini` del
+proyecto) vive en `src/Proyectos/GestorDeProyectos`, que inyecta
+`EditorConfig`, `GameScene`, `GUIManager` y la fachada `MenuGUI`; `main` queda
+solo como orquestador de arranque y bucle.
 
 ---
 
@@ -307,6 +327,12 @@ internamente `GUIManager`, `SceneRegistry`, `EditorController`, `SceneSerializer
 ### Aplicación y escena
 
 - `main.cpp` construye los objetos principales y conecta sus referencias. Es el único composition root.
+- `GestorDeProyectos` es la fachada del ciclo de vida del proyecto activo
+  (arranque, entrar, guardar estado y escena Ctrl+S, renombrar, eliminar,
+  exportar y el `imgui.ini` del proyecto). Se le inyectan `EditorConfig`,
+  `GameScene`, `GUIManager` y la fachada `MenuGUI`; el `ImGuiIO` se fija
+  después de `ImGui::CreateContext`. Las decisiones de "cuál proyecto" las lee
+  de la fachada del menú (misma separación que la escena con la GUI).
 - `GameScene` posee mediante `unique_ptr`: `SceneRegistry`, `PhysicsEngine`,
   `EditorController` y `SceneSerializer`. Recibe el `GUIManager` por inyección.
 - `SceneRegistry` es el único propietario de los `GameObject`, mediante
@@ -353,6 +379,11 @@ internamente `GUIManager`, `SceneRegistry`, `EditorController`, `SceneSerializer
   y serializan sus datos binarios.
 - `ComponentFactory` centraliza la creación por nombre de tipo tanto desde la GUI
   como durante la deserialización (`"CameraComponent"` acepta el alias `"Camera"`).
+- `Component::onLoaded(GameObject&)` es el hook polimórfico de post-carga:
+  `deserializeEntityComponents` aplica `loadComponent()` y luego el hook, sin
+  despachar por nombre de tipo. `Color` lo usa para reflejar su valor en
+  `GameObject::auxColor` (el buffer del inspector); cualquier componente nuevo
+  con dependencias post-carga lo implementa en vez de abrir el objetos de carga.
 - `Transform` provee transformaciones locales y globales usando GLM; expone
   descomposición de matrices para ImGuizmo y blinda su cadena contra NaN
   (valores no finitos no entran al estado ni al render).
@@ -390,9 +421,14 @@ internamente `GUIManager`, `SceneRegistry`, `EditorController`, `SceneSerializer
   guarda/restaura el estado abierto/cerrado de las ventanas y **posee el
   `FileManager`** del proyecto.
 - El explorador de archivos es una arquitectura de tres piezas: `FileManager`
-  (fachada dueña del modelo `GestorDeArchivos` y de las operaciones de dominio),
+  (fachada dueña del modelo `GestorDeArchivos` y de las operaciones de dominio
+  —crear/renombrar/eliminar/copiar— **más toda la E/S nativa del sistema**:
+  diálogos de selección de carpeta/archivo, abrir con la app predeterminada,
+  listado de directorio con symlink-safe y plantillas de scripts C++/Java),
   `FileSelection` (estado de navegación compartido) y las vistas
-  `TreeFilesInterface`/`ContentFolderInterface`, que solo conversan con la fachada.
+  `TreeFilesInterface`/`ContentFolderInterface`, que solo conversan con la
+  fachada (sin `system()`/`popen()`/`ShellExecute*` ni `directory_iterator`
+  propios).
   `FileSystemWatcher` avisa de cambios externos (inotify) para re-escanear.
 - `SceneSelectedInterface` observa la escena inyectada y delega las
   operaciones de edición a `EditorController`. Usa `GameObjectFactory` para crear objetos.
@@ -422,7 +458,15 @@ internamente `GUIManager`, `SceneRegistry`, `EditorController`, `SceneSerializer
   verdad**: `Configuracion/ConfigPersistence.{h,cpp}` (JSON puro, sin estado)
   sobre `Configuracion/ProjectPaths.{h,cpp}` (rutas), con
   `EditorConfig.{h,cpp}` como fachada estable que expone `datos()` y
-  `cargar*/guardar*` a main, escenas y tests. Guarda: menú (proyecto, idioma,
+  `cargar*/guardar*` a main, escenas y tests. El **ciclo de vida de los
+  proyectos** (`asegurarEstructuraProyecto`, `crearProyectoPorDefecto`,
+  `renombrarProyecto`, `eliminarProyecto`) no se implementa en EditorConfig:
+  son **delegaciones a `ProjectManager`**, único dueño del CRUD, las
+  migraciones de estructura antigua y los fallbacks de copia entre
+  dispositivos. La orquestación de todo el flujo de proyectos sobre esta
+  fachada (qué hará al arrancar, entrar, guardar, renombrar, eliminar,
+  exportar y cuál es el `imgui.ini` vigente) vive en
+  `Proyectos/GestorDeProyectos` (extraído de `main.cpp`). Guarda: menú (proyecto, idioma,
   sensibilidad de cámara), gizmo, ventana de cámaras, ventanas (estado
   abierto/cerrado de GUIManager), cámara activa por id y perfil de apariencia,
   en dos archivos junto al binario (Linux y Windows):
