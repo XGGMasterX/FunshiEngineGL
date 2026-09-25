@@ -99,15 +99,28 @@ void probarCrearObjeto() {
     CHECK(editor.puedeDeshacer(), "Crear: puede deshacer tras ejecutar");
     CHECK(!editor.puedeRehacer(), "Crear: no puede rehacer antes de deshacer");
 
-    editor.deshacer();
+    // deshacer/rehacer devuelven la descripcion del comando aplicado para que la
+    // UI pueda avisar en la barra de estado; vacias si la pila no tenia nada.
+    const std::string descripcionUndo = editor.deshacer();
+    CHECK(!descripcionUndo.empty(),
+          "Crear: deshacer devuelve la descripcion del comando");
     CHECK(scene.getObjectByID(1) == nullptr, "Crear: objeto desaparece tras undo");
     CHECK(contarObjetos(&scene) == 0, "Crear: escena vacia tras undo");
     CHECK(editor.puedeRehacer(), "Crear: puede rehacer tras undo");
 
-    editor.rehacer();
+    const std::string descripcionRedo = editor.rehacer();
+    CHECK(!descripcionRedo.empty(),
+          "Crear: rehacer devuelve la descripcion del comando");
+    CHECK(descripcionRedo == descripcionUndo,
+          "Crear: undo y redo describen el mismo comando");
     CHECK(scene.getObjectByID(1) != nullptr, "Crear: objeto restaurado tras redo");
     CHECK(contarObjetos(&scene) == 1, "Crear: escena tiene 1 objeto tras redo");
     CHECK(editor.puedeDeshacer(), "Crear: puede deshacer tras redo");
+
+    // Pila de redo agotada: la llamada es inocua y no inventa descripcion.
+    cmds->limpiar();
+    CHECK(editor.deshacer().empty(), "pila vacia: deshacer devuelve cadena vacia");
+    CHECK(editor.rehacer().empty(), "pila vacia: rehacer devuelve cadena vacia");
 }
 
 // --- Caso 2: BorrarObjetoComando ---

@@ -150,7 +150,7 @@ ImGui la combinacion la consume el editor de texto y no guarda.
 | `Escape` | Volver al menu de inicio |
 | `1` / `T` | Gizmo: traslacion |
 | `2` / `R` | Gizmo: rotacion |
-| `3` / `Y` | Gizmo: escala |
+| `3` / `Y` | Gizmo: escala (sin `Ctrl`: con `Ctrl` es el atajo de redo) |
 | `G` | Gizmo local / mundo |
 | Clic en objeto | Seleccionar en viewport |
 
@@ -199,6 +199,20 @@ entradas; cada nueva accion invalida la pila de redo.
 (posicion del padre, id del objeto, transform anterior, componentes) y lo
 almacena por valor para poder restaurarlo exactamente. La raiz de la escena
 (id=0) esta excluida de delete/clear por diseno.
+
+**Mover un objeto con el gizmo tambien se deshace:** al iniciar un arrastre se
+toma una foto del transform y, al soltarlo, se registra **un solo**
+`TransformComando` con el estado inicial y el final (no uno por frame), asi que
+`Ctrl+Z` devuelve el objeto a donde estaba antes del movimiento. Un clic sobre el
+gizmo sin arrastrar no genera historial.
+
+**Aviso en la barra de estado:** `Ctrl+Z` y `Ctrl+Y` dejan un mensaje
+momentaneo (4 s) con la descripcion del comando aplicado, por ejemplo
+`Deshacer: Transformar: Cubo`, o `Nada que deshacer` / `Nada que rehacer` si la
+pila estaba vacia: el atajo nunca falla en silencio.
+
+**Limitacion conocida:** el arrastre del *offset local de un collider* (el gizmo
+que edita el componente, no el transform del objeto) todavia no genera comando.
 
 ---
 

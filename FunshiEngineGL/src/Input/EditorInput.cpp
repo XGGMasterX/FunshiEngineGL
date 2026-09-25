@@ -160,23 +160,31 @@ void EditorInput::onKey(GLFWwindow* window, int key, int scancode, int action,
         return;
     }
 
-    // Ctrl+Z: deshacer (undo)
+    // Ctrl+Z: deshacer (undo). Se avisa en la barra de estado que cambio tomo
+    // el estado (mismo aviso momentaneo que Ctrl+S), o que no hay nada que
+    // deshacer, para que el atajo nunca sea silencioso.
     if (key == GLFW_KEY_Z && (mods & GLFW_MOD_CONTROL) &&
         !(mods & GLFW_MOD_SHIFT) && action == GLFW_PRESS) {
         if (scene && !ImGui::GetIO().WantCaptureKeyboard) {
             if (auto* ec = scene->getEditorController()) {
-                if (ec->puedeDeshacer()) ec->deshacer();
+                const std::string descripcion = ec->deshacer();
+                scene->mostrarMensaje(descripcion.empty()
+                                          ? "Nada que deshacer"
+                                          : "Deshacer: " + descripcion);
             }
         }
         return;
     }
 
-    // Ctrl+Shift+Z: rehacer (redo)
-    if (key == GLFW_KEY_Z && (mods & GLFW_MOD_CONTROL) &&
-        (mods & GLFW_MOD_SHIFT) && action == GLFW_PRESS) {
+    // Ctrl+Y: rehacer (redo). Es el UNICO atajo de redo: la "Y" con Ctrl deja de
+    // ser el atajo de escala del gizmo (3/Y) y no se solapa con ningun otro.
+    if (key == GLFW_KEY_Y && (mods & GLFW_MOD_CONTROL) && action == GLFW_PRESS) {
         if (scene && !ImGui::GetIO().WantCaptureKeyboard) {
             if (auto* ec = scene->getEditorController()) {
-                if (ec->puedeRehacer()) ec->rehacer();
+                const std::string descripcion = ec->rehacer();
+                scene->mostrarMensaje(descripcion.empty()
+                                          ? "Nada que rehacer"
+                                          : "Rehacer: " + descripcion);
             }
         }
         return;
@@ -257,7 +265,9 @@ void EditorInput::onKey(GLFWwindow* window, int key, int scancode, int action,
         if (scene) scene->setGizmoGlobal(!scene->isGizmoGlobal());
     }
 
-    if (action == GLFW_PRESS) {
+    // Atajos de operacion del gizmo (1/T, 2/R, 3/Y): con Ctrl pulsada la tecla
+    // pertenece a otro atajo (p. ej. Ctrl+Y = rehacer), asi que no se aplican.
+    if (action == GLFW_PRESS && !(mods & GLFW_MOD_CONTROL)) {
         if (key == GLFW_KEY_1 || key == GLFW_KEY_T) {
             if (scene) scene->setGizmoOperation(ImGuizmo::TRANSLATE);
         } else if (key == GLFW_KEY_2 || key == GLFW_KEY_R) {
