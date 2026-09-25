@@ -108,3 +108,8 @@ cd FunshiEngineGL/build && ctest --output-on-failure
   NO modificar archivos ajenos para "arreglar" el build.
 - El CI (`.github/workflows/ci.yml`) compila el engine en Ubuntu y corre la
   suite en Linux/Windows/macOS; no pushear sin pasar los tests localmente.
+- **NO confirmar fixes hasta validación del usuario**: nunca declarar un bug
+  como "resuelto" o "fix real" hasta que el usuario lo pruebe y lo confirme
+  explícitamente. Los tests automatizados (ctest) no cubren flujos visuales
+  de UI (dock, layout, ventanas); el criterio de aceptación lo define el
+  usuario probando la aplicación real.
