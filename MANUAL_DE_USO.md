@@ -34,7 +34,6 @@ por arrastre y escribir scripts con la API exacta que expone el motor.
 14. [Scripting C++: referencia completa](#14-scripting-c-referencia-completa)
 15. [Scripting Java (JNI)](#15-scripting-java-jni)
 16. [Hot reload y depuración](#16-hot-reload-y-depuración)
-17. [Problemas frecuentes](#17-problemas-frecuentes)
 
 ---
 
@@ -679,10 +678,3 @@ public class MiScript implements Comportamiento {
   `onStop`; los backends (incluida la JVM) se apagan despues.
 
 ---
-
-
-
-**Paths con tildes/espacios fallan al cargar assets.**
-El motor usa paths `char`/ANSI en Windows; evita caracteres fuera de ASCII en
-las carpetas del proyecto hasta completar la portabilidad de rutas (pendiente
-en el roadmap).
