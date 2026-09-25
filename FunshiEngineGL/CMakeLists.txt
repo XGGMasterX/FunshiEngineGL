@@ -185,6 +185,8 @@ if(WIN32)
     # dbghelp: CapturaBackTrace/SymFromAddr/SymInitialize (RuntimeException).
     # En MinGW los #pragma comment(lib) de MSVC se ignoran, hay que enlazarla.
     target_link_libraries(funshi_engine PRIVATE opengl32 dbghelp)
+    # Evitar conflicto std::byte (C++17) vs typedef byte en headers Windows (rpcndr.h, etc.)
+    target_compile_definitions(funshi_engine PRIVATE _HAS_STD_BYTE=0)
 endif()
 
 # Dependencias específicas de Linux
@@ -235,8 +237,6 @@ else()
     target_link_libraries(funshi_engine PRIVATE glm::glm)
 endif()
 
-endif()
-
 # Comandos (sistema undo/redo): se enlaza con funshi_engine que provee todas las
 # dependencias del motor (ImGui, componentes, EditorController, SceneRegistry).
 # Solo se compila el archivo de test; las fuentes del motor vienen del engine.
@@ -258,6 +258,8 @@ add_test(NAME comandos-tests COMMAND comandos-tests)
 
 if(WIN32)
     target_link_libraries(comandos-tests PRIVATE dbghelp)
+endif()
+
 endif()
 
 # --- Pruebas headless del subsistema FileManager (sin pila gráfica) ---------
@@ -594,4 +596,31 @@ if(WIN32)
     target_link_libraries(assetmanager-tests PRIVATE dbghelp)
     target_link_libraries(texturemanager-tests PRIVATE dbghelp)
     target_link_libraries(estructuras-tests PRIVATE dbghelp)
+    target_link_libraries(configuracion-tests PRIVATE dbghelp)
+    target_link_libraries(eventbus-tests PRIVATE dbghelp)
+    target_link_libraries(model-serialization-tests PRIVATE dbghelp)
+    target_link_libraries(manifiesto-assets-tests PRIVATE dbghelp)
+    target_link_libraries(orquestador-estado-tests PRIVATE dbghelp)
+    target_link_libraries(menu-tests PRIVATE dbghelp)
+    target_link_libraries(tema-tests PRIVATE dbghelp)
+    target_link_libraries(scripts-tests PRIVATE dbghelp)
+    target_link_libraries(scripts-runtime-tests PRIVATE dbghelp)
+    target_link_libraries(audio-tests PRIVATE dbghelp)
+    target_link_libraries(userinterface-tests PRIVATE dbghelp)
+    # Evitar conflicto std::byte (C++17) vs typedef byte en headers Windows (rpcndr.h, etc.)
+    target_compile_definitions(filemanager-tests PRIVATE _HAS_STD_BYTE=0)
+    target_compile_definitions(assetmanager-tests PRIVATE _HAS_STD_BYTE=0)
+    target_compile_definitions(texturemanager-tests PRIVATE _HAS_STD_BYTE=0)
+    target_compile_definitions(estructuras-tests PRIVATE _HAS_STD_BYTE=0)
+    target_compile_definitions(configuracion-tests PRIVATE _HAS_STD_BYTE=0)
+    target_compile_definitions(eventbus-tests PRIVATE _HAS_STD_BYTE=0)
+    target_compile_definitions(model-serialization-tests PRIVATE _HAS_STD_BYTE=0)
+    target_compile_definitions(manifiesto-assets-tests PRIVATE _HAS_STD_BYTE=0)
+    target_compile_definitions(orquestador-estado-tests PRIVATE _HAS_STD_BYTE=0)
+    target_compile_definitions(menu-tests PRIVATE _HAS_STD_BYTE=0)
+    target_compile_definitions(tema-tests PRIVATE _HAS_STD_BYTE=0)
+    target_compile_definitions(scripts-tests PRIVATE _HAS_STD_BYTE=0)
+    target_compile_definitions(scripts-runtime-tests PRIVATE _HAS_STD_BYTE=0)
+    target_compile_definitions(audio-tests PRIVATE _HAS_STD_BYTE=0)
+    target_compile_definitions(userinterface-tests PRIVATE _HAS_STD_BYTE=0)
 endif()

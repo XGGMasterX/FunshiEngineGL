@@ -105,9 +105,20 @@ private:
     std::string ini_;  // ruta del imgui.ini vigente (puntero estable para ImGui).
     ImGuiIO* io_;
 
+    // Carga diferida de imgui.ini: LoadIniSettingsFromDisk debe ejecutarse
+    // DESPUÉS de NewFrame() del frame SIGUIENTE al switch, para que g.Windows
+    // contenga las ventanas del NUEVO proyecto (con stateGUI restaurado).
+    // Si se llama en medio de entrar(), g.Windows tiene ventanas del proyecto VIEJO.
+    bool pendingIniLoad_ = false;
+    std::string pendingIniPath_;
+
     void fijarImguiIni(const std::string& nombreProyecto);
     void guardarEstadoActivo();
     void entrar(const std::string& destino);
+public:
+    // Llamar al inicio de cada frame, DESPUÉS de ImGui::NewFrame().
+    // Si hay una carga pendiente, la ejecuta y limpia la bandera.
+    void procesarCargaIniDiferida();
 };
 
 #endif  // GESTOR_PROYECTOS_H

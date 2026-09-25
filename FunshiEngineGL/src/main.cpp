@@ -471,6 +471,10 @@ static int EjecutarMotor(int argc, char* argv[])
             ImGui_ImplGlfw_NewFrame();
             ImGui::NewFrame();
 
+            // Carga diferida de imgui.ini: DESPUÉS de NewFrame para que g.Windows
+            // contenga las ventanas del nuevo proyecto (con stateGUI restaurado).
+            gestor.procesarCargaIniDiferida();
+
             //Obtenemos El tam del Frame De La ventana en X y Y
             glfwGetFramebufferSize(window, &ventanaWidthEjeX, &ventanaHeightEjeY);     
 
