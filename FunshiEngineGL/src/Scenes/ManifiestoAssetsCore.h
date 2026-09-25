@@ -77,8 +77,8 @@ public:
     // contrario el vigente. Materializa la precedencia del manifiesto: un
     // path vacio significa «no aporta» (no pisa el .db) y un path igual no
     // obliga a recargar malla/script (que si recargan al asignar).
-    static const std::string& resolverRuta(const std::string& persistida,
-                                           const std::string& actual);
+    static std::string resolverRuta(const std::string& persistida,
+                                    const std::string& actual);
 
     // True si la entrada no aporta ningun path (nada que persistir/aplicar).
     static bool entradaVacia(const EntradaAssets& entrada);

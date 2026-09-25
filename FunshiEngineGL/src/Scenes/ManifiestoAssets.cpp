@@ -67,7 +67,7 @@ EntradaAssets recogerDeObjeto(GameObject& objeto) {
 // solo si es no vacia y difiere de la vigente. Devuelve 1 si se asigno.
 int aplicarCampo(const std::string& persistida, const std::string& vigente,
                  const std::function<void(const std::string&)>& asignar) {
-    const std::string& resolucion = ManifiestoAssetsCore::resolverRuta(persistida, vigente);
+    std::string resolucion = ManifiestoAssetsCore::resolverRuta(persistida, vigente);
     if (resolucion == vigente)
         return 0;
     asignar(resolucion);
