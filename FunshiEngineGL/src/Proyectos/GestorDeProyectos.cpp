@@ -19,6 +19,7 @@
 #include "GestorDeProyectos.h"
 
 #include <imgui.h>
+#include <imgui_internal.h>
 
 #include <filesystem>
 #include <iostream>
@@ -279,6 +280,15 @@ void GestorDeProyectos::entrar(const std::string& destino) {
     // están en g.Windows con su stateGUI correcto y reciben su DockId.
     if (io_ && io_->IniFilename != nullptr) {
         ImGui::LoadIniSettingsFromDisk(io_->IniFilename);
+        // Fix crítico: los nodos de dock creados desde el ini tienen
+        // LastFrameAlive = 0. BeginDocked los ve como "muertos" y hace undock.
+        // Marcamos todos los nodos como vivos en el frame actual.
+        ImGuiContext& g = *GImGui;
+        for (int n = 0; n < g.DockContext.Nodes.Data.Size; ++n) {
+            if (ImGuiDockNode* node = (ImGuiDockNode*)g.DockContext.Nodes.Data[n].val_p) {
+                node->LastFrameAlive = g.FrameCount;
+            }
+        }
     }
 
     // Cargar la escena del nuevo proyecto si existe
