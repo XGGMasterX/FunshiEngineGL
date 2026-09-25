@@ -143,11 +143,6 @@ void EditorInput::onKey(GLFWwindow* window, int key, int scancode, int action,
             // Un InputText de ImGui esta activo: Escape revierte el texto en
             // edicion y no corta la edicion de datos del editor.
         } else if (appState && appState->is(ApplicationState::Editing)) {
-            // Workaround: desactivar editor INMEDIATO (como tecla E) antes de
-            // transicionar, para evitar bug de dock (LastFrameAlive=0 en nodos
-            // del ini). E hace toggleEditorInterfaces() -> menuActivo=false
-            // inmediato; Escape debe hacer lo mismo ANTES de transicionar.
-            if (scene) scene->setMenuActivo(false);
             // La regla vive en el orquestador de estados de GUI.
             orquestador->manejarTeclaEscape();
         }
