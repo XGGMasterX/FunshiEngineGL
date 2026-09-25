@@ -16,25 +16,9 @@
 
     SPDX-License-Identifier: Apache-2.0
 */
-#include "BackendCpp.h"
 
-#include <cstdio>
-#include <cstdlib>
-#include <filesystem>
-#include <fstream>
-#include <iterator>
-#include <string>
-
-#include "../ScriptGameObject.h"
-#include "../IScriptBehaviour.h"
-
-#ifndef FUNSHI_CXX_COMPILER
-#define FUNSHI_CXX_COMPILER "g++"
-#endif
-#ifndef FUNSHI_SRC_DIR
-#define FUNSHI_SRC_DIR ""
-#endif
-
+// Windows.h ANTES del header propio y de la stdlib, para que
+// _HAS_STD_BYTE=0 surta efecto antes de que la stdlib defina std::byte.
 #if defined(_WIN32)
 #define _HAS_STD_BYTE 0
 #include <windows.h>
@@ -58,6 +42,25 @@
 #define FUNSHI_DLOPENCERRAR(handle) dlclose(handle)
 #define FUNSHI_SYM_CREAR "FUNSHI_CREAR_COMPORTAMIENTO"
 #define FUNSHI_ARTEFACTO_EXT "so"
+#endif
+
+#include "BackendCpp.h"
+
+#include <cstdio>
+#include <cstdlib>
+#include <filesystem>
+#include <fstream>
+#include <iterator>
+#include <string>
+
+#include "../ScriptGameObject.h"
+#include "../IScriptBehaviour.h"
+
+#ifndef FUNSHI_CXX_COMPILER
+#define FUNSHI_CXX_COMPILER "g++"
+#endif
+#ifndef FUNSHI_SRC_DIR
+#define FUNSHI_SRC_DIR ""
 #endif
 
 namespace {

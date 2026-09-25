@@ -16,17 +16,20 @@
 
     SPDX-License-Identifier: Apache-2.0
 */
-#include "ProjectPaths.h"
 
-#include <cctype>
-#include <filesystem>
-
+// Windows.h ANTES del header propio (que incluye <string> y define _HAS_STD_BYTE),
+// para que el define surta efecto antes de que la stdlib defina std::byte.
 #ifdef _WIN32
 #define _HAS_STD_BYTE 0
 #include <windows.h>
 #else
 #include <unistd.h>
 #endif
+
+#include "ProjectPaths.h"
+
+#include <cctype>
+#include <filesystem>
 
 namespace {
 
