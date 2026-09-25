@@ -19,6 +19,12 @@
 #ifndef ICONOSGUI_H
 #define ICONOSGUI_H
 
+// _HAS_STD_BYTE=0 DEBE ir ANTES de cualquier include de stdlib en Windows
+// para evitar colision con typedef 'byte' de rpcndr.h vs std::byte (C++17)
+#ifdef _WIN32
+#define _HAS_STD_BYTE 0
+#endif
+
 #include <string>
 #include <imgui.h>
 
