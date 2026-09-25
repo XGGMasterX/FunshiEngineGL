@@ -58,6 +58,13 @@ private:
     // la ruta mostrada o su mtime; el dibujo del grid usa este cache en vez
     // de re-scanear cada frame. Las entradas vienen de FileManager.
     std::vector<FileManager::EntradaDirectorio> cacheEntradas;
+
+    // Bandera de vida para el sistema de dock: SIEMPRE true. Garantiza que
+    // la ventana exista en g.Windows cada frame para que ImGui pueda re-aplicar
+    // su DockId al restaurar el imgui.ini del proyecto (LoadIniSettingsFromDisk
+    // itera solo g.Windows; si la ventana no Begin()ea ese frame, nace suelta).
+    // La visibilidad visual sigue controlada por stateGUI/hayCarpeta en printGUI().
+    bool dockAlive_ = true;
     std::string cacheCarpeta;
     std::filesystem::file_time_type cacheMtime{};
 

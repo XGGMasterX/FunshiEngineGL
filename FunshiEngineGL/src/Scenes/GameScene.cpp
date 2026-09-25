@@ -478,10 +478,17 @@ void GameScene::pintarViewportsGUI() {
         GameObject* objeto = objetos[index];
         if (!target || !objeto) continue;
 
-        char title[64];
-        std::snprintf(title, sizeof(title), "Vista previa: %s",
+        char title[96];
+        // "##<id camara>" oculta el sufijo del id de la ventana (el titulo se
+        // ve "Vista previa: <nombre>") y da un ID ESTABLE a ImGui: renombrar la
+        // camara o tener dos con el mismo nombre ya no crea una ventana nueva
+        // ni pierde la posicion/dock guardados en el imgui.ini del proyecto
+        // (antes, "Vista previa: %s" hacia que cada rename mudara el id y la
+        // ventana saltara de lugar).
+        std::snprintf(title, sizeof(title), "Vista previa: %s##%d",
                       objeto->inputName[0] != '\0' ? objeto->inputName
-                                                   : "Camara");
+                                                   : "Camara",
+                      static_cast<int>(objeto->getId()));
 
         ImGui::SetNextWindowSize(
             ImVec2(static_cast<float>(target->getWidth()) + 16.f,

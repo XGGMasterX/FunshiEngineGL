@@ -70,6 +70,13 @@ protected:
     // Ultimo contador de cambios que este panel ya rescaneco.
     unsigned long ultimoContadorVisto = 0;
 
+    // Bandera de vida para el sistema de dock: SIEMPRE true. Garantiza que
+    // la ventana exista en g.Windows cada frame para que ImGui pueda re-aplicar
+    // su DockId al restaurar el imgui.ini del proyecto (LoadIniSettingsFromDisk
+    // itera solo g.Windows; si la ventana no Begin()ea ese frame, nace suelta).
+    // La visibilidad visual sigue controlada por stateGUI en printGUI().
+    bool dockAlive_ = true;
+
 public:
     TreeFilesInterface(bool stateGUI, FileManager* fileManager);
     TreeFilesInterface(const TreeFilesInterface&) = delete;

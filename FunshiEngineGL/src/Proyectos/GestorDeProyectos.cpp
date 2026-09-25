@@ -19,6 +19,7 @@
 #include "GestorDeProyectos.h"
 
 #include <imgui.h>
+#include <imgui_internal.h>
 
 #include <filesystem>
 #include <iostream>
@@ -252,17 +253,51 @@ void GestorDeProyectos::entrar(const std::string& destino) {
     // Re-explorar Sonidos/ e interfaces del proyecto entrante.
     scene_->configurarProyecto(proyectoActual_);
     config_.datos().nombreProyecto = proyectoActual_;
+    // Antes de conmutar el ini, persistir el layout del proyecto que se
+    // abandona: ImGui solo carga el ini una vez por proceso (UpdateSettings,
+    // en el primer NewFrame, pese a haber cargado SettingsLoaded, y ya ser
+    // true con la bandera). Su guardado diferido escribe sobre la ruta
+    // ACTIVA en el momento del volcado. Sin esto el layout no viaja con el
+    // proyecto: el entrante nunca se restaura (las ventanas quedan en las
+    // posiciones del anterior) y el volcado en curso contamina el ini ajeno.
+    if (io_ && io_->IniFilename != nullptr) {
+        ImGui::SaveIniSettingsToDisk(io_->IniFilename);
+    }
     fijarImguiIni(proyectoActual_);
+    // Cargar la configuracion del proyecto entrante ANTES de restaurar el dock:
+    // necesitamos estadoVentanas (visibilidad) para que las ventanas existan
+    // en g.Windows ANTES de LoadIniSettingsFromDisk, que itera g.Windows
+    // para re-aplicar DockId. Si la visibilidad se restaura después, las
+    // ventanas no están en g.Windows y nacen flotando (se separan del dock).
+    config_.cargarProyecto(proyectoActual_);
+    gui_->restaurarEstadosVentanas(config_.datos().estadoVentanas);
+
+    // Re-anclar de inmediato el layout del proyecto entrante: no basta con
+    // cambiar io.IniFilename porque g.SettingsLoaded ya es true y
+    // UpdateSettings no relee. LoadIniSettingsFromDisk vuelve a leer el archivo
+    // (re-aplica los DockId/posiciones) para que las ventanas del dock
+    // recuperen el lugar asignado en el proyecto. AHORA las ventanas ya
+    // están en g.Windows con su stateGUI correcto y reciben su DockId.
+    if (io_ && io_->IniFilename != nullptr) {
+        ImGui::LoadIniSettingsFromDisk(io_->IniFilename);
+        // Fix crítico: los nodos de dock creados desde el ini tienen
+        // LastFrameAlive = 0. BeginDocked los ve como "muertos" y hace undock.
+        // Marcamos todos los nodos como vivos en el frame actual.
+        ImGuiContext& g = *GImGui;
+        for (int n = 0; n < g.DockContext.Nodes.Data.Size; ++n) {
+            if (ImGuiDockNode* node = (ImGuiDockNode*)g.DockContext.Nodes.Data[n].val_p) {
+                node->LastFrameAlive = g.FrameCount;
+            }
+        }
+    }
 
     // Cargar la escena del nuevo proyecto si existe
     scene_->loadScene(EditorConfig::rutaSceneBBDD(proyectoActual_),
                       EditorConfig::rutaSceneDir(proyectoActual_));
 
-    // Cargar la configuracion del nuevo proyecto (si existe)
-    config_.cargarProyecto(proyectoActual_);
+    // Aplicar resto de estado de la escena (gizmo, cámara, etc.)
     scene_->setVentanaCamarasAbierta(config_.datos().ventanaCamarasAbierta);
     scene_->setGizmoOperation(config_.datos().gizmoOperacion);
     scene_->setGizmoGlobal(config_.datos().gizmoGlobal);
     scene_->setActiveCameraById(config_.datos().camaraActivaId);
-    gui_->restaurarEstadosVentanas(config_.datos().estadoVentanas);
 }
