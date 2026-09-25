@@ -239,7 +239,10 @@ void ContentFolderInterface::recorrer(const std::string& path) {
 
 void ContentFolderInterface::initGUI() {
     FileSelection* sel = fileManager->getSelection();
-    ImGui::Begin(getNameGui().c_str(), &stateGUI, getFlagGui());
+    // Usa dockAlive_ (siempre true) para que la ventana exista en g.Windows
+    // cada frame y ImGui pueda re-aplicar su DockId al restaurar el ini.
+    // stateGUI controla solo la visibilidad visual (usuario cierra con X).
+    ImGui::Begin(getNameGui().c_str(), &dockAlive_, getFlagGui());
 
     if (ImGui::BeginPopupContextWindow("AddFilesPopup", ImGuiPopupFlags_MouseButtonRight)) {
         if (ImGui::MenuItem("New Script")) {
@@ -415,13 +418,13 @@ void ContentFolderInterface::endGUI() { ImGui::End(); }
 void ContentFolderInterface::printGUI() {
     FileSelection* sel = fileManager->getSelection();
     const bool hayCarpeta = sel && sel->carpetaActual != nullptr;
-    // R3: el panel se gobierna a si mismo. Se dibuja si esta abierto o si hay
-    // seleccion; se oculta automaticamente cuando no hay carpeta (aunque
-    // stateGUI quede en true, sin Begin() la ventana no se muestra).
+    // La ventana SIEMPRE existe en g.Windows (initGUI/endGUI cada frame)
+    // para que ImGui pueda re-aplicar su DockId al restaurar el ini.
+    // El contenido solo se dibuja si hay carpeta o stateGUI (visibilidad).
+    initGUI();
     if (stateGUI || hayCarpeta) {
         stateGUI = true;
-        initGUI();
         contentGUI();
-        endGUI();
     }
+    endGUI();
 }
