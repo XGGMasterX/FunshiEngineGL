@@ -192,17 +192,17 @@ int main() {
     //    aplica.
     {
         const std::string vigente = "/ruta/Vigente.fbx";
-        const std::string& igual =
+        const std::string igual =
             ManifiestoAssetsCore::resolverRuta(vigente, vigente);
-        CHECK(&igual == &vigente || igual == vigente,
+        CHECK(igual == vigente,
               "path persistido igual al vigente no obliga a recargar");
 
-        const std::string& vacio =
+        const std::string vacio =
             ManifiestoAssetsCore::resolverRuta("", vigente);
-        CHECK(&vacio == &vigente || vacio == vigente,
+        CHECK(vacio == vigente,
               "path persistido vacio no pisa al vigente (.db)");
 
-        const std::string& distinto =
+        const std::string distinto =
             ManifiestoAssetsCore::resolverRuta("/ruta/Nuevo.fbx", vigente);
         CHECK(distinto == "/ruta/Nuevo.fbx",
               "path persistido distinto y no vacio aplica (precedencia)");

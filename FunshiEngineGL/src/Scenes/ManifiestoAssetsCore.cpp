@@ -125,7 +125,7 @@ void ManifiestoAssetsCore::absolutizarEntrada(EntradaAssets& entrada) {
     entrada.script = EditorConfig::absolutizarRuta(entrada.script);
 }
 
-const std::string& ManifiestoAssetsCore::resolverRuta(
+std::string ManifiestoAssetsCore::resolverRuta(
     const std::string& persistida, const std::string& actual) {
     return (!persistida.empty() && persistida != actual) ? persistida : actual;
 }
