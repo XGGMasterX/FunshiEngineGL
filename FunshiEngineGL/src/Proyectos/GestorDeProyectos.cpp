@@ -252,7 +252,25 @@ void GestorDeProyectos::entrar(const std::string& destino) {
     // Re-explorar Sonidos/ e interfaces del proyecto entrante.
     scene_->configurarProyecto(proyectoActual_);
     config_.datos().nombreProyecto = proyectoActual_;
+    // Antes de conmutar el ini, persistir el layout del proyecto que se
+    // abandona: ImGui solo carga el ini una vez por proceso (UpdateSettings,
+    // en el primer NewFrame, pese a haber cargado SettingsLoaded, y ya ser
+    // true con la bandera). Su guardado diferido escribe sobre la ruta
+    // ACTIVA en el momento del volcado. Sin esto el layout no viaja con el
+    // proyecto: el entrante nunca se restaura (las ventanas quedan en las
+    // posiciones del anterior) y el volcado en curso contamina el ini ajeno.
+    if (io_ && io_->IniFilename != nullptr) {
+        ImGui::SaveIniSettingsToDisk(io_->IniFilename);
+    }
     fijarImguiIni(proyectoActual_);
+    // Re-anclar de inmediato el layout del proyecto entrante: no basta con
+    // cambiar io.IniFilename porque g.SettingsLoaded ya es true y
+    // UpdateSettings no relee. LoadIniSettingsFromDisk vuelve a leer el archivo
+    // (re-aplica los DockId/posiciones) para que las ventanas del dock
+    // recuperen el lugar asignado en el proyecto.
+    if (io_ && io_->IniFilename != nullptr) {
+        ImGui::LoadIniSettingsFromDisk(io_->IniFilename);
+    }
 
     // Cargar la escena del nuevo proyecto si existe
     scene_->loadScene(EditorConfig::rutaSceneBBDD(proyectoActual_),
