@@ -238,7 +238,10 @@ TreeIG::RowResult TreeFilesInterface::drawFolderRow(File* element, bool wasOpen)
 }
 
 void TreeFilesInterface::initGUI() {
-    ImGui::Begin(getNameGui().c_str(), &stateGUI, getFlagGui());
+    // Usa dockAlive_ (siempre true) para que la ventana exista en g.Windows
+    // cada frame y ImGui pueda re-aplicar su DockId al restaurar el ini.
+    // stateGUI controla solo la visibilidad visual (usuario cierra con X).
+    ImGui::Begin(getNameGui().c_str(), &dockAlive_, getFlagGui());
 
     if (confirmarEliminar && !carpetaAConfirmar.empty()) {
         ImGui::OpenPopup("ConfirmarEliminar");
@@ -380,11 +383,14 @@ void TreeFilesInterface::contentGUI() {
 void TreeFilesInterface::endGUI() { ImGui::End(); }
 
 void TreeFilesInterface::printGUI() {
+    // La ventana SIEMPRE existe en g.Windows (initGUI/endGUI cada frame)
+    // para que ImGui pueda re-aplicar su DockId al restaurar el ini.
+    // El contenido solo se dibuja si stateGUI (visibilidad).
+    initGUI();
     if (stateGUI) {
-        initGUI();
         contentGUI();
-        endGUI();
     }
+    endGUI();
 }
 
 void TreeFilesInterface::solicitarActualizacion() { actualizar = true; }
