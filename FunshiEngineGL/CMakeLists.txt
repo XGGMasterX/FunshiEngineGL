@@ -235,8 +235,6 @@ else()
     target_link_libraries(funshi_engine PRIVATE glm::glm)
 endif()
 
-endif()
-
 # Comandos (sistema undo/redo): se enlaza con funshi_engine que provee todas las
 # dependencias del motor (ImGui, componentes, EditorController, SceneRegistry).
 # Solo se compila el archivo de test; las fuentes del motor vienen del engine.
@@ -258,6 +256,8 @@ add_test(NAME comandos-tests COMMAND comandos-tests)
 
 if(WIN32)
     target_link_libraries(comandos-tests PRIVATE dbghelp)
+endif()
+
 endif()
 
 # --- Pruebas headless del subsistema FileManager (sin pila gráfica) ---------
