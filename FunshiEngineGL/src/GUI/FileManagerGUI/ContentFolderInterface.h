@@ -23,9 +23,9 @@
 #include <string>
 #include <vector>
 
+#include "../../FileManager/FileManager.h"
 #include "../GeneralUserInterface.h"
 
-class FileManager;
 class IconosGUI;
 class EditorEventBus;
 
@@ -34,19 +34,10 @@ class EditorEventBus;
 // cada frame la seleccion compartida (FileSelection), se muestra a si mismo
 // cuando hay carpeta (y se oculta si no) y notifica su navegacion por doble
 // clic dejando la ruta pendiente en la seleccion (R3). Las operaciones de
-// Filesystem van a la fachada FileManager, nunca a system(). (R1)
+// Filesystem van a la fachada FileManager (listado, dialogos nativos, abrir
+// con la app del sistema, plantillas), nunca a system() o al Filesystem. (R1)
 class ContentFolderInterface : public GeneralUserInterface {
 private:
-    // Entrada del grid (R5): el directorio se lee en disco SOLO cuando cambia
-    // la ruta mostrada o su mtime; el dibujo del grid usa este cache en vez de
-    // re-scanear con directory_iterator cada frame.
-    struct GridEntry {
-        std::string nombre;
-        std::string fullPath;
-        bool esCarpeta = false;
-        std::string extension;
-    };
-
     FileManager* fileManager = nullptr;
     EditorEventBus* eventoArchivos_ = nullptr;
     bool abrirPopupNombre = false;
@@ -63,13 +54,13 @@ private:
     bool abrirPopupRenombrar = false;
     char bufferRenombrar[256] = "";
 
-    // Cache del grid (R5).
-    std::vector<GridEntry> cacheEntradas;
+    // Cache del grid (R5): el directorio se lee en disco SOLO cuando cambia
+    // la ruta mostrada o su mtime; el dibujo del grid usa este cache en vez
+    // de re-scanear cada frame. Las entradas vienen de FileManager.
+    std::vector<FileManager::EntradaDirectorio> cacheEntradas;
     std::string cacheCarpeta;
     std::filesystem::file_time_type cacheMtime{};
 
-    std::string seleccionarCarpetaSistema();
-    std::string seleccionarArchivoSistema();
     void crearNuevoElemento();
     void copiarElementoSuelto(const std::string& origen, const std::string& destFolder);
     void recorrer(const std::string& path);

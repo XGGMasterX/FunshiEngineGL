@@ -142,7 +142,9 @@ FunshiEngineGL/                          ← raíz del repo
         │   ├── PhysicsEngine.h/.cpp     ← fachada PIMPL; el header no expone Bullet
         │   └── BulletPhysicsAdapter.h/.cpp ← adaptador concreto de Bullet (RAII)
         ├── FileManager/
-        │   ├── FileManager.h/.cpp       ← fachada del explorador: modelo + operaciones
+        │   ├── FileManager.h/.cpp       ← fachada del explorador: modelo + operaciones de dominio
+        │   │                              Y toda la E/S nativa (diálogos, abrir con la app del
+        │   │                              sistema, listado de directorio, plantillas de scripts)
         │   ├── FileSelection.h          ← estado de navegación compartido entre vistas
         │   └── FileSystemWatcher.h/.cpp ← vigilancia de cambios externos (inotify)
         ├── GestorDeArchivos/            ← Binario (streams binarios), File, Carpeta,
@@ -398,9 +400,14 @@ internamente `GUIManager`, `SceneRegistry`, `EditorController`, `SceneSerializer
   guarda/restaura el estado abierto/cerrado de las ventanas y **posee el
   `FileManager`** del proyecto.
 - El explorador de archivos es una arquitectura de tres piezas: `FileManager`
-  (fachada dueña del modelo `GestorDeArchivos` y de las operaciones de dominio),
+  (fachada dueña del modelo `GestorDeArchivos` y de las operaciones de dominio
+  —crear/renombrar/eliminar/copiar— **más toda la E/S nativa del sistema**:
+  diálogos de selección de carpeta/archivo, abrir con la app predeterminada,
+  listado de directorio con symlink-safe y plantillas de scripts C++/Java),
   `FileSelection` (estado de navegación compartido) y las vistas
-  `TreeFilesInterface`/`ContentFolderInterface`, que solo conversan con la fachada.
+  `TreeFilesInterface`/`ContentFolderInterface`, que solo conversan con la
+  fachada (sin `system()`/`popen()`/`ShellExecute*` ni `directory_iterator`
+  propios).
   `FileSystemWatcher` avisa de cambios externos (inotify) para re-escanear.
 - `SceneSelectedInterface` observa la escena inyectada y delega las
   operaciones de edición a `EditorController`. Usa `GameObjectFactory` para crear objetos.
