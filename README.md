@@ -191,8 +191,6 @@ Ver **PROJECT_STRUCTURE.md** para la descripción completa de cada módulo, las 
 ## Roadmap / Pendientes conocidos
 
 - [ ] Sistema de animaciones.
-- [x] Scripts dinámicos: `SerializeField` con reflexión, compilación en caliente de C++ (`BackendCpp`) y Java vía JNI (`BackendJava`, auto-activado con JDK en build), ciclo `onStart`/`onUpdate`/`onStop` y hot reload.
-- [ ] `CommandManager` para undo/redo.
 - [ ] Cuadro de log de errores en el editor.
 - [ ] Resolver IDs duplicados al crear objetos; limpiar binarios huérfanos al eliminar.
 - [ ] Puente de input/audio/búsqueda para scripts (la infraestructura existe: `EditorInput`, `AudioEngine`, `SceneRegistry`; falta exponerla en la tabla `ApiScriptGameObject`).
