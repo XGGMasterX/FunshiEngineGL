@@ -680,30 +680,7 @@ public class MiScript implements Comportamiento {
 
 ---
 
-## 17. Problemas frecuentes
 
-**El modelo arrastrado no aparece al recargar la escena.**
-Versiones anteriores guardaban el path del componente `Model` en un buffer de
-100 bytes: los paths largos quedaban truncados al serializar. Reasigna el
-modelo arrastrandolo de nuevo con la version actual (buffer de 4096).
-
-**"Sin campos SerializeField" en el inspector del script.**
-El bloque `REFLECT_*` no esta dentro de la clase, o `camposReflejados()` no
-devuelve `reflexion()`. Revisa la plantilla de la seccion 13.1.
-
-**El dropdown de Sonido / Interfaz esta vacio.**
-Los assets se descubren por carpeta: coloca los clips en `Sonidos/` y los
-JSON en `Interfaces/` del proyecto. En builds antiguas verifica ademas que
-raiz lista el explorador (seccion 2).
-
-**El script no compila: clase no encontrada o export faltante.**
-- El archivo debe llamarse `<ClassName>.cpp` y la clase generada es
-  `FUNSHI_<ClassName>`; no renombres la export `FUNSHI_CREAR_COMPORTAMIENTO`.
-- La export debe quedar fuera de la clase, al final del archivo.
-
-**Fisica: el objeto "sale disparado" al moverlo con el gizmo.**
-En Play la simulacion avanza mientras arrastras; usa el gizmo en modo edicion
-o detene la simulacion antes de mover objetos con cuerpo dinamico.
 
 **Paths con tildes/espacios fallan al cargar assets.**
 El motor usa paths `char`/ANSI en Windows; evita caracteres fuera de ASCII en
