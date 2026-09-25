@@ -27,6 +27,7 @@
 
 class FileManager;
 class IconosGUI;
+class EditorEventBus;
 
 // Panel "ShowFolder": muestra el contenido de la carpeta seleccionada en el
 // arbol. Ya no se enlaza al arbol por puntero ni le pide el contenido: lee
@@ -47,11 +48,12 @@ private:
     };
 
     FileManager* fileManager = nullptr;
+    EditorEventBus* eventoArchivos_ = nullptr;
     bool abrirPopupNombre = false;
     bool creandoCarpeta = false;
     bool creandoScript = false;
     bool creandoScriptJava = false;
-    char nombreNuevo[128] = "";
+    char nombreNuevo[256] = "";
     IconosGUI* iconosGUI = nullptr;
 
     // Estado de renombrado (R6): ruta del elemento, si es carpeta (sube el
@@ -59,7 +61,7 @@ private:
     std::string renombrarRuta;
     bool renombrarEsCarpeta = false;
     bool abrirPopupRenombrar = false;
-    char bufferRenombrar[128] = "";
+    char bufferRenombrar[256] = "";
 
     // Cache del grid (R5).
     std::vector<GridEntry> cacheEntradas;
@@ -76,6 +78,9 @@ public:
     ContentFolderInterface(bool stateGUI, FileManager* fileManager);
 
     void setIconosGUI(IconosGUI* iconosG);
+    // Bus de eventos del editor: notifica ArchivosReubicados tras un rename
+    // exitoso del grid (lo inyecta GUIManager; opcional, default nullptr).
+    void setEditorEventBus(EditorEventBus* bus) noexcept;
 
     virtual void initGUI() override;
     virtual void contentGUI() override;

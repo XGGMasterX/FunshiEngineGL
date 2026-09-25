@@ -41,6 +41,7 @@
 #include <filesystem>
 
 #include "../../Herramientas/PathUtils.h"
+#include "../../Events/EditorEventBus.h"
 #include "../../FileManager/FileManager.h"
 #include "../../FileManager/FileSelection.h"
 #include "../WindowNames.h"
@@ -53,18 +54,22 @@ ContentFolderInterface::ContentFolderInterface(bool stateGUI, FileManager* fileM
 
 void ContentFolderInterface::setIconosGUI(IconosGUI* iconosG) { iconosGUI = iconosG; }
 
+void ContentFolderInterface::setEditorEventBus(EditorEventBus* bus) noexcept {
+    eventoArchivos_ = bus;
+}
+
 std::string ContentFolderInterface::seleccionarCarpetaSistema() {
 #if defined(_WIN32)
     BROWSEINFOA bi = { 0 };
     bi.lpszTitle = "Selecciona una carpeta para copiar";
     LPITEMIDLIST pidl = SHBrowseForFolderA(&bi);
     if (pidl != 0) {
-        char path[MAX_PATH];
+        char path[4096];
         if (SHGetPathFromIDListA(pidl, path)) return std::string(path);
     }
     return "";
 #elif defined(__linux__)
-    char buffer[512];
+    char buffer[4096];
     FILE* fp = popen("zenity --file-selection --directory 2>/dev/null", "r");
     if (fp) {
         if (fgets(buffer, sizeof(buffer), fp) != NULL) {
@@ -82,7 +87,7 @@ std::string ContentFolderInterface::seleccionarCarpetaSistema() {
 std::string ContentFolderInterface::seleccionarArchivoSistema() {
 #if defined(_WIN32)
     OPENFILENAMEA ofn;
-    CHAR szFile[MAX_PATH] = { 0 };
+    CHAR szFile[4096] = { 0 };
     ZeroMemory(&ofn, sizeof(ofn));
     ofn.lStructSize = sizeof(ofn);
     ofn.hwndOwner = NULL;
@@ -93,7 +98,7 @@ std::string ContentFolderInterface::seleccionarArchivoSistema() {
     if (GetOpenFileNameA(&ofn) == TRUE) return std::string(szFile);
     return "";
 #elif defined(__linux__)
-    char buffer[512];
+    char buffer[4096];
     FILE* fp = popen("zenity --file-selection 2>/dev/null", "r");
     if (fp) {
         if (fgets(buffer, sizeof(buffer), fp) != NULL) {
@@ -494,6 +499,20 @@ void ContentFolderInterface::initGUI() {
             const std::string nuevo = bufferRenombrar;
             if (!nuevo.empty() &&
                 fileManager->renombrar(renombrarRuta, nuevo)) {
+                // Referencias de la escena bajo la ruta vieja (mallas,
+                // texturas, scripts): main las reescribe y persiste.
+                if (eventoArchivos_ != nullptr) {
+                    const std::string::size_type sep =
+                        renombrarRuta.find_last_of("/\\");
+                    if (sep != std::string::npos) {
+                        EditorEvent ev;
+                        ev.type = EditorEventType::ArchivosReubicados;
+                        ev.rutaAnterior = renombrarRuta;
+                        ev.rutaNueva =
+                            renombrarRuta.substr(0, sep) + PATH_SEP + nuevo;
+                        eventoArchivos_->publish(ev);
+                    }
+                }
                 // Si es carpeta, el arbol se rescancea; el cache del grid se
                 // invalida solo por mtime en el proximo recorrer().
                 if (renombrarEsCarpeta) sel->contadorCambios++;

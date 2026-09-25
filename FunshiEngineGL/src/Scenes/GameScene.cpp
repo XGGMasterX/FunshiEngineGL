@@ -35,6 +35,8 @@
 #include "../Objetos/Componentes/Colliders/Collider.h"
 #include "../Objetos/Componentes/RigidBody/RigidBody.h"
 #include "EditorController.h"
+#include "../Comandos/TransformComando.h"
+#include "ManifiestoAssets.h"
 #include "SceneRegistry.h"
 #include "SceneSerializer.h"
 #include "../Assets/AssetManager.h"
@@ -44,6 +46,13 @@
 #include "../Rendering/Backend/IRenderBackend.h"
 #include "../Rendering/RenderTarget.h"
 #include "../Rendering/SceneRenderer.h"
+#include "../Audio/AudioEngine.h"
+#include "../Audio/MiniAudioBackend.h"
+#include "../GUI/CreadorUI/CreadorDeInterfaces.h"
+#include "../GUI/CreadorUI/CanvasInterface.h"
+#include "../Objetos/Componentes/AudioSource.h"
+#include "../Objetos/Componentes/InterfaceComponent.h"
+#include "../Configuracion/EditorConfig.h"
 #include "ImGuizmo.h"
 #include <cmath>
 #include <imgui.h>
@@ -89,11 +98,20 @@ GameScene::GameScene(GUIManager* manager)
       sceneSerializer(
           std::make_unique<SceneSerializer>(sceneRegistry.get(),
                                              editorController.get(),
-                                             assetManager.get())) {
+                                             assetManager.get())),
+      // El backend real es miniaudio; si no hay device de audio, iniciar()
+      // devuelve false y el motor queda en modo mudo (todos los reproducir
+      // devuelven -1), sin romper nada: los clips existen pero no suenan.
+      audioEngine(
+          std::make_unique<AudioEngine>(std::make_unique<MiniAudioBackend>())) {
     selecteableGUI = managerGUI->getSelecteableGUI();
     managerGUI->bindScene(sceneRegistry.get(), editorController.get(), &events);
+    managerGUI->setAudioEngine(audioEngine.get());
     asegurarGrilla();
     menuBarGUI = managerGUI->getMenuBarGUI(&start);
+    // El menu del editor alterna LOCAL/GLOBAL del gizmo editando este mismo
+    // bool (mismo patron que el boton play/stop con toggleBool).
+    if (menuBarGUI) menuBarGUI->setGizmoGlobal(&gizmoGlobal);
     // El renderer resuelve la textura de cada Material con el cache de imagenes
     // de la escena (un solo decode por archivo, imagen compartida).
     sceneRenderer->setTextureManager(textureManager.get());
@@ -107,6 +125,49 @@ GameScene::~GameScene() {
     if (sceneRenderer) sceneRenderer->destruir();
     if (editorController) editorController->clearScene();
     if (selecteableGUI) selecteableGUI->bindScene(nullptr, nullptr, nullptr);
+}
+
+void GameScene::configurarProyecto(const std::string& nombreProyecto) {
+    EditorConfig::asegurarEstructuraProyecto(nombreProyecto);
+    // Re-escanea Sonidos/ del proyecto: limpia el registro y lo repuebla por
+    // nombre (los widgets de AudioSource/interfaces hablan por nombre, no ruta).
+    clipsAudio.configurarCarpeta(EditorConfig::directorioSonidos(nombreProyecto),
+                                 audioEngine.get());
+    // El creador apunta a Memory/Interfaces del nuevo proyecto.
+    if (managerGUI) {
+        CreadorDeInterfaces* creador = managerGUI->getCreadorInterfacesGUI();
+        if (creador) creador->configurarProyecto(
+            EditorConfig::directorioInterfaces(nombreProyecto));
+    }
+}
+
+AudioEngine* GameScene::getAudioEngine() const noexcept {
+    return audioEngine.get();
+}
+
+// Reproduce o detiene los AudioSource de la escena segun la transicion de
+// modo play. Al ENTRAR en play: inyecta el motor y dispara los de reproduccion
+// automatica. Al SALIR de play: detiene todo (evita colas de audio en el
+// editor). El motor se inyecta siempre, para que el inspector pueda probar.
+void GameScene::sincronizarAudioPlay(bool entrarEnPlay) {
+    auto* gameObjects = getGameObjectsScene();
+    if (!gameObjects || gameObjects->isEmpty()) return;
+    Position<GameObject*>* pos = gameObjects->first();
+    while (pos && pos->getElement()) {
+        AudioSource* source = pos->getElement()->getComponent<AudioSource>();
+        if (!source) {
+            pos = (pos != gameObjects->last()) ? gameObjects->next(pos) : nullptr;
+            continue;
+        }
+        source->setMotor(audioEngine.get());
+        if (entrarEnPlay) {
+            if (source->isReproduccionAutomatica() && !source->isReproduciendo())
+                source->reproducir();
+        } else {
+            source->detener();
+        }
+        pos = (pos != gameObjects->last()) ? gameObjects->next(pos) : nullptr;
+    }
 }
 
 ListaDE<GameObject*>* GameScene::getGameObjectsScene() {
@@ -162,9 +223,27 @@ void GameScene::asegurarGrilla() {
 
 void GameScene::saveScene(const std::string& filename) {
     if (sceneSerializer) sceneSerializer->save(filename);
+    // Manifiesto de assets (add-on): se regenera en CADA guardado, asi el
+    // JSON centraliza siempre el estado vigente de las rutas (mover/renombrar
+    // assets lo renueva de paso). Es independiente del .db binario.
+    ManifiestoAssets::guardar(filename + "SceneAssets.json",
+                              getGameObjectsScene());
 }
 
 bool GameScene::isStart() { return start; }
+
+// La maquina de estados (orquestador) es la fuente de verdad de la simulacion:
+// EditorInput la refleja aca en el path de F5/F7 (F5 -> true, F7 -> false),
+// comparte flag con el boton Activar/Detener del menu de escena.
+void GameScene::setStart(bool activo) noexcept { start = activo; }
+
+bool GameScene::isSimulacionPausada() const noexcept { return simulacionPausada; }
+
+// Pausa (F6): congela la simulacion SIN salir de play; al reanudar se retoma
+// desde donde quedo (fisica y scripts solo avanzan con !pausada).
+void GameScene::setSimulacionPausada(bool pausada) noexcept {
+    simulacionPausada = pausada;
+}
 
 void GameScene::loadScene(const std::string& pathTxt, const std::string& semiPath) {
     if (sceneSerializer) {
@@ -181,6 +260,20 @@ void GameScene::loadScene(const std::string& pathTxt, const std::string& semiPat
         // Las escenas viejas no guardan el objeto "Grilla": se crea sobre la
         // marcha si falta, conservando la visibilidad por defecto.
         asegurarGrilla();
+
+        // Manifiesto de assets (add-on de la serializacion binaria): si
+        // existe, sus rutas tienen precedencia sobre las que dejo el .db.
+        // El pathTxt es <prefijo>BBDDObjetos.txt; el manifiesto comparte el
+        // prefijo con nombre SceneAssets.json.
+        const std::string sufijoBBDD = "BBDDObjetos.txt";
+        if (pathTxt.size() >= sufijoBBDD.size() &&
+            pathTxt.compare(pathTxt.size() - sufijoBBDD.size(),
+                            sufijoBBDD.size(), sufijoBBDD) == 0) {
+            const std::string prefijo =
+                pathTxt.substr(0, pathTxt.size() - sufijoBBDD.size());
+            ManifiestoAssets::cargar(prefijo + "SceneAssets.json",
+                                     getGameObjectsScene());
+        }
     }
 }
 
@@ -351,6 +444,46 @@ void GameScene::GUI() {
     if (menuBarGUI->getCargarScripts()) {
         menuBarGUI->setCargarScripts(false);
     }
+
+    // Sistema de audio + creador de interfaces: el catalogo de clips se
+    // refresca por frame (tolerante y barato), el canvas refleja la interfaz
+    // activa y cambia su presentacion segun el modo play.
+    if (managerGUI) {
+        CreadorDeInterfaces* creador = managerGUI->getCreadorInterfacesGUI();
+        CanvasInterface* canvas = managerGUI->getCanvasGUI();
+        if (creador) {
+            creador->setClipNames(audioEngine->nombresClips());
+            creador->printGUI();
+        }
+        if (canvas) {
+            canvas->setAudioEngine(audioEngine.get());
+            canvas->setModoPlay(start);
+            UserInterfaceCustom* uiParaCanvas = nullptr;
+            if (start && creador) {
+                // En modo play: buscar objeto con InterfaceComponent y activar
+                // su interfaz a pantalla completa (HUD del juego).
+                auto* objs = getGameObjectsScene();
+                if (objs && !objs->isEmpty()) {
+                    Position<GameObject*>* pos = objs->first();
+                    while (pos && pos->getElement()) {
+                        if (auto* ic =
+                                pos->getElement()->getComponent<InterfaceComponent>()) {
+                            const std::string& nombre = ic->getInterfaz();
+                            if (!nombre.empty())
+                                uiParaCanvas = creador->activarInterfaz(nombre);
+                            break; // la primera gana
+                        }
+                        pos = (pos != objs->last()) ? objs->next(pos) : nullptr;
+                    }
+                }
+            } else if (creador) {
+                // En editor: usar la interfaz activa del creador (prueba manual).
+                uiParaCanvas = creador->getInterfazActiva();
+            }
+            canvas->setUI(uiParaCanvas);
+            canvas->printGUI();
+        }
+    }
 }
 
 void GameScene::pintarViewportsGUI() {
@@ -511,6 +644,15 @@ void GameScene::update(float value) {
             }
         }
 
+        // Audio: inyectar el motor y disparar los AudioSource automaticos.
+        sincronizarAudioPlay(true);
+
+        // Scripts: cablear los servicios de escena (audio, busqueda, teclado)
+        // a la tabla que consultan los comportamientos via `servicios->...`.
+        MotorScript::inyectarServiciosScript(audioEngine.get(),
+                                             sceneRegistry.get(),
+                                             &inputScripts);
+
         // Todos los scripts que necesitan (re)compilarse entran a la cola: su
         // progreso se ve en la barra "Estado" antes de bloquear con g++/javac.
         encolarScriptsIniciales();
@@ -520,6 +662,11 @@ void GameScene::update(float value) {
     // (onStop) y conservar los valores editados en play mode para la GUI.
     if (previousStart && !start) {
         limpiarColaCompilacion();
+        // Scripts: desconectar los servicios (los comportamientos deben
+        // tolerar servicios == nullptr / tablas inoperativas al salir).
+        MotorScript::inyectarServiciosScript(nullptr, nullptr, nullptr);
+        // Audio: detener los AudioSource (no dejar sonando en el editor).
+        sincronizarAudioPlay(false);
         auto* gameObjects = getGameObjectsScene();
         if (!gameObjects->isEmpty()) {
             Position<GameObject*>* pos = gameObjects->first();
@@ -534,12 +681,16 @@ void GameScene::update(float value) {
     }
     previousStart = start;
 
-    if (phisics && start && !gizmoInUse()) phisics->stepSimulation(value);
+    // La fisica y los scripts SOLO avanzan en modo play (start==true) y sin
+    // pausa (F6): con simulacionPausada congelada se congela el motor pero la
+    // GUI/editor sigue, para reanudar desde el mismo frame.
+    if (phisics && start && !gizmoInUse() && !simulacionPausada)
+        phisics->stepSimulation(value);
 
     // Sincronizar la fisica de vuelta a los GameObjects del mundo
     // (GameObject::update escribe en los Transforms via RigidBody).
     procesarColaCompilacion();
-    if (start && !gizmoInUse()) {
+    if (start && !gizmoInUse() && !simulacionPausada) {
         auto* gameObjects = getGameObjectsScene();
         if (!gameObjects->isEmpty()) {
             Position<GameObject*>* pos = gameObjects->first();
@@ -988,13 +1139,42 @@ void GameScene::gameScene() {
         const float* ptr = glm::value_ptr(mFull);
         for (int i = 0; i < 16; ++i) matrix[i] = ptr[i];
 
-        static ImGuizmo::MODE mode = ImGuizmo::LOCAL;
+        // Sistema de coordenadas del gizmo: LOCAL (= ejercicio historico, los ejes
+        // rotan con el objeto) o GLOBAL/WORLD (ejes del mundo fijos, el gizmo
+        // NO rota con el objeto). En WORLD el redondeo de la matriz se hace
+        // igual contra inv(parentGlobal), asi que ambos conviven sin tocar la
+        // escritura de vuelta al local.
+        const ImGuizmo::MODE modoGizmo =
+            gizmoGlobal ? ImGuizmo::WORLD : ImGuizmo::LOCAL;
         ImGuizmo::Manipulate(view, projection,
                              static_cast<ImGuizmo::OPERATION>(gizmoOperation),
-                             mode, matrix, nullptr,
+                             modoGizmo, matrix, nullptr,
                              nullptr, nullptr, nullptr);
         gizmoReady = true;
-        if (ImGuizmo::IsUsing()) {
+
+        // Arrastre del gizmo: UNA foto del transform al iniciar el drag (antes
+        // de escribir la matriz de este frame) y, al soltarlo, un solo
+        // TransformComando con el estado inicial y el final. Asi el historial
+        // del editor tiene una entrada por movimiento y no una por frame.
+        // Solo aplica al transform del OBJETO: el offset local de un collider
+        // se edita sobre el componente y no tiene comando propio.
+        const bool usandoGizmo = ImGuizmo::IsUsing();
+        if (usandoGizmo && !gizmoArrastrando) {
+            gizmoArrastrando = true;
+            arrastreComando.reset();
+            const bool editaObjeto =
+                target.owner &&
+                target.owner->getComponent<Transform>() == target.local;
+            if (editaObjeto && target.owner->getId() > 0 && target.local) {
+                tomarFotoTransform(target.local, arrastreInicial);
+                arrastreFinal = arrastreInicial;
+                // El constructor captura el estado actual como "anterior": el
+                // gizmo todavia no escribio este frame.
+                arrastreComando = std::make_unique<TransformComando>(
+                    editorController.get(), target.owner, sceneRegistry.get());
+            }
+        }
+        if (usandoGizmo) {
             // Reinsertar la escala que quitamos: M = M' * diag(scale).
             glm::mat4 mManip = glm::make_mat4(matrix);
             if (sinEscala) {
@@ -1068,8 +1248,75 @@ void GameScene::gameScene() {
                         child->getComponent<RigidBody>()->syncGameObjectToPhysics();
                 }
             }
+
+            // Estado final del arrastre: lo consumira el comando de undo.
+            if (arrastreComando && target.local)
+                tomarFotoTransform(target.local, arrastreFinal);
+        } else if (gizmoArrastrando) {
+            // Se solto el gizmo: se registra UN comando con el estado inicial
+            // y el final. ejecutar() reaplica los valores finales (el gizmo ya
+            // los escribio en disco/memoria) y deja el comando en la pila de
+            // undo, que es lo que consume Ctrl+Z.
+            gizmoArrastrando = false;
+            if (arrastreComando &&
+                transformDistinguible(arrastreInicial, arrastreFinal)) {
+                arrastreComando->setNuevoEstado(
+                    arrastreFinal.pos[0], arrastreFinal.pos[1],
+                    arrastreFinal.pos[2], arrastreFinal.rot[0],
+                    arrastreFinal.rot[1], arrastreFinal.rot[2],
+                    arrastreFinal.rot[3], arrastreFinal.esc[0],
+                    arrastreFinal.esc[1], arrastreFinal.esc[2]);
+                if (editorController)
+                    editorController->getGestorComandos()->ejecutar(
+                        std::move(arrastreComando));
+            }
+            // Sin cambios (clic sin mover) o sin comando: no hay nada que
+            // registrar y el historial queda como estaba.
+            arrastreComando.reset();
         }
     }
+}
+
+void GameScene::tomarFotoTransform(Transform* t,
+                                  EstadoTransform& destino) const {
+    if (!t) return;
+    if (const float* p = t->getTranslatef()) {
+        destino.pos[0] = p[0];
+        destino.pos[1] = p[1];
+        destino.pos[2] = p[2];
+    }
+    if (const float* r = t->getRotatef()) {
+        destino.rot[0] = r[0];
+        destino.rot[1] = r[1];
+        destino.rot[2] = r[2];
+        destino.rot[3] = r[3];
+    }
+    if (const float* s = t->getScalef()) {
+        destino.esc[0] = s[0];
+        destino.esc[1] = s[1];
+        destino.esc[2] = s[2];
+    }
+}
+
+bool GameScene::transformDistinguible(const EstadoTransform& a,
+                                     const EstadoTransform& b) {
+    // Tolerancia pequena: descarta el comando cuando el arrastre no movio nada
+    // de verdad (un clic sobre el gizmo sin arrastrar no debe llenar el
+    // historial).
+    constexpr float kEpsilon = 1e-4f;
+    for (int i = 0; i < 3; ++i)
+        if (std::fabs(a.pos[i] - b.pos[i]) > kEpsilon) return true;
+    for (int i = 0; i < 4; ++i)
+        if (std::fabs(a.rot[i] - b.rot[i]) > kEpsilon) return true;
+    for (int i = 0; i < 3; ++i)
+        if (std::fabs(a.esc[i] - b.esc[i]) > kEpsilon) return true;
+    return false;
+}
+
+void GameScene::mostrarMensaje(const std::string& mensaje) {
+    if (!managerGUI) return;
+    if (StatusBarInterface* barra = managerGUI->getStatusBarGUI())
+        barra->mostrarMensaje(mensaje);
 }
 
 void GameScene::setGizmoOperation(int operation) {
@@ -1084,6 +1331,14 @@ void GameScene::setGizmoOperation(int operation) {
 
 int GameScene::getGizmoOperation() const {
     return gizmoOperation;
+}
+
+bool GameScene::isGizmoGlobal() const noexcept {
+    return gizmoGlobal;
+}
+
+void GameScene::setGizmoGlobal(bool global) noexcept {
+    gizmoGlobal = global;
 }
 
 bool GameScene::isGizmoCapturingInput() const {
@@ -1118,6 +1373,14 @@ float GameScene::getSensibilidadCamara() const noexcept {
 
 void GameScene::setSensibilidadCamara(float sensibilidad) noexcept {
     if (sensibilidad > 0.0f) sensibilidadCamara = sensibilidad;
+}
+
+float GameScene::getSensibilidadMovimientoCamara() const noexcept {
+    return sensibilidadMovimientoCamara;
+}
+
+void GameScene::setSensibilidadMovimientoCamara(float sensibilidad) noexcept {
+    if (sensibilidad > 0.0f) sensibilidadMovimientoCamara = sensibilidad;
 }
 
 const Apariencia& GameScene::getApariencia() const noexcept {
