@@ -106,10 +106,13 @@ FunshiEngineGL/                          ← raíz del repo
         │       └── BehaviourReflection.* ← reflexión, macros SerializeField y serialización
         ├── Configuracion/
         │   ├── Apariencia.h             ← perfil de apariencia (tema/acento/fondo/B-N) + utilidades
-        │   ├── EditorConfig.h/.cpp      ← fachada de la configuración (datos() + cargar*/guardar*, guardado diferido)
+        │   ├── EditorConfig.h/.cpp      ← fachada de la configuración (datos() + cargar*/guardar*, guardado
+        │   │                              diferido) y punto de entrada estable del CRUD de proyectos, que
+        │   │                              DELEGA en ProjectManager (una sola implementación)
         │   ├── ConfigPersistence.h/.cpp ← JSON puro de la config: general + proyecto (escritura atómica)
         │   ├── ProjectPaths.h/.cpp      ← rutas canónicas del motor (una sola fuente de verdad)
-        │   └── ProjectManager.h/.cpp    ← alta y listado de proyectos en Proyects/ (delega rutas en ProjectPaths)
+        │   └── ProjectManager.h/.cpp    ← único dueño del ciclo de vida de proyectos (CRUD, migraciones
+        │                                  de estructura antigua, fallbacks de copia); delega rutas en ProjectPaths
         ├── Entity/
         │   ├── Entity.h                 ← base: lista de componentes, Transform, serialización
         │   └── Entity.cpp
@@ -427,7 +430,12 @@ internamente `GUIManager`, `SceneRegistry`, `EditorController`, `SceneSerializer
   verdad**: `Configuracion/ConfigPersistence.{h,cpp}` (JSON puro, sin estado)
   sobre `Configuracion/ProjectPaths.{h,cpp}` (rutas), con
   `EditorConfig.{h,cpp}` como fachada estable que expone `datos()` y
-  `cargar*/guardar*` a main, escenas y tests. Guarda: menú (proyecto, idioma,
+  `cargar*/guardar*` a main, escenas y tests. El **ciclo de vida de los
+  proyectos** (`asegurarEstructuraProyecto`, `crearProyectoPorDefecto`,
+  `renombrarProyecto`, `eliminarProyecto`) no se implementa en EditorConfig:
+  son **delegaciones a `ProjectManager`**, único dueño del CRUD, las
+  migraciones de estructura antigua y los fallbacks de copia entre
+  dispositivos. Guarda: menú (proyecto, idioma,
   sensibilidad de cámara), gizmo, ventana de cámaras, ventanas (estado
   abierto/cerrado de GUIManager), cámara activa por id y perfil de apariencia,
   en dos archivos junto al binario (Linux y Windows):
