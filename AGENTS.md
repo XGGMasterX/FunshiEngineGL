@@ -53,6 +53,14 @@ cd FunshiEngineGL/build && ctest --output-on-failure
   mantener compatibilidad de prefijos y acotar lecturas con `std::min`.
 - **Física** detrás de la fachada `PhysicsEngine` → `IPhysicsBackend`; no usar
   Bullet fuera de `Fisicas/`.
+- **Compatibilidad multiplataforma**: al usar APIs nativas del sistema operativo
+  (Windows API, POSIX, filesystem, threading, dynamic loading, etc.), SIEMPRE
+  verificar y mantener compatibilidad con **Linux y Windows**. Usar guardas
+  `#ifdef _WIN32` / `#else` (Linux/macOS) y aislar el código dependiente de
+  plataforma en capas de abstracción o backends dedicados (p. ej.
+  `IRenderBackend`, `FileSystemWatcher`, `BackendCpp`/`BackendJava`). No asumir
+  que headers o comportamientos de un SO existen en el otro; probar o validar
+  compilación cruzada en CI antes de confirmar cambios.
 
 ## Flujo de trabajo
 
