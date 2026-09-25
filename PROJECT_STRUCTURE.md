@@ -248,6 +248,10 @@ FunshiEngineGL/                          ← raíz del repo
         └── Scenes/
             ├── GameScene.h/.cpp          ← coordinador del frame: render, GUI, física, gizmo,
             │                                previews y pasada de la grilla
+            ├── GizmoController.h/.cpp   ← gizmo ImGuizmo + picking (desde GameScene): estado
+            │                                (operación/global/listo), arrastre con
+            │                                TransformComando (historial) y congelación de
+            │                                hijos; interacción vía ImGuizmo + raycast AABB
             ├── SceneRegistry.h/.cpp      ← ownership único (unique_ptr) + árbol + vista lineal
             ├── EditorController.h/.cpp   ← mutaciones + GizmoTarget + registro de física
             ├── SceneSerializer.h/.cpp    ← save/load binario preorden con marcadores =>/<=

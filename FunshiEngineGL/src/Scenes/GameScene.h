@@ -35,7 +35,6 @@
 class CameraComponent;
 class EditorController;
 class Transform;
-class TransformComando;
 class GUIManager;
 class GameObject;
 class PhysicsEngine;
@@ -52,6 +51,7 @@ class AudioEngine;
 class CanvasInterface;
 class CreadorDeInterfaces;
 class MiniAudioBackend;
+class GizmoController;
 
 class GameScene {
 private:
@@ -123,31 +123,11 @@ private:
     // fondo del viewport y el color de la grilla (modo B/N); el estilo ImGui
     // lo aplica main con TemaEditor.
     Apariencia apariencia;
-    int gizmoOperation = 7; // ImGuizmo::TRANSLATE
-    // Sistema de coordenadas del gizmo: false = LOCAL (rotacion de los ejes con
-    // el objeto, comportamiento historico); true = GLOBAL/WORLD (ejes del mundo,
-    // el gizmo NO rota con el objeto). Alternable con G o el menu "Gizmo".
-    bool gizmoGlobal = false;
-    bool gizmoReady = false;
-
-    // Arrastre del gizmo en curso: se toma una foto del transform al iniciar el
-    // arrastre y otra al terminar, para registrar UN TransformComando por
-    // movimiento del usuario (y no uno por frame). El comando queda pendiente
-    // hasta que el gizmo se suelta; si el transform no cambio, se descarta.
-    struct EstadoTransform {
-        float pos[3] = {0, 0, 0};
-        float rot[4] = {0, 0, 0, 0};
-        float esc[3] = {1, 1, 1};
-    };
-    bool gizmoArrastrando = false;
-    EstadoTransform arrastreInicial;
-    EstadoTransform arrastreFinal;
-    std::unique_ptr<TransformComando> arrastreComando;
-    // El puntero no es const porque los getters del Transform (getTranslatef,
-    // getRotatef, getScalef) no son const en el componente.
-    void tomarFotoTransform(Transform* t, EstadoTransform& destino) const;
-    static bool transformDistinguible(const EstadoTransform& a,
-                                      const EstadoTransform& b);
+    // Gizmo de manipulacion de transforms (ImGuizmo): seleccion por clic
+    // (picking) y manipulación del transform del objetivo, extraido de
+    // gameScene() a su propio modulo. Se construye en el cuerpo del ctor (la
+    // seleccion la inyecta GUIManager en el cuerpo) y vive toda la escena.
+    std::unique_ptr<GizmoController> gizmoController_;
 
     void asegurarGrilla();
     // Reproduce/detiene los AudioSource de la escena en las transiciones de
