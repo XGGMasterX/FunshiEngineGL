@@ -12,7 +12,9 @@ Motor y editor 3D en tiempo real escrito en C++17, con interfaz ImGui y renderiz
 ## Características actuales
 
 - Ventana y contexto **OpenGL 3.3 core** con **GLFW**; renderizado íntegramente
-  con shaders (VBO/VAO + `ShaderProgram`), sin pipeline inmediato ni GLU.
+  con shaders (VBO/VAO + `ShaderProgram`), sin pipeline inmediato ni GLU. El
+  perfil core es un requisito duro: si el driver no da 3.3 core, el arranque
+  aborta con un mensaje en consola en vez de mostrar una pantalla negra.
 - Interfaz de editor con **Dear ImGui** (docking) y gizmos con **ImGuizmo**.
 - Sistema **Entity–Component**: `Transform`, `Color`, `Model`, `Material`, `Light`, `CameraComponent`, `Grid`, colliders (esfera / cubo / malla), `RigidBody`, `AudioSource`, `InterfaceComponent` (HUD por asset JSON del CreadorDeInterfaces) y `Script`.
 - **Scripts dinámicos** (`Script` + `IScriptBehaviour`): reflexión por macros con campos `SerializeField` (escalares, arrays y grupos anidados) editables en el inspector; compilación en caliente de C++ a `.so`/`.dll` (`BackendCpp`) y soporte de **Java vía JNI** (`BackendJava`, se activa automáticamente si el build encuentra el JDK). Hot reload por fecha de modificación que reinyecta los valores serializados, y ciclo `onStart`/`onUpdate`/`onStop`.

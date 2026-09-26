@@ -287,7 +287,7 @@ FunshiEngineGL/                          ← raíz del repo
 
 ```text
 main.cpp
-  ├── Ventana (GLFW init)
+  ├── Ventana (GLFW init: contexto 3.3 core + carga dura de GLFuncs)
   ├── ImGui init (backends glfw + opengl3; imgui.ini gestionado por el gestor)
   ├── GUIManager (crea el menú y las ventanas; posee FileManager)
   ├── GameScene(guiManager)
@@ -687,6 +687,13 @@ No están implementados todavía:
   marcadores y gizmos de collider. No hay modo inmediato ni estado fijo: la
   iluminación viaja como uniforms y las transformaciones como uniforms de
   matriz, así que el contexto es OpenGL 3.3 core estricto.
+- El perfil core es un **requisito duro**, no una preferencia: `Ventana::
+  initVentana` lo pide con `GLFW_OPENGL_CORE_PROFILE` + versión 3.3 +
+  `GLFW_OPENGL_FORWARD_COMPAT`, y si `glfwCreateWindow` falla (driver sin 3.3
+  core) o si a `GLFuncs::init()` le falta alguna función, aborta el arranque con
+  un mensaje en consola en vez de seguir hasta fallar en el primer draw (que se
+  vería como pantalla negra sin explicación). El requisito real es GLSL 330,
+  que es lo que imponen los shaders (`layout in/out`).
 
 ---
 

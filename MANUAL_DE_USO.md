@@ -43,6 +43,13 @@ por arrastre y escribir scripts con la API exacta que expone el motor.
 GLFW, GLM, Assimp y Bullet. Java es opcional (solo scripting Java): si el build
 encuentra un JDK, se compila el soporte `FUNSHI_JAVA=ON` automaticamente.
 
+El **perfil core es obligatorio**: el motor pide un contexto OpenGL 3.3 core
+(GLFW `GLFW_OPENGL_CORE_PROFILE` + `GLFW_OPENGL_FORWARD_COMPAT`) porque todo su
+render es con shaders y no usa estado fijo. Si la GPU no lo soporta, el arranque
+se corta con un mensaje en consola y la ventana no se abre; en ese caso hay que
+actualizar el driver. El requisito real es GLSL 330, que es lo que imponen los
+shaders del engine.
+
 ```bash
 cmake -S FunshiEngineGL -B FunshiEngineGL/build
 cmake --build FunshiEngineGL/build -j$(nproc)
