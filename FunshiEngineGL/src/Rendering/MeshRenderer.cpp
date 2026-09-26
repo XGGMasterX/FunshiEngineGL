@@ -62,7 +62,9 @@ bool MeshRenderer::inicializar() {
                                       kDefaultFragmentShader));
         aplicarLuces();
     } catch (const std::exception& e) {
-        // No es fatal: el llamador degrada al pipeline inmediato.
+        // Sin shader no hay pipeline: available() queda en false y la pasada
+        // dibuja menos, sin objeto que avise uno por uno. El error va al log
+        // porque es la causa raiz de una escena vacia.
         std::cerr << "[MeshRenderer] Shader por defecto no disponible: "
                   << e.what() << '\n';
         shader_.reset();
