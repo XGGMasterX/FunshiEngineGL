@@ -124,6 +124,89 @@ void testMesh() {
     CHECK(!vacio.computeBounds(mn, mx), "computeBounds con mesh vacia es false");
 }
 
+// Cuadrilatero en el plano XY: sus normales calculadas deben dar +Z.
+void testMeshNormals() {
+    auto quad = std::make_shared<Mesh>();
+    quad->name = "cuadrilatero";
+    const float pos[][3] = {{0, 0, 0}, {1, 0, 0}, {1, 1, 0}, {0, 1, 0}};
+    for (int v = 0; v < 4; ++v)
+        quad->vertices.emplace_back(pos[v][0], pos[v][1], pos[v][2]);
+    quad->indices = {0, 1, 2, 0, 2, 3};
+
+    CHECK(!quad->hasNormals(), "sin calcular no hay normales");
+    CHECK(quad->computeNormals(), "computeNormals sobre cuadrilatero");
+    CHECK(quad->hasNormals(), "hasNormals() true tras computeNormals");
+    for (std::size_t v = 0; v < quad->normals.size(); ++v) {
+        CHECK(std::fabs(quad->normals[v].x) < 1e-5f &&
+                  std::fabs(quad->normals[v].y) < 1e-5f &&
+                  std::fabs(quad->normals[v].z - 1.f) < 1e-5f,
+              "normal del cuadrilatero apunta a +Z");
+    }
+
+    // Ponderacion por area: el vertice 0 comparte una cara grande (+Y, area 8) y
+    // una chica (+Z, area 0.5). La normal promediada debe dominar la cara
+    // grande: (0,16,0)+(0,0,1) normalizado.
+    auto pesada = std::make_shared<Mesh>();
+    const float posP[][3] = {
+        {0, 0, 0}, {0, 0, 4}, {4, 0, 0},   // cara grande +Y (area 8)
+        {1, 0, 0}, {0, 1, 0}};             // cara chica  +Z (area 0.5)
+    for (const auto& v : posP)
+        pesada->vertices.emplace_back(v[0], v[1], v[2]);
+    pesada->indices = {0, 1, 2, 0, 3, 4};
+    CHECK(pesada->computeNormals(), "computeNormals con dos caras por vertice");
+    const vec3& n0 = pesada->normals[0];
+    CHECK(std::fabs(n0.y - 0.99804866f) < 1e-4f,
+          "la cara grande domina el promedio");
+    CHECK(std::fabs(n0.z - 0.06237792f) < 1e-4f,
+          "la cara chica aporta al promedio");
+    CHECK(std::fabs(n0.magnitude() - 1.f) < 1e-5f, "la normal queda normalizada");
+
+    // Un vertice que no pertenece a ninguna cara se queda con la normal nula,
+    // no con un NaN (normaliza() divide por la magnitud).
+    auto huerfano = std::make_shared<Mesh>();
+    huerfano->vertices.emplace_back(0.f, 0.f, 0.f);
+    huerfano->vertices.emplace_back(1.f, 0.f, 0.f);
+    huerfano->vertices.emplace_back(0.f, 1.f, 0.f);
+    huerfano->vertices.emplace_back(9.f, 9.f, 9.f); // sin ninguna cara
+    huerfano->indices = {0, 1, 2};
+    CHECK(huerfano->computeNormals(), "computeNormals con vertice huerfano");
+    const vec3& nH = huerfano->normals[3];
+    CHECK(nH.x == 0.f && nH.y == 0.f && nH.z == 0.f,
+          "el vertice sin caras conserva la normal nula (no NaN)");
+
+    // Cara degenerada (los tres vertices en el mismo punto): producto cruz
+    // nulo, sin NaN.
+    auto degenerada = std::make_shared<Mesh>();
+    degenerada->vertices.emplace_back(1.f, 1.f, 1.f);
+    degenerada->vertices.emplace_back(1.f, 1.f, 1.f);
+    degenerada->vertices.emplace_back(1.f, 1.f, 1.f);
+    degenerada->indices = {0, 1, 2};
+    CHECK(degenerada->computeNormals(), "computeNormals con cara degenerada");
+    CHECK(degenerada->normals[0].magnitude() == 0.f,
+          "cara degenerada deja la normal en cero (no NaN)");
+
+    // Indice fuera de rango: se salta la cara sin leer fuera del vector.
+    auto colgado = std::make_shared<Mesh>();
+    colgado->vertices.emplace_back(0.f, 0.f, 0.f);
+    colgado->vertices.emplace_back(1.f, 0.f, 0.f);
+    colgado->vertices.emplace_back(0.f, 1.f, 0.f);
+    colgado->indices = {0, 1, 2, 0, 1, 99};
+    CHECK(colgado->computeNormals(), "computeNormals con indice invalido");
+    CHECK(colgado->hasNormals(), "el indice invalido no rompe el resultado");
+
+    // Sin indices triangulados no hay de donde calcular: no debe mentir.
+    Mesh vacio;
+    CHECK(!vacio.computeNormals(), "computeNormals sin vertices es false");
+    auto sinIndices = std::make_shared<Mesh>();
+    sinIndices->vertices.emplace_back(0.f, 0.f, 0.f);
+    CHECK(!sinIndices->computeNormals(), "computeNormals sin indices es false");
+    auto impar = std::make_shared<Mesh>();
+    impar->vertices = {vec3(0, 0, 0), vec3(1, 0, 0), vec3(0, 1, 0),
+                       vec3(1, 1, 0)};
+    impar->indices = {0, 1, 2, 3}; // no multipleto de 3
+    CHECK(!impar->computeNormals(), "computeNormals con indices sin cerrar es false");
+}
+
 // Cuadrilatero en el plano XY con normales +Z y UVs canonicas: su marco
 // tangente debe resultar T = +X, B = +Y (arriba = +Y en UV).
 std::shared_ptr<Mesh> cuadrilatero() {
@@ -246,6 +329,7 @@ void testAssetManager() {
 int main() {
     testAssetPath();
     testMesh();
+    testMeshNormals();
     testMeshTangents();
     testAssetManager();
 

@@ -42,9 +42,16 @@ std::shared_ptr<Mesh> AssimpMeshLoader::load(const std::string& path) {
     auto mesh = std::make_shared<Mesh>();
     mesh->name = AssetPath::basename(path);
 
+    // El importador pide aiProcess_GenSmoothNormals, pero no siempre puede
+    // generarlas (mallas no manifoldes, caras degeneradas): si alguna sub-malla
+    // llega sin normales, hay que recalcularlas en vez de dejar ceros.
+    bool algunaNormales = false;
+
     for (unsigned int m = 0; m < scene->mNumMeshes; ++m) {
         const aiMesh* src = scene->mMeshes[m];
         if (!src) continue;
+
+        if (src->HasNormals()) algunaNormales = true;
 
         const unsigned int base = static_cast<unsigned int>(mesh->vertices.size());
         mesh->vertices.reserve(mesh->vertices.size() + src->mNumVertices);
@@ -102,5 +109,11 @@ std::shared_ptr<Mesh> AssimpMeshLoader::load(const std::string& path) {
 
     if (mesh->vertices.empty())
         throw AssetLoadException(path, "la malla resultante no tiene vertices");
+
+    // Ninguna sub-malla traia normales: las que se dejaron en cero se
+    // regeneran por cara (area-weighted) para que la malla entre al shader
+    // iluminada en vez de caer al dibujado legacy de cara plana.
+    if (!algunaNormales) mesh->computeNormals();
+
     return mesh;
 }
