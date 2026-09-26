@@ -169,8 +169,8 @@ viewport lo selecciona; el Inspector muestra sus componentes a la derecha.
 
 ## 4. Objetos y componentes
 
-- **Crear objetos:** "New Object" (vacio/jerarquia) y "New RenderObject"
-  (incluye `Model` + `Material` para renderizar).
+- **Crear objetos:** "New GameObject" (crea un objeto simple en la escena que posee únicamente el componente `Transform`).
+- **Menú contextual en la jerarquía:** clic derecho sobre un objeto despliega "Renombrar" y "Eliminar"; clic derecho en espacio vacío del panel despliega "New GameObject".
 - **Componentes:** `Transform`, `Color`, `Model`, `Material`, `Light`,
   `CameraComponent`, colliders (esfera / cubo / malla), `RigidBody`,
   `AudioSource`, `InterfaceComponent` y `Script`.
