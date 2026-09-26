@@ -432,6 +432,9 @@ ejecuta en modo Play.
   recompila y recarga el comportamiento conservando los valores.
 - La ventana **Estado** muestra el toolchain (compilador C++, javac, libjvm,
   cache) y el resultado de compilacion/carga de cada script de la escena.
+- Los errores de carga/compilacion se informan en la ventana **Estado** y en el
+  log del motor (`logs/FunshiEngineGL_*.log`); el panel del componente no los
+  repite: queda con el fuente asignado y sus SerializeField.
 
 ---
 
@@ -712,8 +715,10 @@ public class MiScript implements Comportamiento {
 - **Java:** igual, con el classloader child-first; la JVM se reutiliza.
 - **Ventana Estado:** para cada script muestra nombre, ok/error y mensaje
   (errores de compilacion incluidos), ademas del toolchain detectado.
-- **Errores de compilacion C++** aparecen en el Estado y en consola; corregi
-  el fuente y guardalo de nuevo (no hace falta salir de Play).
+- **Errores de carga/compilacion C++** aparecen en la ventana Estado y en el log
+  del motor (`logs/FunshiEngineGL_*.log` junto al ejecutable), no en el panel del
+  componente; corregi el fuente y guardalo de nuevo (no hace falta salir de
+  Play).
 - Al cerrar la aplicacion los comportamientos se descargan sin disparar
   `onStop`; los backends (incluida la JVM) se apagan despues.
 
