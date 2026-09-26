@@ -154,10 +154,11 @@ ImGui la combinacion la consume el editor de texto y no guarda.
 | `Ctrl+Z` | Deshacer ultima accion del editor (undo) |
 | `Ctrl+Y` | Rehacer accion deshecha (redo) |
 | `Escape` | Volver al menu de inicio |
-| `1` / `T` | Gizmo: traslacion |
-| `2` / `R` | Gizmo: rotacion |
-| `3` / `Y` | Gizmo: escala (sin `Ctrl`: con `Ctrl` es el atajo de redo) |
-| `G` | Gizmo local / mundo |
+| `1` / `T` | Gizmo: traslacion (apaga la guia de eje) |
+| `2` / `R` | Gizmo: rotacion (apaga la guia de eje) |
+| `3` / `U` | Gizmo: escala (la `Y` suelta la tomo la guia de eje; apaga la guia) |
+| `X` / `Y` / `Z` | Guia de eje del objeto seleccionado (ver abajo) |
+| `G` | Gizmo local / mundo (gizmo y guia de eje) |
 | Clic en objeto | Seleccionar en viewport |
 
 El modo Play/Stop se controla desde la barra de menu de la escena; la fisica y
@@ -179,8 +180,40 @@ viewport lo selecciona; el Inspector muestra sus componentes a la derecha.
   motor rechaza ciclos y la raiz. "Childs Freeze" congela la transformacion de
   los hijos durante la edicion del padre.
 - **Gizmos** (ImGuizmo): traslacion/rotacion/escala con `1`/`2`/`3` o
-  `T`/`R`/`Y`, local/mundo con `G`; la fisica tiene su gizmo propio para el
+  `T`/`R`/`U`, local/mundo con `G`; la fisica tiene su gizmo propio para el
   collider activo.
+
+### Guia de eje (`X` / `Y` / `Z`)
+
+Con un objeto seleccionado, `X`, `Y` o `Z` dibujan la recta sobre la que se
+puede mover ese objeto: la tecla pulsada es el eje que varia y **las otras dos
+coordenadas quedan fijadas** a las del objeto.
+
+Por ejemplo, un objeto en `(3, 2, -5)` y se pulsa `X`: la recta es `(t, 2, -5)`
+para todo `t`. Es decir, el objeto solo se desplaza en X y su altura (Y) y su
+profundidad (Z) no se mueven. Con `Y` el efecto es el inverso: quedan fijos X y Z.
+
+- Cada eje tiene su color (X rojo, Y verde, Z azul) y la recta llega hasta el
+  **horizonte**, difuminandose con el mismo criterio que la grilla: opaca cerca de
+  la camara y desvanciendose en el mismo punto donde el piso se acaba. Asi la
+  guia se lee como un eje que atraviesa la escena entera, no como un palo corto
+  pegado al objeto.
+- Es un interruptor: apretar dos veces la misma tecla la apaga. Al activarla o
+  apagarla aparece un aviso en la barra de estado que dice que guia quedo
+  prendida y sobre que eje se puede mover el objeto. Tambien se apaga sola al
+  seleccionar otro objeto, al ocultar las interfaces con `E` y al volver al menu
+  con `Escape`.
+- Con la guia activa el gizmo **no se oculta**: se queda solo la flecha del eje
+  elegido, que es el punto de agarre. Se arrastra esa flecha y el objeto se
+  mueve por ese unico eje, sin salir de la recta.
+- Elegir otra operacion del gizmo (`1`/`T`, `2`/`R`, `3`/`U`) apaga la guia: si
+  el usuario pide rotar, escalar o mover en los tres ejes, el "solo este eje" ya
+  no aplica.
+- `G` alterna entre **mundo** (la recta sigue el eje del mundo) y **local** (la
+  recta sigue el eje del objeto, rotado con el), igual que el gizmo. La escala
+  del objeto no alarga la recta.
+- Solo aparece en el viewport principal, no en las vistas previas de camara, y
+  no necesita `Ctrl` (`Ctrl+Y`/`Ctrl+Z` siguen siendo redo/undo).
 
 ---
 

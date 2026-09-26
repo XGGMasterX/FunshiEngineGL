@@ -45,6 +45,23 @@
 // frame. Los tres batches se reutilizan: solo se re-suben los buffers.
 class GrillaRenderer {
 public:
+    // Escala y horizonte de la grilla, expuestos porque otras partes del editor
+    // se alinean a ellos. La guia de eje (X/Y/Z) mide su recta en multiplos de
+    // la celda principal para que termine justo sobre lineas de la grilla, y
+    // comparte el mismo difuminado radial para desvanecerse en el mismo
+    // horizonte. Secundarias cada kSeparacionMenor unidades, una principal cada
+    // kMultiploMayor de ellas.
+    static constexpr float kSeparacionMenor = 1.0f;
+    static constexpr int kMultiploMayor = 5;
+    // Difuminado radial: opacidad plena hasta kFadeInicio y caida cuadratica
+    // hasta 0 en kFadeFin, que es el radio del circulo-horizonte y por lo tanto
+    // el limite de dibujado (fuera de el no se pinta nada).
+    static constexpr float kFadeInicio = 40.0f;
+    static constexpr float kFadeFin = 150.0f;
+    // Trozos en que se subdivide cada linea para que el difuminado quede suave
+    // (el batch interpola el alpha entre extremos de cada trozo).
+    static constexpr int kSubdivisiones = 6;
+
     ~GrillaRenderer() { destruir(); }
 
     // Dibuja la grilla infinita en el espacio local del objeto "Grilla" (la

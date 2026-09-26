@@ -477,10 +477,12 @@ add_test(NAME estructuras-tests COMMAND estructuras-tests)
 
 # Geometria de las lineas del pipeline moderno (headless y portatil): solo la
 # parte CPU (LineBuilder, la expansion de cada segmento al quad que dibuja el
-# shader de lineas). No entra OpenGL ni glm a proposito, asi el layout del VAO y
-# la cuenta de vertices se pueden verificar sin pila grafica.
+# shader de lineas) y el calculo de la recta de la guia de eje (GuiaEje). No
+# entra OpenGL ni glm a proposito, asi el layout del VAO, la cuenta de vertices
+# y los extremos de la guia se pueden verificar sin pila grafica.
 add_executable(rendering-tests
     ${SRC_DIR}/Rendering/LineBuilder.cpp
+    ${SRC_DIR}/Rendering/GuiaEje.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../tests/RenderingTests.cpp
 )
 set_target_properties(rendering-tests PROPERTIES

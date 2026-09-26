@@ -211,6 +211,11 @@ FunshiEngineGL/                          ← raíz del repo
         │   ├── LineRenderer.h/.cpp       ← shader de líneas gruesas + batch; fija las
         │   │                                matrices y el viewport de la pasada actual
         │   │                                (líneas de la grilla, marcadores y gizmos)
+         │   ├── GuiaEje.h/.cpp            ← geometría CPU de la guía de eje (X/Y/Z) del
+         │   │                                objeto seleccionado: origen + dirección
+         │   │                                unitaria, recorte analítico al horizonte y
+         │   │                                difuminado por vértice; solo CPU, sin OpenGL
+
         │   ├── TextureGL.h/.cpp          ← textura OpenGL desde Image
         │   ├── RenderTarget.h/.cpp       ← render a textura (FBO) para vistas previas de cámara
         │   ├── GLFuncs.h                ← punteros de función OpenGL 3.3 core (glad-style)
@@ -574,10 +579,15 @@ registrados en CTest (compilan en cualquier plataforma con `BUILD_ENGINE=OFF`;
 - `texturemanager-tests` (15): caché Flyweight de imágenes CPU (sin entrar la pila gráfica).
 - `estructuras-tests` (87): `ListaDE`, `ArbolEnlazado`, `PriorityListaDE`,
   `MinHeap`/`MaxHeap`, `ListMergeSort` y `ArbolBinarioEnlazado`.
-- `rendering-tests` (79): geometría de las líneas del pipeline moderno
+- `rendering-tests` (131): geometría de las líneas del pipeline moderno
   (`LineBuilder`): expansión de cada segmento al quad que ensancha el shader,
   color por extremo (difuminado de la grilla), polilíneas, aristas con índices
-  fuera de rango y caja de 12 aristas. Solo CPU, sin OpenGL.
+  fuera de rango y caja de 12 aristas; más la guía de eje (`GuiaEje`): origen y
+  dirección en mundo, dirección local rotada con el objeto, normalización frente
+  a la escala, colores por eje, recorte de la recta hasta el horizonte con la
+  distancia 3D a la cámara, difuminado por vértice y los rechazos defensivos
+  (eje inválido, NaN/Inf, eje degenerado, horizonte degenerado, recta fuera del
+  horizonte). Solo CPU, sin OpenGL.
 - `scripts-tests` (42): reflexión `SerializeField` (escalares, arrays, grupos
   anidados) y el round-trip binario del árbol de valores.
 - `scripts-runtime-tests`: compila un `.cpp` real con `BackendCpp`, lo carga con
@@ -602,7 +612,8 @@ main.cpp
   │
   ├─ input GLFW ──► EditorInput (callbacks + máquina de teclas) ──► cámara activa (movimiento continuo)
   │                                       ──► tecla E: toggleEditorInterfaces()
-  │                                       ──► 1/T, 2/R, 3/Y: operación del gizmo
+  │                                       ──► 1/T, 2/R, 3/U: operación del gizmo (y apagan la guía)
+  │                                       ──► X/Y/Z: guía de eje del objeto seleccionado
   │                                       ──► Escape: volver al menú (máquina de estados)
   │
   ├─ GameScene::GUI()

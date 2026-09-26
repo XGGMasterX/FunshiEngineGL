@@ -128,7 +128,7 @@ void SceneRenderer::render(const FrameContext& ctx, GameObject* activeCameraObje
     }
 
     dibujarEscena(ctx, view, projection, activeCameraObject, ctx.framebufferWidth,
-                  ctx.framebufferHeight);
+                  ctx.framebufferHeight, true);
 
     static bool diagPostPassPendiente = true;
     if (diagPostPassPendiente) {
@@ -147,7 +147,7 @@ void SceneRenderer::dibujarEscena(const FrameContext& ctx,
                                   const float view[16],
                                   const float projection[16],
                                   GameObject* camaraOjo, int viewportAncho,
-                                  int viewportAlto) {
+                                  int viewportAlto, bool esPasadaPrincipal) {
     auto& backend = Rendering::Backend::activeBackend();
 
     // Estado de la pasada de lineas: el shader de lineas grosses necesita las
@@ -179,7 +179,50 @@ void SceneRenderer::dibujarEscena(const FrameContext& ctx,
 
     dibujarGameObjectsConOjo(ctx, camaraOjo, view, projection);
 
+    // Guia de eje: despues de los objetos para que la recta se vea por encima
+    // de la malla, y solo en la pasada principal.
+    if (esPasadaPrincipal) dibujarGuiaEje(ctx, camaraMundo);
+
     ShaderProgram::unbind();
+}
+
+// Recta guia del objeto seleccionado (teclas X/Y/Z): la recta sobre la que
+// puede moverse, tomando el eje pulsado como variable y fijando las otras dos
+// coordenadas a las del objeto. Va hasta el horizonte y se difumina con el
+// MISMO criterio radial que la grilla (mismas constantes), asi que las dos se
+// desvanecen en el mismo punto y la guia se lee como un eje que cruza el piso.
+// Se dibuja con el batch de los marcadores (un solo draw) y el color del eje.
+void SceneRenderer::dibujarGuiaEje(const FrameContext& ctx,
+                                   const float camaraMundo[3]) {
+    if (ctx.guiaEje < GuiaEje::kEjeX || ctx.guiaEje > GuiaEje::kEjeZ) return;
+    GameObject* object = ctx.selectedObject;
+    if (!object) return;
+
+    Transform* transform = object->getGlobalTransform();
+    if (!transform) return;
+
+    float modelArr[16];
+    buildMatrixFromTransform(transform, modelArr);
+
+    GuiaEje::Eje eje;
+    if (!GuiaEje::calcularEje(modelArr, ctx.guiaEje,
+                              ctx.guiaCoordenadasGlobales, &eje))
+        return;
+
+    float color[4];
+    GuiaEje::colorEje(ctx.guiaEje, color);
+    GuiaEje::Difuminado dif;
+    dif.inicio = GrillaRenderer::kFadeInicio;
+    dif.fin = GrillaRenderer::kFadeFin;
+    // Mas subdivisiones que la grilla: la guia es mucho mas larga que una linea
+    // de la grilla, asi que con los 6 trozos de aquella el degradado se veria
+    // escalonado a lo largo de los 300 unidades.
+    dif.subdivisiones = 24;
+
+    LineBuilder builder;
+    GuiaEje::emitir(builder, eje, camaraMundo, color, dif);
+    // Geometria ya en mundo (la recta sale de la matriz global): model = null.
+    lineRenderer().dibujar(builder, marcadoresBatch_, nullptr, 3.0f);
 }
 
 void SceneRenderer::prepararLucesFrame(const FrameContext& ctx) {
@@ -406,8 +449,11 @@ void SceneRenderer::dibujarViewportsPrevios(const FrameContext& ctx) {
                     projection,
                     static_cast<float>(kPreviewW) /
                         static_cast<float>(kPreviewH));
+                // La vista previa de camara NO muestra la guia de eje: es una
+                // ayuda del editor sobre la pasada principal (en el preview
+                // ocuparia la imagen sin que el usuario la haya pedido).
                 dibujarEscena(ctx, view, projection, objeto, kPreviewW,
-                              kPreviewH);
+                              kPreviewH, false);
 
                 backend.bindDefaultFramebuffer();
 

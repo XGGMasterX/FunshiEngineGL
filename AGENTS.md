@@ -65,6 +65,14 @@ cd FunshiEngineGL/build && ctest --output-on-failure
 
 ## Flujo de trabajo
 
+- **Lista de tareas antes de escribir código**: si la tarea requiere más de un
+  paso (analizar, tocar varios archivos, testear, documentar), armar primero una
+  lista de pendientes explícita y trabajar contra ella, no de memoria. La lista
+  se mantiene al día de forma incremental: cada tarea se marca como completada
+  en cuanto está hecha y verificada, y no todas al final. Si aparece un paso
+  nuevo o cambia el alcance, la lista se ajusta en el momento. Esto sirve para
+  que el usuario vea el avance real del trabajo y para que el agente no cierre
+  una tarea dando por hecho algo que quedó sin hacer.
 - **Una tarea, una rama**: al comenzar una tarea de un tema distinto al actual,
   primero commitear los cambios pendientes de la rama actual y luego cambiar de
   rama. Nunca mezclar temas distintos en una misma rama.
