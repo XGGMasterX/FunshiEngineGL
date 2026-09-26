@@ -66,10 +66,17 @@
 namespace {
 const char* nombreFabrica() { return FUNSHI_SYM_CREAR; }
 
+// Ruta del compilador a invocar: FUNSHI_CXX si esta definida, si no la
+// horneada por CMake en el build. El valor puede quedar con comillas externas
+// en algunos generadores (Ninja/MinGW): se normalizan aca y el comando las
+// repone explicitamente, porque una ruta sin comillas se parte en el primer
+// espacio (cmd.exe intenta ejecutar "C:/Program" y no lo reconoce).
 std::string compilador() {
     const char* env = std::getenv("FUNSHI_CXX");
-    if (env && *env) return env;
-    return FUNSHI_CXX_COMPILER;
+    std::string c = (env && *env) ? env : FUNSHI_CXX_COMPILER;
+    if (c.size() >= 2 && c.front() == '"' && c.back() == '"')
+        c = c.substr(1, c.size() - 2);
+    return c;
 }
 
 // Escapa una ruta para pasarla como argumento de linea de comandos.
@@ -123,8 +130,7 @@ std::string mtimeDe(const std::string& ruta) {
 const char* BackendCpp::lenguaje() const { return "cpp"; }
 
 std::string BackendCpp::compiladorRuta() {
-    const char* env = std::getenv("FUNSHI_CXX");
-    return (env && *env) ? env : FUNSHI_CXX_COMPILER;
+    return compilador();
 }
 
 std::string BackendCpp::cacheDir() { return directorioCache(); }
@@ -180,18 +186,22 @@ bool BackendCpp::compilarYCargar(const std::string& fuente,
         const std::string logPath =
             (std::filesystem::path(directorioCache()) / "compilar.log")
                 .string();
+        // El compilador va SIEMPRE entrecomillado: en Windows vive en una ruta
+        // con espacios (C:/Program Files/...) y sin comillas el shell corta en
+        // el primer espacio ("C:/Program" no se reconoce como comando interno).
+        const std::string compiladorCmd = "\"" + compilador() + "\"";
         std::string cmd;
 #if defined(_WIN32)
         // /Fo y /Fe entrecomillados y con el backslash final duplicado: con
         // /Fo"dir\" el compilador lee \" como comilla escapada, se traga el
         // argumento siguiente y falla con C1083 sobre el archivo generado.
-        cmd = compilador() +
+        cmd = compiladorCmd +
               " /nologo /LD /std:c++17 /O2 /DFUNSHI_NOMBRE_CLASE=" +
               nombreClase + " " + logic + " /Fo\"" + directorioCache() +
               "\\\\\" /Fe\"" + escapar(artefactoPath) + "\" > \"" + logPath +
               "\" 2>&1";
 #else
-        cmd = compilador() +
+        cmd = compiladorCmd +
               " -std=c++17 -shared -fPIC -O2 -DFUNSHI_NOMBRE_CLASE=" +
               nombreClase + " " + logic + " -o " + escapar(artefactoPath) +
               " > " + logPath + " 2>&1";

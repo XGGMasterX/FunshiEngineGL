@@ -665,6 +665,14 @@ void onUpdate(GameObject* owner, float deltaTime) override {
   (`FUNSHI_NOMBRE_CLASE`) compila para cualquier `<ClassName>.cpp`.
 - El cache de artefactos compilados y la ruta del compilador se muestran en
   la ventana Estado.
+- **Windows:** el motor invoca `cl.exe` con su entorno (el que arma el
+  `vcvars`/Developer Command Prompt), porque `cl.exe` resuelve los headers del
+  CRT (incluido `<cstddef>`) y las librerias por `INCLUDE`/`LIB`. Si el editor
+  se lanza sin ese entorno (doble clic desde el Explorador), la compilacion
+  del script falla con `C1083: no se puede abrir el archivo incluir:
+  'cstddef'`: hay que abrirlo desde "x64 Native Tools Command Prompt for VS"
+  o desde el propio Visual Studio. Los scripts Java no tienen este requisito
+  (javac se invoca por ruta absoluta).
 
 ---
 
