@@ -43,15 +43,14 @@ std::shared_ptr<Mesh> AssimpMeshLoader::load(const std::string& path) {
     mesh->name = AssetPath::basename(path);
 
     // El importador pide aiProcess_GenSmoothNormals, pero no siempre puede
-    // generarlas (mallas no manifoldes, caras degeneradas): si alguna sub-malla
-    // llega sin normales, hay que recalcularlas en vez de dejar ceros.
-    bool algunaNormales = false;
-
+    // generarlas (mallas no manifoldes, caras degeneradas): las sub-mallas que
+    // llegan sin ellas dejan ceros, y hasNormals() solo mira el tamano, asi que
+    // pasarian por validas y el shader las dibujaria apagadas. La deteccion es
+    // por vertice y no por sub-malla porque un asset puede mezclar unas con
+    // normales y otras sin ellas.
     for (unsigned int m = 0; m < scene->mNumMeshes; ++m) {
         const aiMesh* src = scene->mMeshes[m];
         if (!src) continue;
-
-        if (src->HasNormals()) algunaNormales = true;
 
         const unsigned int base = static_cast<unsigned int>(mesh->vertices.size());
         mesh->vertices.reserve(mesh->vertices.size() + src->mNumVertices);
@@ -110,10 +109,16 @@ std::shared_ptr<Mesh> AssimpMeshLoader::load(const std::string& path) {
     if (mesh->vertices.empty())
         throw AssetLoadException(path, "la malla resultante no tiene vertices");
 
-    // Ninguna sub-malla traia normales: las que se dejaron en cero se
-    // regeneran por cara (area-weighted) para que la malla entre al shader
-    // iluminada en vez de caer al dibujado legacy de cara plana.
-    if (!algunaNormales) mesh->computeNormals();
+    // Si quedo algun vertice con normal nula, se le recalcula por cara
+    // (area-weighted) solo a el: el asset entra al shader iluminado en vez de
+    // caer al dibujado legacy de cara plana. Con "soloFaltantes" se respetan las
+    // normales que si trajo el importador, que son las que definen las aristas
+    // duras del modelo.
+    for (const vec3& n : mesh->normals) {
+        if (n.magnitude() > 1e-8f) continue;
+        mesh->computeNormals(true);
+        break;
+    }
 
     return mesh;
 }

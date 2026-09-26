@@ -564,9 +564,10 @@ registrados en CTest (compilan en cualquier plataforma con `BUILD_ENGINE=OFF`;
   el `menu/*` legacy, `restablecer`, escritura atómica y guardado diferido.
 - `eventbus-tests` (16): suscripción/publicación/unsubscribe del canal tipado de GUI.
 - `menu-tests` (30): lógica pura del menú (traducción, observer de cambios y reset).
-- `assetmanager-tests` (67): caché Flyweight de meshes (rutas `AssetPath`, geometría
-  `Mesh` con `computeBounds`, `computeNormals` y `computeTangents`) y el registro
-  compartido con un loader artificial.
+- `assetmanager-tests` (82): caché Flyweight de meshes (rutas `AssetPath`, geometría
+  `Mesh` con `computeBounds`, `computeNormals` —incluido el modo `soloFaltantes`
+  para assets que mezclan sub-mallas con y sin normales— y `computeTangents`) y el
+  registro compartido con un loader artificial.
 - `texturemanager-tests` (15): caché Flyweight de imágenes CPU (sin entrar la pila gráfica).
 - `estructuras-tests` (87): `ListaDE`, `ArbolEnlazado`, `PriorityListaDE`,
   `MinHeap`/`MaxHeap`, `ListMergeSort` y `ArbolBinarioEnlazado`.

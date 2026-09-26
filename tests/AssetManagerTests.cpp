@@ -205,6 +205,45 @@ void testMeshNormals() {
                        vec3(1, 1, 0)};
     impar->indices = {0, 1, 2, 3}; // no multipleto de 3
     CHECK(!impar->computeNormals(), "computeNormals con indices sin cerrar es false");
+
+    // Modo "soloFaltantes": es el caso de un asset que mezcla sub-mallas con y
+    // sin normales. Los vertices con normal ya informada deben quedar EXACTOS
+    // (no promediados), y los que estan en cero se recalculan por cara. Es lo
+    // que evita que un asset mixto salga con caras apagadas (normal nula) o con
+    // aristas duras perdidas.
+    auto mixto = std::make_shared<Mesh>();
+    // Dos triangulos: v0-v1-v2 en el plano XY (quedara sin normal) y
+    // v3-v4-v5 en el plano XZ (trae normal +Y, que hay que preservar).
+    mixto->vertices = {vec3(0, 0, 0), vec3(1, 0, 0), vec3(0, 0, 1),
+                       vec3(0, 0, 0), vec3(1, 0, 0), vec3(0, 1, 0)};
+    for (int v = 0; v < 3; ++v)
+        mixto->normals.emplace_back(0.f, 0.f, 0.f); // sub-malla sin normales
+    for (int v = 0; v < 3; ++v)
+        mixto->normals.emplace_back(0.f, 1.f, 0.f); // sub-malla con normales
+    mixto->indices = {0, 1, 2, 3, 4, 5};
+    CHECK(mixto->hasNormals(), "hasNormals() es por tamano: el mixto 'pasa'");
+    CHECK(mixto->computeNormals(true),
+          "computeNormals(soloFaltantes) sobre malla mixta");
+    for (int v = 0; v < 3; ++v) {
+        CHECK(mixto->normals[static_cast<std::size_t>(v)].magnitude() > 0.5f,
+              "la sub-malla sin normales recibe normal calculada");
+    }
+    for (int v = 3; v < 6; ++v) {
+        CHECK(mixto->normals[static_cast<std::size_t>(v)].x == 0.f &&
+                  mixto->normals[static_cast<std::size_t>(v)].y == 1.f &&
+                  mixto->normals[static_cast<std::size_t>(v)].z == 0.f,
+              "soloFaltantes respeta la normal que ya traia el asset");
+    }
+    // El mismo modo sobre una malla sin ninguna normal previa equivale al
+    // computeNormals() de siempre.
+    auto soloFaltantesSinBase = std::make_shared<Mesh>();
+    soloFaltantesSinBase->vertices = mixto->vertices;
+    soloFaltantesSinBase->indices = mixto->indices;
+    CHECK(soloFaltantesSinBase->computeNormals(true),
+          "computeNormals(soloFaltantes) sin normales previas");
+    for (std::size_t v = 0; v < soloFaltantesSinBase->normals.size(); ++v)
+        CHECK(soloFaltantesSinBase->normals[v].magnitude() > 0.5f,
+              "sin base previa, soloFaltantes calcula todas las normales");
 }
 
 // Cuadrilatero en el plano XY con normales +Z y UVs canonicas: su marco

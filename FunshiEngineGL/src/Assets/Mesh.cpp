@@ -37,11 +37,17 @@ bool Mesh::computeBounds(vec3& outMin, vec3& outMax) const {
     return true;
 }
 
-bool Mesh::computeNormals() {
+bool Mesh::computeNormals(bool soloFaltantes) {
     if (vertices.empty() || indices.empty() || indices.size() % 3 != 0)
         return false;
 
-    normals.assign(vertices.size(), vec3(0.f, 0.f, 0.f));
+    if (soloFaltantes) {
+        // Respeta las normales que ya trae el asset: sin esto habria que
+        // arranque con un vector por vertice.
+        if (!hasNormals()) normals.assign(vertices.size(), vec3(0.f, 0.f, 0.f));
+    } else {
+        normals.assign(vertices.size(), vec3(0.f, 0.f, 0.f));
+    }
 
     for (size_t f = 0; f + 2 < indices.size(); f += 3) {
         const unsigned int i0 = indices[f + 0];
@@ -60,9 +66,12 @@ bool Mesh::computeNormals() {
         const vec3& p2 = vertices[i2];
         const vec3 n = (p1 - p0).prodVetorial(p2 - p0);
 
-        normals[i0] = normals[i0] + n;
-        normals[i1] = normals[i1] + n;
-        normals[i2] = normals[i2] + n;
+        for (const unsigned int i : {i0, i1, i2}) {
+            // En modo "soloFaltantes" una normal ya informada no se toca: se
+            // acumula solo en los vertices que siguen en cero.
+            if (soloFaltantes && normals[i].magnitude() > 1e-8f) continue;
+            normals[i] = normals[i] + n;
+        }
     }
 
     for (size_t v = 0; v < vertices.size(); ++v) {
