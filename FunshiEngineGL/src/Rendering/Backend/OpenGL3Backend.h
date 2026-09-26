@@ -42,6 +42,14 @@ public:
     void destroyMesh(Handle mesh) override;
     void drawMesh(Handle mesh, unsigned int indexCount) override;
 
+    // --- Batch de lineas ---
+    Handle createLineBatch(const float* vertices,
+                           std::size_t vertexCount) override;
+    void destroyLineBatch(Handle batch) override;
+    void updateLineBatch(Handle batch, const float* vertices,
+                         std::size_t vertexCount) override;
+    void drawLineBatch(Handle batch, unsigned int vertexCount) override;
+
     // --- Textura 2D ---
     Handle createTexture2D(const Image2D& image) override;
     void destroyTexture2D(Handle texture) override;
@@ -106,6 +114,10 @@ public:
 
 private:
     struct GpuMesh { unsigned int vao; unsigned int buffers[6]; };
+    // El batch de lineas es un unico VBO interleaved (el layout lo fija
+    // LineBuilder): VAO + el VBO, sin EBO porque la expansion a quads no
+    // comparte vertices.
+    struct GpuLineBatch { unsigned int vao; unsigned int vbo; };
     struct GpuTarget {
         unsigned int fbo;
         unsigned int rbo;
@@ -114,6 +126,7 @@ private:
 
     bool fboFuncionesCargadas();
     std::unordered_map<Handle, GpuMesh> meshes_;
+    std::unordered_map<Handle, GpuLineBatch> lineBatches_;
     std::unordered_map<Handle, GpuTarget> targets_;
     bool fboCargadas_ = false;
     // Estado de GL_BLEND antes de que setLineSmoothing(true) lo activara para

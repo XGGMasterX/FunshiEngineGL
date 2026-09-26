@@ -473,6 +473,21 @@ set_target_properties(estructuras-tests PROPERTIES
 )
 add_test(NAME estructuras-tests COMMAND estructuras-tests)
 
+# Geometria de las lineas del pipeline moderno (headless y portatil): solo la
+# parte CPU (LineBuilder, la expansion de cada segmento al quad que dibuja el
+# shader de lineas). No entra OpenGL ni glm a proposito, asi el layout del VAO y
+# la cuenta de vertices se pueden verificar sin pila grafica.
+add_executable(rendering-tests
+    ${SRC_DIR}/Rendering/LineBuilder.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../tests/RenderingTests.cpp
+)
+set_target_properties(rendering-tests PROPERTIES
+    CXX_STANDARD 17
+    CXX_STANDARD_REQUIRED ON
+    CXX_EXTENSIONS OFF
+)
+add_test(NAME rendering-tests COMMAND rendering-tests)
+
 # Reflexion de comportamiento (motor de SerializeField): headless y portatil.
 # Cubre las macros REFLECT_*, la lectura/escritura de campos (incl. grupos
 # anidados y vectores de grupos) y el round-trip binario del arbol de valores.

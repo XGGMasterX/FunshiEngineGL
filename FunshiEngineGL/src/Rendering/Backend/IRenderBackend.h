@@ -95,6 +95,19 @@ public:
     virtual void destroyMesh(Handle mesh) = 0;
     virtual void drawMesh(Handle mesh, unsigned int indexCount) = 0;
 
+    // --- Batch de lineas (VAO/VBO de la geometria expandida por LineBuilder) --
+    // Los vertices vienen en el layout de LineBuilder (12 floats: inicio, fin,
+    // lado, avance, rgba) y se dibujan como triangulos con glDrawArrays (la
+    // expansion a quads es lo que reemplaza a GL_LINES/glLineWidth). update
+    // vuelve a subir el buffer del mismo recurso, que es el caso por frame de la
+    // grilla y los marcadores.
+    virtual Handle createLineBatch(const float* vertices,
+                                   std::size_t vertexCount) = 0;
+    virtual void destroyLineBatch(Handle batch) = 0;
+    virtual void updateLineBatch(Handle batch, const float* vertices,
+                                 std::size_t vertexCount) = 0;
+    virtual void drawLineBatch(Handle batch, unsigned int vertexCount) = 0;
+
     // --- Textura 2D ----------------------------------------------------------
     virtual Handle createTexture2D(const Image2D& image) = 0;
     virtual void destroyTexture2D(Handle texture) = 0;

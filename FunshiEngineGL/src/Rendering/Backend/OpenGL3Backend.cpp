@@ -24,6 +24,7 @@
 
 #include <glm/gtc/type_ptr.hpp>
 
+#include "../LineBuilder.h"
 #include "../Shaders/ShaderException.h"
 
 namespace Rendering {
@@ -238,6 +239,100 @@ void OpenGL3Backend::drawMesh(Handle mesh, unsigned int indexCount) {
     GLFuncs::pfnBindVertexArray(static_cast<GLuint>(mesh));
     glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(indexCount),
                    GL_UNSIGNED_INT, (const void*)nullptr);
+    GLFuncs::pfnBindVertexArray(0);
+}
+
+// ---------------------------------------------------------------------------
+// Batch de lineas
+// ---------------------------------------------------------------------------
+
+Handle OpenGL3Backend::createLineBatch(const float* vertices,
+                                       std::size_t vertexCount) {
+    if (!vertices || vertexCount == 0) return kInvalidHandle;
+
+    GLuint vao = 0;
+    GLFuncs::pfnGenVertexArrays(1, &vao);
+    GLFuncs::pfnBindVertexArray(vao);
+
+    GLuint vbo = 0;
+    GLFuncs::pfnGenBuffers(1, &vbo);
+    GLFuncs::pfnBindBuffer(GL_ARRAY_BUFFER, vbo);
+    GLFuncs::pfnBufferData(
+        GL_ARRAY_BUFFER,
+        static_cast<GLsizeiptr>(vertexCount * LineBuilder::kFloatsPorVertice *
+                                sizeof(float)),
+        vertices, GL_STATIC_DRAW);
+
+    // Un solo VBO interleaved; el layout lo define LineBuilder (12 floats por
+    // vertice) y el shader los lee de los atributos 0..4.
+    const GLsizei stride =
+        static_cast<GLsizei>(LineBuilder::stride());
+    GLFuncs::pfnEnableVertexAttribArray(0);
+    GLFuncs::pfnVertexAttribPointer(
+        0, 3, GL_FLOAT, GL_FALSE, stride,
+        reinterpret_cast<const void*>(LineBuilder::offsetInicio()));
+    GLFuncs::pfnEnableVertexAttribArray(1);
+    GLFuncs::pfnVertexAttribPointer(
+        1, 3, GL_FLOAT, GL_FALSE, stride,
+        reinterpret_cast<const void*>(LineBuilder::offsetFin()));
+    GLFuncs::pfnEnableVertexAttribArray(2);
+    GLFuncs::pfnVertexAttribPointer(
+        2, 1, GL_FLOAT, GL_FALSE, stride,
+        reinterpret_cast<const void*>(LineBuilder::offsetLado()));
+    GLFuncs::pfnEnableVertexAttribArray(3);
+    GLFuncs::pfnVertexAttribPointer(
+        3, 1, GL_FLOAT, GL_FALSE, stride,
+        reinterpret_cast<const void*>(LineBuilder::offsetAvance()));
+    GLFuncs::pfnEnableVertexAttribArray(4);
+    GLFuncs::pfnVertexAttribPointer(
+        4, 4, GL_FLOAT, GL_FALSE, stride,
+        reinterpret_cast<const void*>(LineBuilder::offsetColor()));
+
+    GLFuncs::pfnBindVertexArray(0);
+
+    const Handle handle = static_cast<Handle>(vao);
+    lineBatches_[handle] = GpuLineBatch{vao, vbo};
+    return handle;
+}
+
+void OpenGL3Backend::destroyLineBatch(Handle batch) {
+    if (batch == kInvalidHandle) return;
+    const auto it = lineBatches_.find(batch);
+    if (it == lineBatches_.end()) return;
+    if (GLFuncs::pfnDeleteVertexArrays) {
+        GLuint vao = it->second.vao;
+        GLFuncs::pfnDeleteVertexArrays(1, &vao);
+    }
+    if (GLFuncs::pfnDeleteBuffers) {
+        GLuint vbo = it->second.vbo;
+        GLFuncs::pfnDeleteBuffers(1, &vbo);
+    }
+    lineBatches_.erase(it);
+}
+
+void OpenGL3Backend::updateLineBatch(Handle batch, const float* vertices,
+                                     std::size_t vertexCount) {
+    if (batch == kInvalidHandle || !vertices || vertexCount == 0) return;
+    if (lineBatches_.find(batch) == lineBatches_.end()) return;
+
+    // glBufferData sobre el buffer ya enlazado en el VAO: la GPU lo considera
+    // una store nueva (el driver reutiliza el bloque si la store anterior ya no
+    // la referencia), que es lo que se quiere para un buffer que cambia de
+    // tamano cada frame (grilla y marcadores).
+    GLFuncs::pfnBindVertexArray(static_cast<GLuint>(batch));
+    GLFuncs::pfnBindBuffer(GL_ARRAY_BUFFER, lineBatches_[batch].vbo);
+    GLFuncs::pfnBufferData(
+        GL_ARRAY_BUFFER,
+        static_cast<GLsizeiptr>(vertexCount * LineBuilder::kFloatsPorVertice *
+                                sizeof(float)),
+        vertices, GL_DYNAMIC_DRAW);
+    GLFuncs::pfnBindVertexArray(0);
+}
+
+void OpenGL3Backend::drawLineBatch(Handle batch, unsigned int vertexCount) {
+    if (batch == kInvalidHandle || vertexCount == 0) return;
+    GLFuncs::pfnBindVertexArray(static_cast<GLuint>(batch));
+    glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(vertexCount));
     GLFuncs::pfnBindVertexArray(0);
 }
 

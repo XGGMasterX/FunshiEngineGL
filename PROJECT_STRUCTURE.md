@@ -204,9 +204,14 @@ FunshiEngineGL/                          ← raíz del repo
         ├── Rendering/
         │   ├── MeshGPU.h/.cpp            ← malla residente en GPU (buffers VBO/VAO)
         │   ├── MeshRenderer.h/.cpp       ← dibuja MeshGPU con shader program
+        │   ├── LineBuilder.h/.cpp        ← geometría CPU de líneas (cada segmento
+        │   │                                expandido a un quad; sin OpenGL)
+        │   ├── LineBatch.h/.cpp          ← batch de líneas en GPU (VAO+VBO, RAII)
+        │   ├── LineRenderer.h/.cpp       ← shader de líneas gruesas + batch
         │   ├── TextureGL.h/.cpp          ← textura OpenGL desde Image
         │   ├── RenderTarget.h/.cpp       ← render a textura (FBO) para vistas previas de cámara
         │   ├── GLFuncs.h                ← punteros de función OpenGL (contexto de compatibilidad)
+        │   ├── Backend/                  ← IRenderBackend + OpenGL3Backend (única capa con GL)
         │   └── Shaders/
         │       ├── ShaderProgram.h/.cpp  ← compilación/link de shaders + ShaderSources.h
         │       └── ShaderException.h
@@ -561,6 +566,10 @@ registrados en CTest (compilan en cualquier plataforma con `BUILD_ENGINE=OFF`;
 - `texturemanager-tests` (15): caché Flyweight de imágenes CPU (sin entrar la pila gráfica).
 - `estructuras-tests` (87): `ListaDE`, `ArbolEnlazado`, `PriorityListaDE`,
   `MinHeap`/`MaxHeap`, `ListMergeSort` y `ArbolBinarioEnlazado`.
+- `rendering-tests` (79): geometría de las líneas del pipeline moderno
+  (`LineBuilder`): expansión de cada segmento al quad que ensancha el shader,
+  color por extremo (difuminado de la grilla), polilíneas, aristas con índices
+  fuera de rango y caja de 12 aristas. Solo CPU, sin OpenGL.
 - `scripts-tests` (42): reflexión `SerializeField` (escalares, arrays, grupos
   anidados) y el round-trip binario del árbol de valores.
 - `scripts-runtime-tests`: compila un `.cpp` real con `BackendCpp`, lo carga con
@@ -733,7 +742,7 @@ GameScene → coordina todos los subsistemas del frame
   `AgregarComponenteComando`, `QuitarComponenteComando`, `LimpiarEscenaComando`)
   con deshacer/rehacer, la cadena de redo múltiple, el límite del historial y la
   descripción que el historial devuelve para avisar en la barra de estado.
-- Los diecisiete targets compilan en cualquier plataforma y se ejecutan con `ctest`.
+- Los dieciocho targets compilan en cualquier plataforma y se ejecutan con `ctest`.
 - `.github/workflows/ci.yml` compila el engine completo en Ubuntu (Release, sin
   ASan) y ejecuta las pruebas; además ejecuta las headless en
   Linux/Windows con `BUILD_ENGINE=OFF` y el backend Java en Ubuntu con JDK.
