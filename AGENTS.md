@@ -78,7 +78,8 @@ cd FunshiEngineGL/build && ctest --output-on-failure
   mantener el orden de desarrollo; solo usar `master` (o la rama que
   corresponda según ese documento) como base cuando el flujo lo indique.
 - **Rama desactualizada: ponerla al día antes de escribir código**: nada más
-  crear o traer la rama, medir la distancia con
+  crear o traer la rama —y también cada vez que se retome el trabajo en ella—
+  medir la distancia con
   `git rev-list --left-right --count origin/<rama>...HEAD` y `git fetch`. Si le
   faltan commits —porque el equipo estuvo mergeando a otra rama, o porque la
   base indicada en el flujo quedó rezagada (pasó con `develop`, que quedó
@@ -88,7 +89,11 @@ cd FunshiEngineGL/build && ctest --output-on-failure
   ya tiene commits propios, y recién entonces arrancar el trabajo. Nunca dejar
   que la tarea se siga sobre un árbol viejo ni mezclar el atraso al final: el
   costo (conflictos, archivos borrados que reaparecen, código que ya no compila)
-  es siempre mayor al hacerlo al comienzo. Si la actualización produce
+  es siempre mayor al hacerlo al comienzo. El objetivo es siempre trabajar
+  contra el estado actual del remoto y no contra una referencia vieja: hacer
+  `git fetch` antes de medir, y si la base indicada en el flujo se movió o la
+  rama quedó atrás por merges del equipo, actualizarla de inmediato. Si la
+  actualización produce
   conflictos por commits ajenos, reportarlos y esperar instrucciones en lugar de
   resolverlos por cuenta propia.
 - **Documentación sincronizada**: la documentación no es un extra, es parte de
