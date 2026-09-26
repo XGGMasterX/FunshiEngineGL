@@ -5,7 +5,8 @@ Guía rápida para agentes (y humanos) que trabajen en este repositorio.
 ## Comandos esenciales
 
 ```bash
-# Configurar y compilar (el build soportado es CMake; el .vcxproj es legacy)
+# Configurar y compilar (CMake es el único build soportado; la solución de
+# Visual Studio la genera CMake dentro del directorio de build, no se versiona)
 cmake -S FunshiEngineGL -B FunshiEngineGL/build
 cmake --build FunshiEngineGL/build -j$(nproc)
 

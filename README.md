@@ -103,7 +103,7 @@ Build de Release más rápido (sin sanitizers):
 cmake -B build -S FunshiEngineGL -DCMAKE_BUILD_TYPE=Release -DENABLE_ASAN=OFF
 ```
 
-En Windows la misma receta funciona con el generador de Visual Studio. También existe `FunshiEngineGL.sln`, pero es un proyecto heredado con rutas absolutas de una máquina concreta: **prefiere siempre CMake** (`cmake -B build -S FunshiEngineGL`) para un build portable.
+En Windows la misma receta funciona con el generador de Visual Studio, que deja la solución en el directorio de build (por ejemplo `build-win\FunshiEngineGL.sln`) para abrirla desde el IDE. CMake es el **único** build soportado: no hay proyectos de Visual Studio mantenidos a mano en el repositorio, así que siempre conviene `cmake -B build -S FunshiEngineGL` para tener un build portable.
 
 > El primer arranque crea su configuración en `MotorGrafico/` junto al binario (la carpeta que contiene el ejecutable): ahí viven la escena serializada, la configuración global en `Configuraciones/Configuracion.json`, la de cada proyecto en `Proyects/<proyecto>/Memory/ConfiguracionProyecto.json` y el layout `imgui.ini` del editor.
 
@@ -149,7 +149,6 @@ FunshiEngineGL/            ← raíz del repo
 ├── PROJECT_STRUCTURE.md          ← arquitectura detallada
 ├── CAMARAS_VISTAS_PREVIAS.md     ← cámaras componente + vistas previas (Fase 2)
 ├── ARQUITECTURA_ESTADOS_GUI.md   ← estados/menú/GUI internas (diseño + Fases 1-3)
-├── FunshiEngineGL.sln            ← solución Visual Studio (Windows, heredada)
 ├── .github/workflows/            ← CI (build del engine + pruebas multiplataforma)
 ├── tests/                        ← pruebas headless: FileManager, EditorConfig,
 │                                   EditorEventBus, MenuModel, Assets, Estructuras,
@@ -200,7 +199,6 @@ Ver **PROJECT_STRUCTURE.md** para la descripción completa de cada módulo, las 
 - [ ] Puente de input/audio/búsqueda para scripts (la infraestructura existe: `EditorInput`, `AudioEngine`, `SceneRegistry`; falta exponerla en la tabla `ApiScriptGameObject`).
 - [ ] Terminar los popups del inspector; prefabs y duplicación de objetos.
 - [ ] Portabilidad de rutas de assets (centralizar `HOME` / rutas de Windows).
-- [ ] Migrar o eliminar el `FunshiEngineGL.vcxproj` (aún arrastra rutas absolutas de una máquina concreta; el build soportado es CMake).
 - [ ] Versionado y validación de la serialización binaria.
 - [ ] Extraer `SceneRenderer`/`PhysicsSystem`/`ScriptSystem` de `GameScene`; vistas previas seleccionables con clic.
 

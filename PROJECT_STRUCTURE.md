@@ -28,8 +28,11 @@
 - Estructuras de datos genéricas propias y jerarquía de excepciones.
 
 El punto de entrada es `FunshiEngineGL/src/main.cpp`. La configuración de compilación
-está en `FunshiEngineGL/CMakeLists.txt`; también existe una solución de Visual Studio
-(`FunshiEngineGL.sln`). Las pruebas headless viven en `tests/` y el CI en
+está en `FunshiEngineGL/CMakeLists.txt`, que es el único build soportado: CMake
+genera la solución de Visual Studio dentro del directorio de build que elijas
+(por ejemplo `FunshiEngineGL/build-win/FunshiEngineGL.sln`), así que no hay
+proyectos de Visual Studio mantenidos a mano en el repositorio. Las pruebas
+headless viven en `tests/` y el CI en
 `.github/workflows/ci.yml`.
 
 ---
@@ -49,7 +52,6 @@ FunshiEngineGL/                          ← raíz del repo
 ├── ARQUITECTURA_ESTADOS_GUI.md          ← estados/menú/GUI internas (diseño + Fases 1-3)
 ├── MANUAL_DE_USO.md                     ← manual de usuario (editor + scripting C++/Java)
 ├── FLUJO_DE_RAMAS.md                    ← convención de ramas (develop/test/staging/release)
-├── FunshiEngineGL.sln                   ← solución Visual Studio (Windows)
 ├── .github/workflows/ci.yml             ← CI: engine en Ubuntu + pruebas en Linux/Win/macOS
 ├── .github/workflows/release.yml        ← instaladores Qt IFW (.run) e Inno (.exe) por tag
 ├── .github/workflows/windows-release.yml← build+release específico de Windows
@@ -70,7 +72,6 @@ FunshiEngineGL/                          ← raíz del repo
 └── FunshiEngineGL/                      ← proyecto CMake principal
     ├── CMakeLists.txt                   ← GLOB de fuentes, dependencias, sanitizers,
     │                                      pruebas (CTest) y opción BUILD_ENGINE
-    ├── FunshiEngineGL.vcxproj(.filters) ← proyecto de Visual Studio (Windows)
     ├── Imagenes/                        ← íconos del explorador (cpp, cubo, file, folder, hpp)
     ├── ImGuizmo/                        ← dependencia integrada (ImGuizmo.cpp/.h, etc.)
     ├── External/nlohmann/json.hpp       ← nlohmann/json vendoriado (EditorConfig)
@@ -779,7 +780,6 @@ Los bugs de la Fase 2 (cámaras/vistas previas) y sus fixes están documentados 
 - [ ] Terminar los popups del inspector.
 - [ ] Prefabs y duplicación de objetos.
 - [ ] Portabilidad de rutas de assets (centralizar `HOME` / rutas de Windows).
-- [ ] Migrar o eliminar el `FunshiEngineGL.vcxproj` (arrastra rutas absolutas; el build oficial es CMake).
 - [ ] Versionado y validación de la serialización binaria.
 - [ ] Extraer `SceneRenderer`, `PhysicsSystem` y `ScriptSystem` de `GameScene`.
 - [ ] Encapsular las estructuras internas de `SceneRegistry` (eliminar getters raw de compatibilidad).
