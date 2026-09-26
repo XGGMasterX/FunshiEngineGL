@@ -99,11 +99,10 @@ public:
                      const float specular[4], const float emission[4],
                      float shininess) override;
     void setLineWidth(float width) override;
-    void setLineSmoothing(bool enabled) override;
+    void setBlendEnabled(bool enabled) override;
 
     // --- Primitivas ---
     void drawLinePairs(const float* vertices, int vertexCount) override;
-    void drawLinePairsRGBA(const float* vertices, int vertexCount) override;
     void drawIndexedLines(const float* vertices, int vertexCount,
                           const int* edgeIndices, int edgeCount) override;
     void drawLineStrip(const float* vertices, int vertexCount,
@@ -129,9 +128,6 @@ private:
     std::unordered_map<Handle, GpuLineBatch> lineBatches_;
     std::unordered_map<Handle, GpuTarget> targets_;
     bool fboCargadas_ = false;
-    // Estado de GL_BLEND antes de que setLineSmoothing(true) lo activara para
-    // el suavizado de lineas; se restaura al volver a false.
-    bool blendPreviaLineaSmooth_ = false;
 };
 
 } // namespace Backend

@@ -24,7 +24,9 @@
 #include <imgui.h>
 
 #include "Backend/IRenderBackend.h"
-#include "ImmediateRenderer.h"
+#include "LineBatch.h"
+#include "LineBuilder.h"
+#include "LineRenderer.h"
 #include "MeshRenderer.h"
 #include "RenderTarget.h"
 #include "Shaders/ShaderProgram.h"
@@ -131,7 +133,8 @@ void SceneRenderer::render(const FrameContext& ctx, GameObject* activeCameraObje
         std::cout << "[diag] " << backend.diagnosticoCompat() << std::endl;
     }
 
-    dibujarEscena(ctx, view, projection, activeCameraObject);
+    dibujarEscena(ctx, view, projection, activeCameraObject, ctx.framebufferWidth,
+                  ctx.framebufferHeight);
 
     static bool diagPostPassPendiente = true;
     if (diagPostPassPendiente) {
@@ -150,8 +153,16 @@ void SceneRenderer::render(const FrameContext& ctx, GameObject* activeCameraObje
 void SceneRenderer::dibujarEscena(const FrameContext& ctx,
                                   const float view[16],
                                   const float projection[16],
-                                  GameObject* camaraOjo) {
+                                  GameObject* camaraOjo, int viewportAncho,
+                                  int viewportAlto) {
     auto& backend = Rendering::Backend::activeBackend();
+
+    // Estado de la pasada de lineas: el shader de lineas grosses necesita las
+    // matrices de la camara y el tamano del viewport para pasar el ancho de
+    // pixeles a NDC. Se fija aca porque TODA pasada (principal y vistas previas)
+    // entra por esta funcion.
+    lineRenderer().setVista(view, projection);
+    lineRenderer().setViewport(viewportAncho, viewportAlto);
 
     backend.setCompatibilityMatrices(projection, view);
 
@@ -285,14 +296,15 @@ void SceneRenderer::dibujarMarcadorLuz(GameObject* object) {
         {2,4},{2,5},{3,4},{3,5}};
 
     // Los vertices se escalan (octaedro chico) y el dibujo lo hace la capa de
-    // Rendering.
+    // Rendering con el batch de lineas.
     float vsize[6][3];
     for (int i = 0; i < 6; ++i)
         for (int j = 0; j < 3; ++j) vsize[i][j] = v[i][j] * size;
 
-    const float color[3] = {1.f, 0.85f, 0.1f};
-    ImmediateRenderer::dibujarAristas(&vsize[0][0], 6, &edges[0][0], 12, color,
-                                      modelArr);
+    const float color[4] = {1.f, 0.85f, 0.1f, 1.f};
+    LineBuilder builder;
+    builder.agregarAristas(&vsize[0][0], 6, &edges[0][0], 12, color);
+    lineRenderer().dibujar(builder, marcadoresBatch_, modelArr, 2.0f);
 }
 
 // Gizmo visual de una camara secundaria: frustum de vision alambre cian. La
@@ -336,9 +348,10 @@ void SceneRenderer::dibujarMarcadorCamara(GameObject* object) {
         {4,5},{4,6},{7,5},{7,6},
         {0,4},{1,5},{2,6},{3,7}};
 
-    const float color[3] = {0.3f, 0.8f, 0.9f};
-    ImmediateRenderer::dibujarAristas(&vFrustum[0][0], 8, &edges[0][0], 12,
-                                      color, modelArr);
+    const float color[4] = {0.3f, 0.8f, 0.9f, 1.f};
+    LineBuilder builder;
+    builder.agregarAristas(&vFrustum[0][0], 8, &edges[0][0], 12, color);
+    lineRenderer().dibujar(builder, marcadoresBatch_, modelArr, 2.0f);
 }
 
 void SceneRenderer::dibujarGrillaEditor(const FrameContext& ctx,
@@ -429,7 +442,8 @@ void SceneRenderer::dibujarViewportsPrevios(const FrameContext& ctx) {
                     projection,
                     static_cast<float>(kPreviewW) /
                         static_cast<float>(kPreviewH));
-                dibujarEscena(ctx, view, projection, objeto);
+                dibujarEscena(ctx, view, projection, objeto, kPreviewW,
+                              kPreviewH);
 
                 backend.bindDefaultFramebuffer();
 

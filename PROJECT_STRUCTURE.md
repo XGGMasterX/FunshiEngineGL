@@ -7,9 +7,10 @@
 - Ventana y contexto OpenGL mediante GLFW.
 - Renderizado híbrido: los modelos usan `MeshRenderer` (VBO/VAO + shaders) y
   degradan a `glBegin/glEnd` (modo inmediato) si el shader no está disponible o
-  la malla no tiene normales; la grilla es un componente (`Grid`) en una pasada
-  independiente con display lists. Los marcadores de luz/cámara y los gizmos de
-  los colliders siguen usando el pipeline de compatibilidad.
+  la malla no tiene normales. La grilla es un componente (`Grid`) en una pasada
+  independiente, pero ya no usa display lists: se dibuja con el pipeline moderno
+  de líneas (batch en GPU + shader de ancho en píxeles), igual que los marcadores
+  de luz/cámara y los gizmos de los colliders.
 - Interfaz de editor con Dear ImGui y gizmos con ImGuizmo.
 - Jerarquía de entidades basada en árboles enlazados propios.
 - Simulación física mediante Bullet Physics detrás de una fachada desacoplada.
@@ -207,7 +208,9 @@ FunshiEngineGL/                          ← raíz del repo
         │   ├── LineBuilder.h/.cpp        ← geometría CPU de líneas (cada segmento
         │   │                                expandido a un quad; sin OpenGL)
         │   ├── LineBatch.h/.cpp          ← batch de líneas en GPU (VAO+VBO, RAII)
-        │   ├── LineRenderer.h/.cpp       ← shader de líneas gruesas + batch
+        │   ├── LineRenderer.h/.cpp       ← shader de líneas gruesas + batch; fija las
+        │   │                                matrices y el viewport de la pasada actual
+        │   │                                (líneas de la grilla, marcadores y gizmos)
         │   ├── TextureGL.h/.cpp          ← textura OpenGL desde Image
         │   ├── RenderTarget.h/.cpp       ← render a textura (FBO) para vistas previas de cámara
         │   ├── GLFuncs.h                ← punteros de función OpenGL (contexto de compatibilidad)
@@ -233,6 +236,7 @@ FunshiEngineGL/                          ← raíz del repo
         │       ├── RigidBody/RigidBody.h/.cpp ← cuerpo Bullet sincronizado (RAII)
         │       └── Colliders/
         │           ├── Collider.h/.cpp   ← base abstracta; radio; gizmo del collider (GizmoTarget)
+        │           │                        con wireframe por el batch de líneas
         │           ├── EsfereCollider.*  ← btSphereShape
         │           ├── CubeCollider.*    ← btBoxShape (half extents = radio)
         │           └── MallaCollider.*   ← btConvexHullShape a partir de la malla
@@ -303,7 +307,7 @@ main.cpp
       ├── refleja el estado del menú en la fachada MenuGUI (guardia de cambio)
       ├── si Playing → GameScene::update(dt) = física (start==true, F5) + scripts, con
       │   F6 pausando fisica/scripts sin salir de play y F7 cortando (Playing → Editing)
-      ├── pasada de la grilla (display lists del objeto con Grid; color según apariencia)
+      ├── pasada de la grilla (batch de líneas + shader de ancho en píxeles; color según apariencia)
       ├── dibujarGameObjects (MeshRenderer VBO/VAO+shader → fallback glBegin/glEnd)
       ├── gizmo ImGuizmo sobre el objetivo activo (objeto o collider)
       ├── GUI() de GameScene (paneles) + vistas previas de cámaras (FBO)
@@ -614,9 +618,9 @@ main.cpp
   │
   └─ GameScene::gameScene()
         ├─ LightSystem::beginFrame() [glLight*]
-        ├─ pasada de la grilla (Grid + display lists, color según apariencia)
+        ├─ pasada de la grilla (Grid + batch de líneas, color según apariencia)
         ├─ dibujarGameObjects (MeshRenderer shader; fallback a glBegin/glEnd)
-        ├─ marcadores de luz y cámara (wireframes auxiliares)
+        ├─ marcadores de luz y cámara (wireframes auxiliares, batch de líneas)
         ├─ ImGuizmo::Manipulate sobre el GizmoTarget activo (objeto o collider)
         ├─ dibujarViewportsPrevios (FBO de cámaras) + paneles ImGui
         └─ pickObject con el mouse para seleccionar en el viewport
@@ -677,7 +681,8 @@ No están implementados todavía:
   `EditorController` y descriptors de componentes.
 - El renderer es híbrido: `MeshRenderer` intenta el pipeline moderno (VBO/VAO +
   shaders) y degrada a `glBegin/glEnd` en contextos legacy o mallas sin
-  normales; los marcadores, gizmos y la grilla (display lists) siguen legacy.
+  normales; los marcadores, gizmos de collider y la grilla ya van por el pipeline
+  moderno de líneas (batch en GPU + shader de ancho en píxeles).
   No es un contexto OpenGL Core estricto.
 
 ---

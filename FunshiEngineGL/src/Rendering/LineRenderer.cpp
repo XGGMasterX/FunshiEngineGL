@@ -26,6 +26,7 @@
 
 #include "Backend/IRenderBackend.h"
 #include "LineBatch.h"
+#include "LineBuilder.h"
 #include "Shaders/ShaderProgram.h"
 #include "Shaders/ShaderSources.h"
 
@@ -50,6 +51,17 @@ LineRenderer::~LineRenderer() = default;
 
 void LineRenderer::reset() { shader_.reset(); }
 
+void LineRenderer::setVista(const float view[16],
+                            const float projection[16]) {
+    if (!view || !projection) {
+        vistaValida_ = false;
+        return;
+    }
+    view_ = glm::make_mat4(view);
+    projection_ = glm::make_mat4(projection);
+    vistaValida_ = true;
+}
+
 void LineRenderer::setViewport(int width, int height) noexcept {
     viewportWidth_ = width > 0 ? width : 0;
     viewportHeight_ = height > 0 ? height : 0;
@@ -69,32 +81,49 @@ bool LineRenderer::inicializar() {
     return shader_ != nullptr;
 }
 
-void LineRenderer::dibujar(const LineBatch& batch, const float model[16],
-                           const float view[16], const float projection[16],
-                           float anchoPx) {
-    if (!inicializar()) return;
-    if (!batch.isUploaded() || batch.getVertexCount() == 0) return;
-
+bool LineRenderer::preparar(const float model[16], float anchoPx) {
+    if (!inicializar()) return false;
+    // Sin matrices de la pasada no se sabe donde caeria la linea.
+    if (!vistaValida_) return false;
     // Sin tamano de viewport no se puede pasar de pixeles a NDC: se omite en
     // vez de dibujar lineas de ancho arbitrario.
-    if (viewportWidth_ <= 0 || viewportHeight_ <= 0) return;
-
-    const glm::mat4 modelMatrix = model ? glm::make_mat4(model)
-                                        : glm::mat4(1.0f);
-    const glm::mat4 viewMatrix = view ? glm::make_mat4(view) : glm::mat4(1.0f);
-    const glm::mat4 projMatrix =
-        projection ? glm::make_mat4(projection) : glm::mat4(1.0f);
+    if (viewportWidth_ <= 0 || viewportHeight_ <= 0) return false;
 
     shader_->use();
-    shader_->setMat4("uModel", modelMatrix);
-    shader_->setMat4("uView", viewMatrix);
-    shader_->setMat4("uProjection", projMatrix);
+    shader_->setMat4("uModel", model ? glm::make_mat4(model) : glm::mat4(1.0f));
+    shader_->setMat4("uView", view_);
+    shader_->setMat4("uProjection", projection_);
     const float viewport[4] = {static_cast<float>(viewportWidth_),
                                static_cast<float>(viewportHeight_), 0.0f, 0.0f};
     shader_->setVec4("uViewport", viewport);
     shader_->setFloat("uWidth", anchoPx > 0.0f ? anchoPx : 1.0f);
-    shader_->setFloat("uNear", nearDesdeProyeccion(projMatrix));
+    shader_->setFloat("uNear", nearDesdeProyeccion(projection_));
+    return true;
+}
 
+void LineRenderer::dibujar(const LineBatch& batch, const float model[16],
+                           float anchoPx) {
+    if (!batch.isUploaded() || batch.getVertexCount() == 0) return;
+    if (!preparar(model, anchoPx)) return;
     batch.draw();
     ShaderProgram::unbind();
 }
+
+void LineRenderer::dibujar(LineBuilder& builder, LineBatch& batch,
+                           const float model[16], float anchoPx) {
+    if (builder.vacio()) return;
+    // El backend tiene que estar inicializado ANTES de subir el batch: la
+    // subida es lo primero que toca los punteros de GL. La pasada principal ya
+    // lo inicializo, pero el gizmo de un collider se dibuja desde la GUI y
+    // puede ser el primer dibujo de lineas del engine. Es el mismo criterio que
+    // MeshRenderer::intentarRender: inicializar() antes de tocar la GPU.
+    if (!inicializar()) return;
+    batch.update(builder);
+    dibujar(batch, model, anchoPx);
+}
+
+LineRenderer& lineRenderer() {
+    static LineRenderer renderer;
+    return renderer;
+}
+

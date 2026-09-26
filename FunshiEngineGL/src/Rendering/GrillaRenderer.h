@@ -19,7 +19,8 @@
 #ifndef GRILLARENDERER_H
 #define GRILLARENDERER_H
 
-#include <vector>
+#include "LineBatch.h"
+#include "LineBuilder.h"
 
 // Render de la grilla del editor (gris infinita con difuminado en el horizonte).
 //
@@ -32,34 +33,39 @@
 // pinta grilla nueva por delante y deja de pintar lo que queda atras.
 //
 // El difuminado es radial y POR VERTICE: cada linea se recorta a su trozo
-// interior al circulo y se subdivide; cada vertice lleva su propio alpha (7
-// floats: xyz + rgba) via IRenderBackend::drawLinePairsRGBA, opaco cerca de la
-// camara y transparente en el borde. El color efectivo se calcula afuera
-// (AparienciaUtil::grillaEfectiva); los ejes X/Z/Y se pintan con colores de
-// base (rojo, verde, amarillo) ajustados por contraste contra ese color
-// (AparienciaUtil::ejeContraste). El ancho de linea distingue secundarias
-// (1px), principales (2px) y ejes (3px).
+// interior al circulo y se subdivide; cada vertice lleva su propio alpha y la
+// geometria se sube al batch de lineas del pipeline moderno (LineBuilder), que
+// interpola el color de un extremo al otro dentro de cada segmento. El color
+// efectivo se calcula afuera (AparienciaUtil::grillaEfectiva); los ejes X/Z/Y se
+// pintan con colores de base (rojo, verde, amarillo) ajustados por contraste
+// contra ese color (AparienciaUtil::ejeContraste).
+//
+// Hay un batch por ANCHO de linea, porque el ancho se resuelve en pixeles en el
+// shader: secundarias (1px), principales (2px) y ejes (3px) = 3 draws por
+// frame. Los tres batches se reutilizan: solo se re-suben los buffers.
 class GrillaRenderer {
 public:
     ~GrillaRenderer() { destruir(); }
 
     // Dibuja la grilla infinita en el espacio local del objeto "Grilla" (la
-    // matriz model del componente, aplicada como pushMatrix/multMatrix), con el
-    // color efectivo y la posicion de la camara EN EL MUNDO (se transforma a
-    // local aqui) para extender el plano y calcular el difuminado.
+    // matriz model del componente se pasa al shader de lineas), con el color
+    // efectivo y la posicion de la camara EN EL MUNDO (se transforma a local
+    // aqui) para extender el plano y calcular el difuminado.
     void dibujar(const float model[16], const float colorGrilla[3],
                  const float camaraMundo[3]);
 
-    // Descarta los vectores CPU cacheados (higiene defensiva).
+    // Descarta la geometria CPU cacheada (higiene defensiva).
     void destruir();
 
 private:
-    // Vectores intercalados xyz+rgba, reutilizados frame a frame.
-    std::vector<float> minorVertices_;
-    std::vector<float> majorVertices_;
-    std::vector<float> ejeXVertices_;
-    std::vector<float> ejeZVertices_;
-    std::vector<float> ejeYVertices_;
+    // Un par (geometria CPU + batch de GPU) por ancho de linea. Ambos miembros
+    // se reutilizan frame a frame: solo se re-suben los buffers.
+    LineBuilder secundario_;
+    LineBuilder principal_;
+    LineBuilder ejes_;
+    LineBatch secundarioBatch_;
+    LineBatch principalBatch_;
+    LineBatch ejesBatch_;
 };
 
 #endif

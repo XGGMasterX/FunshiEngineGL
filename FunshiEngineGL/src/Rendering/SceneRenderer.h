@@ -94,7 +94,8 @@ public:
 private:
     void dibujarViewportsPrevios(const FrameContext& ctx);
     void dibujarEscena(const FrameContext& ctx, const float view[16],
-                       const float projection[16], GameObject* camaraOjo);
+                       const float projection[16], GameObject* camaraOjo,
+                       int viewportAncho, int viewportAlto);
     void prepararLucesFrame(const FrameContext& ctx);
     void dibujarGameObjectsConOjo(const FrameContext& ctx, GameObject* camaraOjo,
                                   const float view[16],
@@ -111,6 +112,9 @@ private:
 
     std::unique_ptr<class MeshRenderer> meshRenderer_;
     GrillaRenderer grillaRenderer_;
+    // Batch de lineas compartido por los marcadores de luz y de camara (ambos
+    // son 12 aristas): se sube y se dibuja por gizmo, en un solo draw cada uno.
+    LineBatch marcadoresBatch_;
     // Vista previa viva por camara con el checkbox "Vista previa" (Fase 2).
     // Se reconstruye cada frame: texturas FBO + el objeto que las genera.
     std::vector<std::unique_ptr<RenderTarget>> viewportsCamaras_;

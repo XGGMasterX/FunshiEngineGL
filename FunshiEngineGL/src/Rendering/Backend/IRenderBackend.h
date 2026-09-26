@@ -186,16 +186,15 @@ public:
                              const float specular[4], const float emission[4],
                              float shininess) = 0;
     virtual void setLineWidth(float width) = 0;
-    virtual void setLineSmoothing(bool enabled) = 0;
+    // Blend del framebuffer (GL_BLEND). Lo necesitan las lineas con alpha por
+    // vertice del pipeline moderno (el difuminado de la grilla se funde con el
+    // fondo). No se confunde con el suavizado de lineas: glLineSmooth no existe
+    // en un perfil core y el ancho ya no se toma de glLineWidth.
+    virtual void setBlendEnabled(bool enabled) = 0;
 
     // --- Primitivas inmediatas (en el espacio local del modelo actual) -------
     // vertices planos; cada par consecutivo [0..1], [2..3], ... es un segmento.
     virtual void drawLinePairs(const float* vertices, int vertexCount) = 0;
-    // Pares de lineas (GL_LINES) con COLOR POR VERTICE: cada vertice son 7
-    // floats (xyz + rgba). Permite difuminados por vertice (p.ej. la grilla que
-    // se funde en el horizonte por distancia a la camara). El color actual de
-    // glColor queda sobrescrito por el de cada vertice.
-    virtual void drawLinePairsRGBA(const float* vertices, int vertexCount) = 0;
     // Lineas por indices: edges es un arreglo de edgeCount*2 ints.
     virtual void drawIndexedLines(const float* vertices, int vertexCount,
                                   const int* edgeIndices, int edgeCount) = 0;
