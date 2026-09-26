@@ -39,8 +39,8 @@ por arrastre y escribir scripts con la API exacta que expone el motor.
 
 ## 1. Requisitos e inicio rapido
 
-**Dependencias:** CMake >= 3.16, compilador con C++17, OpenGL 2.1+/GLU, GLFW,
-GLM, Assimp y Bullet. Java es opcional (solo scripting Java): si el build
+**Dependencias:** CMake >= 3.16, compilador con C++17, OpenGL 3.3 core (sin GLU),
+GLFW, GLM, Assimp y Bullet. Java es opcional (solo scripting Java): si el build
 encuentra un JDK, se compila el soporte `FUNSHI_JAVA=ON` automaticamente.
 
 ```bash

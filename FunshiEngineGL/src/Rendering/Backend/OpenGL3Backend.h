@@ -27,11 +27,13 @@
 namespace Rendering {
 namespace Backend {
 
-// Backend concreto sobre OpenGL (compatibilidad + GL 2/3 moderno cargado por
-// puntero). Implementa IRenderBackend: los recursos GL vivos se traducen a los
-// GLuint reales y las operaciones immediate maps al pipeline legacy. Posee el
-// unico acceso a GLFuncs (funciones modernas) y a los FBO; nadie mas del engine
-// llama a OpenGL directamente a traves de la capa de entidades.
+// Backend concreto sobre OpenGL 3.3 core (todo lo moderno se carga por puntero
+// con GLFuncs). Implementa IRenderBackend: los recursos GL vivos se traducen a los
+// GLuint reales. Ya no expone superficie fixed-function: no hay matrices de
+// compatibilidad, ni stack de matrices, ni materiales, ni primitivas
+// inmediatas. Posee el unico acceso a GLFuncs (funciones modernas) y a los FBO;
+// nadie mas del engine llama a OpenGL directamente a traves de la capa de
+// entidades.
 class OpenGL3Backend : public IRenderBackend {
 public:
     bool init() override;
@@ -76,40 +78,13 @@ public:
     Handle renderTargetColorTexture(Handle target) const override;
     void* imguiTextureId(Handle texture) const override;
 
-    // --- Estado inmediato / matrices ---
+    // --- Estado de la pasada y del framebuffer ---
     void setViewport(int x, int y, int width, int height) override;
-    void setCompatibilityMatrices(const float* projection,
-                                  const float* view) override;
     void clearScreen(const float color[3]) override;
-    void setLegacyLights(const LegacyLight* lights, int lightCount,
-                         const float* globalAmbient) override;
-    const char* diagnosticoCompat() const override;
     void applyBaseState() override;
     void setClearColor(const float color[3]) override;
     const char* diagnosticoGPU() const override;
-    void pushMatrix() override;
-    void popMatrix() override;
-    void multMatrix(const float mat4[16]) override;
-    void applyTransform(const float translate[3], const float scale[3],
-                        const float rotate4[4]) override;
-    void setLightingEnabled(bool enabled) override;
-    void setPolygonFill() override;
-    void setSolidColor(float r, float g, float b) override;
-    void setMaterial(const float ambient[4], const float diffuse[4],
-                     const float specular[4], const float emission[4],
-                     float shininess) override;
-    void setLineWidth(float width) override;
     void setBlendEnabled(bool enabled) override;
-
-    // --- Primitivas ---
-    void drawLinePairs(const float* vertices, int vertexCount) override;
-    void drawIndexedLines(const float* vertices, int vertexCount,
-                          const int* edgeIndices, int edgeCount) override;
-    void drawLineStrip(const float* vertices, int vertexCount,
-                       bool closed) override;
-    void drawTriangles(const float* vertices, int vertexCount,
-                       const float* normals, int normalCount,
-                       const unsigned int* indices, int indexCount) override;
 
 private:
     struct GpuMesh { unsigned int vao; unsigned int buffers[6]; };

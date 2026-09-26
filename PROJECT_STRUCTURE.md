@@ -4,13 +4,14 @@
 
 `FunshiEngineGL` es un editor/motor gráfico 3D en C++17. El ejecutable combina:
 
-- Ventana y contexto OpenGL mediante GLFW.
-- Renderizado híbrido: los modelos usan `MeshRenderer` (VBO/VAO + shaders) y
-  degradan a `glBegin/glEnd` (modo inmediato) si el shader no está disponible o
-  la malla no tiene normales. La grilla es un componente (`Grid`) en una pasada
-  independiente, pero ya no usa display lists: se dibuja con el pipeline moderno
-  de líneas (batch en GPU + shader de ancho en píxeles), igual que los marcadores
-  de luz/cámara y los gizmos de los colliders.
+- Ventana y contexto OpenGL 3.3 **core** mediante GLFW.
+- Renderizado con un único pipeline moderno: los modelos usan `MeshRenderer`
+  (VBO/VAO + shaders) y las líneas un batch en GPU con shader de ancho en
+  píxeles. No queda modo inmediato (`glBegin/glEnd`), ni matrices de
+  compatibilidad, ni materiales ni luces de estado fijo. La grilla es un
+  componente (`Grid`) en una pasada independiente que ya no usa display lists;
+  los marcadores de luz/cámara y los gizmos de los colliders se dibujan con el
+  mismo pipeline de líneas.
 - Interfaz de editor con Dear ImGui y gizmos con ImGuizmo.
 - Jerarquía de entidades basada en árboles enlazados propios.
 - Simulación física mediante Bullet Physics detrás de una fachada desacoplada.
@@ -76,9 +77,7 @@ FunshiEngineGL/                          ← raíz del repo
     └── src/
         ├── main.cpp                     ← composition root: ventanas, callbacks, bucle, config
         ├── EngineTime.h / EngineTime.cpp← delta time y limitador de FPS
-        ├── Ventana.h / Ventana.cpp      ← inicialización GLFW
-        ├── GLCompat.h                   ← cabecera única OpenGL legacy (gl.h/glu.h) + GLFW, con
-        │                                  las constantes que faltan en el SDK de Windows
+        ├── Ventana.h / Ventana.cpp      ← inicialización GLFW y contexto 3.3 core
         ├── Assets/                      ← caché Flyweight compartida (meshes e imágenes)
         │   ├── AssetManager.h/.cpp      ← registro de AssetPath→Mesh (loader inyectable)
         │   ├── TextureManager.h/.cpp    ← registro de AssetPath→Image (loader inyectable)
@@ -213,7 +212,7 @@ FunshiEngineGL/                          ← raíz del repo
         │   │                                (líneas de la grilla, marcadores y gizmos)
         │   ├── TextureGL.h/.cpp          ← textura OpenGL desde Image
         │   ├── RenderTarget.h/.cpp       ← render a textura (FBO) para vistas previas de cámara
-        │   ├── GLFuncs.h                ← punteros de función OpenGL (contexto de compatibilidad)
+        │   ├── GLFuncs.h                ← punteros de función OpenGL 3.3 core (glad-style)
         │   ├── Backend/                  ← IRenderBackend + OpenGL3Backend (única capa con GL)
         │   └── Shaders/
         │       ├── ShaderProgram.h/.cpp  ← compilación/link de shaders + ShaderSources.h
@@ -222,7 +221,8 @@ FunshiEngineGL/                          ← raíz del repo
         │   ├── GameObject.h/.cpp         ← id, nombre, estado, update, serialización binaria
         │   ├── GameObjectFactory.h/.cpp
         │   ├── SimpleObject.h            ← GameObject sin geometría (Transform/Grid/Light...)
-        │   ├── Modelos3D.h/.cpp          ← carga Assimp y dibujo (MeshRenderer o glBegin/glEnd)
+        │   ├── Modelos3D.h/.cpp          ← carga Assimp y datos de la malla (el dibujado
+        │   │                                es de SceneRenderer, vía MeshRenderer)
         │   └── Componentes/
         │       ├── Component.h           ← interfaz base polimórfica (serialize/deserialize)
         │       ├── ComponentFactory.h/.cpp ← creación por nombre (GUI y deserialización)
@@ -308,7 +308,7 @@ main.cpp
       ├── si Playing → GameScene::update(dt) = física (start==true, F5) + scripts, con
       │   F6 pausando fisica/scripts sin salir de play y F7 cortando (Playing → Editing)
       ├── pasada de la grilla (batch de líneas + shader de ancho en píxeles; color según apariencia)
-      ├── dibujarGameObjects (MeshRenderer VBO/VAO+shader → fallback glBegin/glEnd)
+      ├── dibujarGameObjects (MeshRenderer VBO/VAO+shader; único pipeline)
       ├── gizmo ImGuizmo sobre el objetivo activo (objeto o collider)
       ├── GUI() de GameScene (paneles) + vistas previas de cámaras (FBO)
       ├── GestorDeProyectos::sincronizar/eliminar (cambios de proyecto desde el menú)
@@ -380,8 +380,9 @@ solo como orquestador de arranque y bucle.
   id entero, nombre (`inputName[25]`), color auxiliar (`auxColor`), estado (`bool`),
   ciclo `update(dt)` y la lógica de serialización binaria concreta.
 - `Modelos3D` extiende `GameObject`. Carga geometría (vértices, normales, índices)
-  mediante Assimp, la dibuja con `glBegin/glEnd` (OpenGL inmediato) y serializa
-  adicionalmente la ruta del archivo del modelo.
+  mediante Assimp y serializa adicionalmente la ruta del archivo del modelo. No
+  tiene método de dibujado: la entidad no conoce la capa de Rendering, y es
+  `SceneRenderer` quien la pinta vía `MeshRenderer`.
 - Los componentes concretos son: `Transform`, `Color`, `Model`, `Material`, `Light`,
   `AudioSource`, `InterfaceComponent`, `Grid`, `Script`, `EsfereCollider`,
   `CubeCollider`, `MallaCollider` y `RigidBody`. Todos heredan de `Component`
@@ -525,7 +526,7 @@ solo como orquestador de arranque y bucle.
 | Dependencia | Uso | Integración |
 |---|---|---|
 | GLFW | Ventana, contexto OpenGL y eventos de input | `find_package(glfw3)` |
-| OpenGL / GLU | Renderizado inmediato y utilidades de cámara | `find_package(OpenGL)` + fallback manual a libGLU |
+| OpenGL 3.3 core | Renderizado (shaders, VBO/VAO, FBO) vía `GLFuncs` | `find_package(OpenGL)` (sin GLU) |
 | Bullet Physics | Física y colisiones (btDiscreteDynamicsWorld) | `find_package(Bullet)` con fallback a targets clásicos |
 | Assimp | Carga de modelos 3D (opcional via `USE_ASSIMP`) | `find_package(assimp)` |
 | GLM | Matemáticas de Transform y cámaras (`GLM_ENABLE_EXPERIMENTAL`) | Usa `External/glm` si existe; si no, `find_package(glm)` del sistema |
@@ -534,8 +535,9 @@ solo como orquestador de arranque y bucle.
 | ImGuizmo | Gizmos de transformación | Integrada en `FunshiEngineGL/ImGuizmo/` |
 | ncurses / X11 | Enlace en Linux | `find_package(Curses)` + X11/Xrandr/Xi |
 
-En Windows se enlaza además `opengl32`, `glu32` y `dbghelp` (stack traces de
-`RuntimeException`).
+En Windows se enlazan además `opengl32` y `dbghelp` (stack traces de
+`RuntimeException`). `glu32` ya no se enlaza: sin modo inmediato no queda ningún
+`glu*` en uso.
 
 ---
 
@@ -618,9 +620,9 @@ main.cpp
   │     └─ scripts: IScriptBehaviour::onUpdate (si compilados)
   │
   └─ GameScene::gameScene()
-        ├─ LightSystem::beginFrame() [glLight*]
+        ├─ LightSystem::beginFrame() [solo CPU: datos de luz para el shader]
         ├─ pasada de la grilla (Grid + batch de líneas, color según apariencia)
-        ├─ dibujarGameObjects (MeshRenderer shader; fallback a glBegin/glEnd)
+        ├─ dibujarGameObjects (MeshRenderer shader; único pipeline)
         ├─ marcadores de luz y cámara (wireframes auxiliares, batch de líneas)
         ├─ ImGuizmo::Manipulate sobre el GizmoTarget activo (objeto o collider)
         ├─ dibujarViewportsPrevios (FBO de cámaras) + paneles ImGui
@@ -680,11 +682,11 @@ No están implementados todavía:
 - `SettingsObjectInterface` y algunos componentes todavía incluyen y construyen
   detalles concretos; el siguiente paso de desacoplamiento es completar el uso de
   `EditorController` y descriptors de componentes.
-- El renderer es híbrido: `MeshRenderer` intenta el pipeline moderno (VBO/VAO +
-  shaders) y degrada a `glBegin/glEnd` en contextos legacy o mallas sin
-  normales; los marcadores, gizmos de collider y la grilla ya van por el pipeline
-  moderno de líneas (batch en GPU + shader de ancho en píxeles).
-  No es un contexto OpenGL Core estricto.
+- El renderer es de un solo pipeline: `MeshRenderer` (VBO/VAO + shaders) para
+  mallas y el batch de líneas (GPU + shader de ancho en píxeles) para grilla,
+  marcadores y gizmos de collider. No hay modo inmediato ni estado fijo: la
+  iluminación viaja como uniforms y las transformaciones como uniforms de
+  matriz, así que el contexto es OpenGL 3.3 core estricto.
 
 ---
 

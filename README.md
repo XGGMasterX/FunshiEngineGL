@@ -11,7 +11,8 @@ Motor y editor 3D en tiempo real escrito en C++17, con interfaz ImGui y renderiz
 
 ## Características actuales
 
-- Ventana y contexto OpenGL con **GLFW**; renderizado con **OpenGL / GLU** (pipeline inmediato).
+- Ventana y contexto **OpenGL 3.3 core** con **GLFW**; renderizado íntegramente
+  con shaders (VBO/VAO + `ShaderProgram`), sin pipeline inmediato ni GLU.
 - Interfaz de editor con **Dear ImGui** (docking) y gizmos con **ImGuizmo**.
 - Sistema **Entity–Component**: `Transform`, `Color`, `Model`, `Material`, `Light`, `CameraComponent`, `Grid`, colliders (esfera / cubo / malla), `RigidBody`, `AudioSource`, `InterfaceComponent` (HUD por asset JSON del CreadorDeInterfaces) y `Script`.
 - **Scripts dinámicos** (`Script` + `IScriptBehaviour`): reflexión por macros con campos `SerializeField` (escalares, arrays y grupos anidados) editables en el inspector; compilación en caliente de C++ a `.so`/`.dll` (`BackendCpp`) y soporte de **Java vía JNI** (`BackendJava`, se activa automáticamente si el build encuentra el JDK). Hot reload por fecha de modificación que reinyecta los valores serializados, y ciclo `onStart`/`onUpdate`/`onStop`.
@@ -22,7 +23,7 @@ Motor y editor 3D en tiempo real escrito en C++17, con interfaz ImGui y renderiz
 - **EventBus** con suscripción tipada (creación, eliminación, reparentado, selección y cambios de componentes) + **EditorEventBus**: canal tipado de GUI interna (apariencia, idioma, sensibilidad, cámara activa y visibilidad de ventanas) que median entre el menú, las ventanas del editor y la escena sin pasarse punteros.
 - **Máquina de estados** de la aplicación: `MainMenu`, `Editing`, `Playing`, `Exiting`, con reglas de transición centralizadas en `OrquestadorEstadoGUI`.
 - **Input modularizado** (`src/Input/EditorInput`): las callbacks de teclado/mouse de GLFW viven en su propio módulo (extraídas de `main.cpp`); traducen los eventos a acciones del editor (E, G, gizmos, Escape, clic derecho para navegar) y mantienen una máquina de estado de teclas WASD/Espacio/Shift con movimiento continuo normalizado por frame (diagonales a la misma velocidad que un eje).
-- **Render híbrido**: los `Modelos3D` se dibujan con `MeshRenderer` (VBO/VAO + shaders vía `ShaderProgram`) y degradan a `glBegin/glEnd` en contextos legacy o mallas sin normales. La **grilla** es un componente (`Grid`, con visible/color/tamaño/separación) en una pasada independiente, cuyo color acompaña a la apariencia (incluido el modo blanco y negro); al igual que los marcadores de luz/cámara y los gizmos de los colliders, se dibuja con el pipeline moderno de líneas (batch en GPU + shader de ancho en píxeles, con el difuminado del horizonte resuelto por alpha por vértice).
+- **Render de un solo pipeline**: los `Modelos3D` se dibujan con `MeshRenderer` (VBO/VAO + shaders vía `ShaderProgram`); una malla sin normales por vértice no se dibuja y se avisa una vez por consola (`Mesh::computeNormals()` las genera). La **grilla** es un componente (`Grid`, con visible/color/tamaño/separación) en una pasada independiente, cuyo color acompaña a la apariencia (incluido el modo blanco y negro); al igual que los marcadores de luz/cámara y los gizmos de los colliders, se dibuja con el pipeline de líneas (batch en GPU + shader de ancho en píxeles, con el difuminado del horizonte resuelto por alpha por vértice).
 - **Audio en runtime** (`src/Audio/`): `AudioEngine` (fachada thread-safe con cola + hilo de audio) sobre backends intercambiables (`MiniAudioBackend` con miniaudio, `NullAudioBackend`); `AudioClipsManager` descubre los clips de `Sonidos/` y los registra por nombre; `AudioSource` reproduce con volumen, loop y autoplay.
 - **Ventana "Estado"** (`StatusBarInterface`): muestra el toolchain externo (compilador C++, javac, libjvm) y el estado de compilación/carga de los scripts de la escena.
 - Explorador de archivos del proyecto con fachada propia (`FileManager`), estado de navegación compartido (`FileSelection`) y vigilancia de cambios externos (`FileSystemWatcher`).
@@ -54,7 +55,7 @@ Motor y editor 3D en tiempo real escrito en C++17, con interfaz ImGui y renderiz
 | CMake          | 3.15           |                                                              |
 | Compilador     | C++17          | GCC / Clang / MSVC                                           |
 | GLFW           | 3.x            | `libglfw3-dev`                                               |
-| OpenGL / GLU   | cualquiera     | `libglu1-mesa-dev`                                           |
+| OpenGL 3.3 core | 3.3            | Funciones modernas por puntero; **no** requiere GLU |
 | Bullet Physics | 3.x            | `libbullet-dev`                                              |
 | Assimp         | 5.x            | `libassimp-dev`                                              |
 | GLM            | 0.9.9+         | Del sistema (`libglm-dev`); el CMake usa `External/glm` si existe y cae al sistema si no |
@@ -67,7 +68,7 @@ Motor y editor 3D en tiempo real escrito en C++17, con interfaz ImGui y renderiz
 
 ```bash
 sudo apt install cmake build-essential ninja-build \
-    libglfw3-dev libglu1-mesa-dev libglm-dev \
+    libglfw3-dev libglm-dev \
     libbullet-dev libassimp-dev \
     libncurses-dev libx11-dev \
     libxrandr-dev libxi-dev

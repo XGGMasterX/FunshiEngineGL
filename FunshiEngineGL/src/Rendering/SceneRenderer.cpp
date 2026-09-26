@@ -42,9 +42,6 @@
 #include "../Objetos/GameObject.h"
 #include "../Objetos/Modelos3D.h"
 
-// Luz del pipeline de compatibilidad (alias corto del contrato del backend).
-using Rendering::Backend::LegacyLight;
-
 SceneRenderer::SceneRenderer() : meshRenderer_(std::make_unique<MeshRenderer>()) {}
 
 SceneRenderer::~SceneRenderer() = default;
@@ -101,10 +98,8 @@ void SceneRenderer::render(const FrameContext& ctx, GameObject* activeCameraObje
                   << " near=" << camara->getNearPlane()
                   << " far=" << camara->getFarPlane() << std::endl;
 
-        // Estado de luz real del frame: GL_LIGHTING, luces presentes y ultima
-        // luz habilitada (lo reporta el backend). Si dicen que hay luces pero
-        // ninguna llega al pipeline inmediato, es la causa negra en modo
-        // inmediato + shader sin luz.
+        // Inventario de la escena: cuantas luces y cuantas mallas dibujables
+        // (con normales) hay, para contrastar con lo que se ve en pantalla.
         std::cout << "[diag] luces_en_escena=";
         auto* diagObjects = ctx.gameObjects;
         int diagLuces = 0;
@@ -130,7 +125,6 @@ void SceneRenderer::render(const FrameContext& ctx, GameObject* activeCameraObje
                   << " conMalla=" << diagConMalla
                   << " conMallaYNormales=" << diagConMallaYNormales
                   << std::endl;
-        std::cout << "[diag] " << backend.diagnosticoCompat() << std::endl;
     }
 
     dibujarEscena(ctx, view, projection, activeCameraObject, ctx.framebufferWidth,
@@ -139,7 +133,6 @@ void SceneRenderer::render(const FrameContext& ctx, GameObject* activeCameraObje
     static bool diagPostPassPendiente = true;
     if (diagPostPassPendiente) {
         diagPostPassPendiente = false;
-        std::cout << "[diag] " << backend.diagnosticoCompat() << std::endl;
         std::cout << "[diag] MeshRenderer moderno disponible="
                   << (meshRenderer_ && meshRenderer_->available() ? "si" : "no")
                   << std::endl;
@@ -164,8 +157,6 @@ void SceneRenderer::dibujarEscena(const FrameContext& ctx,
     lineRenderer().setVista(view, projection);
     lineRenderer().setViewport(viewportAncho, viewportAlto);
 
-    backend.setCompatibilityMatrices(projection, view);
-
     // Posicion de la camara en el mundo a partir de su matriz de vista:
     // view = [R | t] (column-major), ojo = -(R^T * t). La usa la grilla para
     // extender el plano hasta el horizonte y difuminarlo por distancia.
@@ -182,31 +173,8 @@ void SceneRenderer::dibujarEscena(const FrameContext& ctx,
     // entidades.
     dibujarGrillaEditor(ctx, camaraMundo);
 
-    // Luces del pipeline inmediato (antes vivian en LightSystem::beginFrame) y
-    // las mismas para el shader: la semantica es identica en ambas pasadas.
-    Rendering::Backend::LegacyLight legacy[LightSystem::kMaxLights];
-    const int n = ctx.lightCount < LightSystem::kMaxLights
-                      ? ctx.lightCount
-                      : LightSystem::kMaxLights;
-    for (int i = 0; i < n && ctx.lights; ++i) {
-        const LightData& s = ctx.lights[i];
-        LegacyLight& d = legacy[i];
-        d = LegacyLight{};
-        d.type = s.type;
-        for (int j = 0; j < 3; ++j) {
-            d.worldPos[j] = s.worldPos[j];
-            d.direction[j] = s.direction[j];
-            d.ambient[j] = s.ambient[j];
-            d.diffuse[j] = s.diffuse[j];
-            d.specular[j] = s.specular[j];
-        }
-        d.constant = s.constant;
-        d.linear = s.linear;
-        d.quadratic = s.quadratic;
-        d.spotCutoffDegrees = s.spotCutoffDegrees;
-    }
-    backend.setLegacyLights(legacy, n, ctx.globalAmbient);
-
+    // Luces de la pasada: van como uniforms del shader (MeshRenderer), que es
+    // la unica via de iluminacion que queda.
     prepararLucesFrame(ctx);
 
     dibujarGameObjectsConOjo(ctx, camaraOjo, view, projection);
@@ -241,17 +209,13 @@ void SceneRenderer::dibujarObjectConOjo(const FrameContext& ctx,
     object->setColor(object->auxColor);
 
     if (object->getComponent<Transform>()) {
-        // Los objetos intentan el pipeline moderno (VBO/VAO + shader); si no
-        // esta disponible o la malla no tiene normales, degradan al modo
-        // inmediato para no perder la visibilidad que habia hasta ahora.
+        // El dibujado va siempre por el pipeline moderno (MeshRenderer: VBO/VAO
+        // + shader). Si el objeto no tiene malla con normales, simplemente no
+        // se dibuja (MeshRenderer lo avisa una vez por malla).
         auto* modelo = dynamic_cast<Modelos3D*>(object);
-
-        if (modelo && meshRenderer_ &&
+        if (modelo && meshRenderer_) {
             meshRenderer_->intentarRender(modelo, view, projection,
-                                          ctx.deltaTime)) {
-            // Render moderno (update + material + geometria) ya hecho.
-        } else {
-            object->dibujar(ctx.deltaTime);
+                                          ctx.deltaTime);
         }
     }
 

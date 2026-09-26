@@ -117,7 +117,9 @@ if(BUILD_ENGINE)
 find_package(glfw3 REQUIRED)
 target_link_libraries(funshi_engine PRIVATE glfw)
 
-# 2. Configuración de OpenGL y GLU (VERSIÓN CORREGIDA)
+# 2. Configuración de OpenGL. El engine pide un contexto 3.3 core en Ventana.cpp
+# y usa las funciones modernas por puntero (GLFuncs), por lo que no se enlaza GLU:
+# no hay glu* que usar tras eliminar el modo inmediato.
 find_package(OpenGL REQUIRED)
 
 # Primero enlazamos OpenGL básico
