@@ -172,16 +172,23 @@ bool BackendCpp::compilarYCargar(const std::string& fuente,
             logic = "-I\"" + escapar(dirSrc) + "\" ";
 #endif
         }
-        logic += escapar(fuente);
+        // El fuente va SIEMPRE entrecomillado: es una ruta de proyecto del
+        // usuario y puede tener espacios (p. ej. "...\Nuevo Proyecto\...\x.cpp").
+        // Sin comillas el shell la parte en trozos y el compilador no encuentra
+        // el archivo (C1083 "no se puede abrir el archivo origen").
+        logic += "\"" + escapar(fuente) + "\"";
         const std::string logPath =
             (std::filesystem::path(directorioCache()) / "compilar.log")
                 .string();
         std::string cmd;
 #if defined(_WIN32)
+        // /Fo y /Fe entrecomillados y con el backslash final duplicado: con
+        // /Fo"dir\" el compilador lee \" como comilla escapada, se traga el
+        // argumento siguiente y falla con C1083 sobre el archivo generado.
         cmd = compilador() +
               " /nologo /LD /std:c++17 /O2 /DFUNSHI_NOMBRE_CLASE=" +
               nombreClase + " " + logic + " /Fo\"" + directorioCache() +
-              "\\\" /Fe" + escapar(artefactoPath) + " > \"" + logPath +
+              "\\\\\" /Fe\"" + escapar(artefactoPath) + "\" > \"" + logPath +
               "\" 2>&1";
 #else
         cmd = compilador() +
