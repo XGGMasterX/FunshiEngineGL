@@ -306,7 +306,7 @@ CameraComponent* GameScene::getActiveCamera() {
     // esa orientacion inicial es la que ve el usuario hasta salir al menu.
     if (editorController) {
         GameObject* creada = editorController->createGameObject(
-            std::make_unique<Modelos3D>(nullptr), nullptr);
+            std::make_unique<SimpleObject>(), nullptr);
         if (creada) {
             std::snprintf(creada->inputName, sizeof(creada->inputName),
                           "CamaraPrincipal");
@@ -363,7 +363,7 @@ GameObject* GameScene::agregarCamaraEnVistaActiva() {
                            : nullptr;
 
     GameObject* creada = editorController->createGameObject(
-        std::make_unique<Modelos3D>(nullptr), nullptr);
+        std::make_unique<SimpleObject>(), nullptr);
     if (!creada) return nullptr;
 
     creada->addComponent(std::make_unique<Transform>());

@@ -169,8 +169,8 @@ viewport lo selecciona; el Inspector muestra sus componentes a la derecha.
 
 ## 4. Objetos y componentes
 
-- **Crear objetos:** "New Object" (vacio/jerarquia) y "New RenderObject"
-  (incluye `Model` + `Material` para renderizar).
+- **Crear objetos:** "New GameObject" (crea un objeto simple en la escena que posee únicamente el componente `Transform`).
+- **Menú contextual en la jerarquía:** clic derecho sobre un objeto despliega "Renombrar" y "Eliminar"; clic derecho en espacio vacío del panel despliega "New GameObject".
 - **Componentes:** `Transform`, `Color`, `Model`, `Material`, `Light`,
   `CameraComponent`, colliders (esfera / cubo / malla), `RigidBody`,
   `AudioSource`, `InterfaceComponent` y `Script`.
@@ -432,6 +432,9 @@ ejecuta en modo Play.
   recompila y recarga el comportamiento conservando los valores.
 - La ventana **Estado** muestra el toolchain (compilador C++, javac, libjvm,
   cache) y el resultado de compilacion/carga de cada script de la escena.
+- Los errores de carga/compilacion se informan en la ventana **Estado** y en el
+  log del motor (`logs/FunshiEngineGL_*.log`); el panel del componente no los
+  repite: queda con el fuente asignado y sus SerializeField.
 
 ---
 
@@ -662,6 +665,14 @@ void onUpdate(GameObject* owner, float deltaTime) override {
   (`FUNSHI_NOMBRE_CLASE`) compila para cualquier `<ClassName>.cpp`.
 - El cache de artefactos compilados y la ruta del compilador se muestran en
   la ventana Estado.
+- **Windows:** el motor invoca `cl.exe` a traves de `vcvars64.bat` del mismo
+  toolset MSVC (se busca subiendo desde la carpeta del compilador), porque
+  `cl.exe` resuelve los headers del CRT (incluido `<cstddef>`) y las librerias
+  por `INCLUDE`/`LIB`. Con esto el editor funciona igual si se lanza desde el
+  Explorador o desde Visual Studio. Si el compilador configurado no es MSVC
+  (`FUNSHI_CXX` a MinGW/g++, por ejemplo), hace falta un entorno con `cl.exe`
+  disponible. Los scripts Java no tienen este requisito (javac se invoca por
+  ruta absoluta).
 
 ---
 
@@ -712,8 +723,10 @@ public class MiScript implements Comportamiento {
 - **Java:** igual, con el classloader child-first; la JVM se reutiliza.
 - **Ventana Estado:** para cada script muestra nombre, ok/error y mensaje
   (errores de compilacion incluidos), ademas del toolchain detectado.
-- **Errores de compilacion C++** aparecen en el Estado y en consola; corregi
-  el fuente y guardalo de nuevo (no hace falta salir de Play).
+- **Errores de carga/compilacion C++** aparecen en la ventana Estado y en el log
+  del motor (`logs/FunshiEngineGL_*.log` junto al ejecutable), no en el panel del
+  componente; corregi el fuente y guardalo de nuevo (no hace falta salir de
+  Play).
 - Al cerrar la aplicacion los comportamientos se descargan sin disparar
   `onStop`; los backends (incluida la JVM) se apagan despues.
 
